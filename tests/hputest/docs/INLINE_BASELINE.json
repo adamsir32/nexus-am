@@ -1,0 +1,16 @@
+{
+  "baseline_id": "pre-inline-main-03a32c1",
+  "recorded_date": "2026-10-12",
+  "nexus_am_commit": "63e8aac32b4aac376dc729d51ab39601f23b2e66",
+  "dependencies": {
+    "tests/hputest/third_party/inline-asm": "69030963e71dbcf32897e8ae08695cfa2e65d79a",
+    "tests/hputest/third_party/hpu-seal": "c11dfe2cfbe731d7b45aea0a62d993d733e1a089",
+    "tests/hputest/third_party/hpu-applications": "c11dfe2cfbe731d7b45aea0a62d993d733e1a089",
+    "tests/hpu_frontend_workload/third_party/inline-asm": "9ebd89f4d7f5d15bc7c82d9dc88cf31c2812882a"
+  },
+  "scope": "Exact dependency pins observed before this upgrade; legacy primitives, stable-main operators/applications and experimental frontend are separate.",
+  "operator_it_pass_evidence": "User reported the operator layer had passed. The exact AM/RTL/artifact revisions of that hardware run were not supplied.",
+  "it_run_am_commit": null,
+  "it_run_rtl_commit": null,
+  "it_run_artifact_revision": null
+}

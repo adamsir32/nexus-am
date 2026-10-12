@@ -247,7 +247,14 @@ HPU_DELIVERY_COMMIT="$hpu_applications_commit" \
 HPU_DELIVERY_WORKTREE_STATE=clean-at-configure \
   cmake --build "$hpu_main_build" --parallel "$jobs" --target \
     hpu_fhe_delivery hpu_scheme_case_generator \
-    hpu_program_model hpu_program_model_test hpu_encode_program
+    hpu_program_model hpu_program_model_test hpu_encode_program \
+    hpu_ckks_multilevel_codegen_test hpu_seal_ckks_application_image_test \
+    hpu_seal_ckks_multiply_operation_plan_test hpu_seal_ckks_galois_operation_plan_test
+# 直接使用上游回归：N128/N4096、多层Q与两个accumulator的half-P绑定。
+for native_test in hpu_ckks_multilevel_codegen_test hpu_seal_ckks_application_image_test \
+                   hpu_seal_ckks_multiply_operation_plan_test hpu_seal_ckks_galois_operation_plan_test; do
+  "$hpu_main_build/inline-asm/$native_test"
+done
 "$hpu_main_build/hpu_program_model_test"
 while IFS=$'\t' read -r case_id stem scheme degree role source; do
   [[ $case_id == case_id ]] && continue

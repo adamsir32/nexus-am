@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """04只做基本/组合算子，05做算法库；防止重复条目重新混入默认清单。"""
 import csv
+import re
 from pathlib import Path
 import unittest
 
@@ -13,6 +14,17 @@ def rows(name):
 
 
 class LayerTests(unittest.TestCase):
+    def test_chapter_and_subdirectory_numbers_are_contiguous(self):
+        # 按源码/下载清单检查；切分支遗留的未跟踪空目录不是交付目录。
+        paths = [Path(row["source"]) for row in rows("cases.tsv")]
+        chapters = sorted({path.parts[1] for path in paths})
+        self.assertEqual([int(re.match(r"^(\d+)_", name)[1]) for name in chapters], list(range(9)))
+        for chapter in chapters:
+            with self.subTest(chapter=chapter):
+                children = sorted({path.parts[2] for path in paths if path.parts[1] == chapter})
+                self.assertEqual([int(re.match(r"^(\d+)_", name)[1]) for name in children],
+                                 list(range(1, len(children) + 1)))
+
     def test_04_contains_only_basic_operators_and_orchestration(self):
         cases = [r for r in rows("cases.tsv") if r["source"].startswith("src/04_")]
         self.assertEqual(len(cases), 11)

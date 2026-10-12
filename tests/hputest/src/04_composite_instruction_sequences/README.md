@@ -3,6 +3,12 @@
 本组只验证BConv、整体NTT/INTT、KeySwitch、Auto和指令链编排。
 当前11项：10项有自检，1项指令链异常场景尚未接入，不发布占位ELF。
 
+目录连续编号为`01_composite_operators`、`02_instruction_sequence_orchestration`。
+原`03`是算法库条目迁到05后留下的空号，现已修正；历史测试点ID不改号。
+
+CKKS KeySwitch的half-P常量和取整链直接由inline-asm main `03a32c1`交付，
+AM不再自行生成取整指令。升级前依赖及回退点见[版本记录](../../docs/INLINE_MAIN_03A32C1.md)。
+
 KeySwitch的c0/c1置零，隔离c2切换与ModUp/NTT/密钥乘加/INTT/ModDown；
 不把完整密文的HMUL、Reline、Rescale/ModSwitch、Rotate放在本组。
 旧Auto项验证Q4/P3/D2的NTT、专用twiddle和Galois KeySwitch链，不作为算法库Rotate接口验收。

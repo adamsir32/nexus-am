@@ -10,7 +10,7 @@ import struct
 import subprocess
 import tempfile
 
-from program_adaptation import adapt_bfv_image, adapt_ckks_program, coefficients_to_physical
+from program_adaptation import adapt_bfv_image, preserve_ckks_inputs, coefficients_to_physical
 
 ROOT = Path(__file__).resolve().parents[1]
 GUARD_LINES = 64
@@ -226,9 +226,9 @@ def import_package(source, destination, validator, producer_commit, encoder, pro
         root.mkdir()
         adapted = None
         allocations = read_rows(files["line_map"])
-        parameters = load_json(files["parameters"])
         if spec["scheme"] == "ckks":
-            adapted = adapt_ckks_program(source, files, image, allocations, parameters, encoder, root)
+            adapted = preserve_ckks_inputs(files, image, allocations,
+                                           load_json(files["operation_graph"])["operations"])
         for key, extension in (("program_source", "c"), ("program_header", "h"),
                                ("program_asm", "asm"), ("program_inst32", "inst32"),
                                ("program_cmd26", "cmd26")):
@@ -242,11 +242,7 @@ def import_package(source, destination, validator, producer_commit, encoder, pro
                     writable.update(range(int(row["line_offset"]),
                                           int(row["line_offset"]) + int(row["line_count"])))
             (root / f"{stem}.c").write_text(adapted["code"])
-            (root / f"{stem}.h").write_text(adapted["header"])
-            (root / f"{stem}.asm").write_text(adapted["assembly"])
-            for field, bits, extension in (("word_hex", 32, "inst32"), ("command_hex", 26, "cmd26")):
-                (root / f"{stem}.{extension}").write_text(
-                    "\n".join(format(int(r[field], 16), f"0{bits}b") for r in adapted["encoded"]) + "\n")
+            # 不改变数学指令：header/ASM/INST32/CMD26保持producer原件。
         # 在每条 DMA 发射前保留指令位置；silent 版也能通过 DDR/PC 定位反压停点。
         code_path = root / f"{stem}.c"
         c_source = code_path.read_text()
@@ -299,6 +295,8 @@ def import_package(source, destination, validator, producer_commit, encoder, pro
                       "bfv_coefficient_permutation": spec["scheme"] == "bfv",
                       "ckks_rounded_p_instructions_added": adapted["instructions_added"] if adapted else 0,
                       "ckks_input_shadow_count": adapted["input_shadow_count"] if adapted else 0,
+                      "rounding_source": "inline-asm/native" if spec["scheme"] == "ckks" else "scheme-native",
+                      "instruction_words_source": "inline-asm/native",
                       "program_model_matches_seal": True, "rtl_verified": False}
         if spec["source"].startswith("src/05_algorithm_library/"):
             sidecar = source.with_name(source.name + ".seal.json")

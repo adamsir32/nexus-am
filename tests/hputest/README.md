@@ -214,9 +214,11 @@ self-check returns 0.  UART records expose that decision but do not replace it.
 不是每次自动取远端HEAD；本次未修改上游源码或RTL。
 同步差异和新旧包的使用边界见 [main更新说明](docs/INLINE_MAIN_6903096.md)。
 `third_party/hpu-seal`和`third_party/hpu-applications`均固定当前main提交
-`c11dfe2cfbe731d7b45aea0a62d993d733e1a089`。三算法独立算子和八个应用统一接收
+`03a32c168404f3ad64e6a4d7ad82a081f910314b`。三算法独立算子和八个应用统一接收
 application package v1；同时校验SEAL、高层software executor和实际指令复放。
-CKKS rounded-P、输入workspace和BFV物理顺序的AM适配见
+CKKS rounded-P已由上游生成，AM不再插入取整链或重编码数学指令。
+升级前依赖锁定与回退点见[主线升级说明](docs/INLINE_MAIN_03A32C1.md)。
+只读输入/output的workspace重定位和BFV物理顺序的AM接收见
 [SCHEME_DELIVERY_V1.md](docs/SCHEME_DELIVERY_V1.md)。原始包完整保留，未改上游源码或RTL。
 旧fixed-profile只用于既有基本指令、transform/BConv及明确命名的LEGACY Auto回归。
 

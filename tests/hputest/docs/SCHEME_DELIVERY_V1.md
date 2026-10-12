@@ -3,7 +3,8 @@
 当前章节已重分：04只放基本算子和指令链，库接口在05。本文以下使用原测试点编号描述实现，
 旧CMB009/010/012/013/014的直接映射见`../case-aliases.tsv`与`../layer-migration.tsv`；不再重复发布相同程序。
 
-固定 inline-asm main：`c11dfe2cfbe731d7b45aea0a62d993d733e1a089`。
+固定 inline-asm main：`03a32c168404f3ad64e6a4d7ad82a081f910314b`。
+升级前基线及版本边界见[主线升级说明](INLINE_MAIN_03A32C1.md)。
 依据 `doc/delivery/HPU_APPLICATION_PACKAGE_V1.md` 与 `IT_HANDOFF_CHECKLIST.md`。
 本版本有八个默认应用，本次全部接入。章节结构和统一下载 workflow 保持原结构。
 `scheme-cases.tsv` 列出程序、算法、规模及用途，`case-aliases.tsv` 给出旧编号映射。
@@ -43,15 +44,15 @@ CMB012保留真实乘法tensor的c0/c1，验证最终合并，输入及golden不
 
 ### CKKS P ModDown未取整
 
-当前main的CKKS KeySwitch指令展开使用通用未取整ModDown，
+旧`c11dfe2`的CKKS KeySwitch指令展开使用通用未取整ModDown，
 SEAL与CkksSoftwareExecutor却使用rounded-P。N4096 Reline的原始指令复放
 八个RNS limb全部失配，高层软件模型检查仍会通过。
 
 补齐方案在系数accumulator的Q/P residues中加`floor(P/2)`，利用
 `round(x/P) = ModDown(x + floor(P/2), P)`。
-只使用现有模加、减、乘，无须系数比较指令。新指令仍由同一main编码器生成，
-重新绑定DMA和C/H/INST32/CMD26。补齐后逐指令结果与SEAL golden精确一致。
-原始包不改写，适配单独记录。
+只使用现有模加、减、乘，无须系数比较指令。当前`03a32c1`已把此逻辑、half-P常量
+和两个accumulator的DMA绑定落实在上游；AM删除了原取整补丁，不再重编码或新增数学指令。
+ASM/INST32/CMD26/header原样接收，`ckks_rounded_p_instructions_added=0`，仍须逐指令匹配SEAL。
 
 ### BFV自然系数与物理顺序
 
@@ -63,12 +64,14 @@ key、NTT/twiddle不重新排列，residue数值不改。适配后BFV Reline逐�
 
 Relinearize/Rescale会把原NTT输入转为系数并原地写回。输入若是前一节点的output，
 最后再比前一节点的NTT golden就会失败，后续分支复用也可能受影响。
-AM保持首次INTT读原NTT，把系数写回及后续读取重定位到本节点的私有workspace。
+对只读输入及逐节点output，AM保持首次INTT读原NTT，把系数写回及后续读取重定位到本节点的私有workspace。
+上游声明为可写的workspace按原指令原地使用，不额外复制。
 原输入/输出得以保留，不增加变换指令，不删除中间golden检查。
 
 ## 不取整精度评估
 
-本次最终选择：保留当前应用包/SEAL精确golden，补齐纯模运算取整。
+验收选择保持不变：使用应用包/SEAL精确golden与上游纯模运算取整。
+以下数值是旧`c11dfe2`缺取整时的历史诊断，不是`03a32c1`的新测量结果。
 下列未取整结果仅用于诊断，不是另一套默认验收判据。
 
 本次使用同一确定性N4096/Q4|P1真实SEAL fixture，复放原始未取整指令后，

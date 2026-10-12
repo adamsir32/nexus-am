@@ -1,6 +1,6 @@
 # 05组：inline-asm/modified-SEAL算法库验证
 
-当前默认参考库为inline-asm main固定提交`c11dfe2cfbe731d7b45aea0a62d993d733e1a089`
+当前默认参考库为inline-asm main固定提交`03a32c168404f3ad64e6a4d7ad82a081f910314b`
 内的`third_party/modified-SEAL`。通过其`SEAL::seal`与HPU适配层构建，
 不使用系统安装的标准SEAL，也不调用Poseidon。库版本随inline-asm gitlink冻结。
 
@@ -41,7 +41,8 @@ sidecar位于原包外，不改变上游v1白名单。接收后写为`SEAL_ORACL
 进入`AM_ADAPTATION.json`的`seal_oracle`字段。
 
 上游HPU软件执行器必须逐word匹配modified-SEAL；AM继续复放实际ASM、DMA与对象生命周期，
-保留既有BFV物理排列、CKKS rounded-P和输入shadow适配。
+CKKS rounded-P直接采用上游交付，不在AM插入算术指令或另造half-P数据。
+只保留必要的BFV物理排列、只读输入/output的shadow重定位；上游可写workspace不额外复制。
 目标检查完整输出、只读区和guard，BFV/CKKS/BGV均返回0才是该次自检通过。
 每个程序DSTORE后唯一PSYNC，通过MMIO等待完成且BUSY清零，不启用PLIC/timer。
 

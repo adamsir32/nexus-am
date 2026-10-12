@@ -10,10 +10,11 @@ import unittest
 
 
 ROOT = Path(__file__).resolve().parents[1]
-NTT_WINDOW = ROOT / "build/generated/transform-data/ntt/window.u32.bin"
-NTT_GOLDEN = ROOT / "build/generated/transform-data/ntt/golden.u32.bin"
-INTT_WINDOW = ROOT / "build/generated/transform-data/intt/window.u32.bin"
-INTT_GOLDEN = ROOT / "build/generated/transform-data/intt/golden.u32.bin"
+GENERATED = Path(os.environ.get("HPU_GENERATED_ROOT", ROOT / "build/generated"))
+NTT_WINDOW = GENERATED / "transform-data/ntt/window.u32.bin"
+NTT_GOLDEN = GENERATED / "transform-data/ntt/golden.u32.bin"
+INTT_WINDOW = GENERATED / "transform-data/intt/window.u32.bin"
+INTT_GOLDEN = GENERATED / "transform-data/intt/golden.u32.bin"
 HARNESS = r'''
 #include <assert.h>
 #include <limits.h>

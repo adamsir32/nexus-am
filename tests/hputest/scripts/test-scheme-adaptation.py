@@ -4,6 +4,7 @@ import argparse
 import csv
 import json
 from pathlib import Path
+import re
 import struct
 import subprocess
 import tempfile
@@ -41,6 +42,17 @@ class SchemeTests(unittest.TestCase):
                 with (data / "dma_relocation_manifest.csv").open() as stream:
                     dma = list(csv.DictReader(stream))
                 self.assertEqual(c_source.count("trace_issue("), len(dma))
+                self.assertEqual(adaptation["ckks_rounded_p_instructions_added"], 0)
+                self.assertEqual(adaptation["instruction_words_source"], "inline-asm/native")
+                upstream = data / "upstream"
+                package = json.loads((upstream / "package.json").read_text())
+                for key, extension in (("program_header", "h"), ("program_asm", "asm"),
+                                       ("program_inst32", "inst32"), ("program_cmd26", "cmd26")):
+                    self.assertEqual((data / f"{row['program_stem']}.{extension}").read_bytes(),
+                                     (upstream / package[key]).read_bytes())
+                self.assertEqual(re.findall(r'\.word (0x[0-9A-Fa-f]+)', c_source),
+                                 re.findall(r'\.word (0x[0-9A-Fa-f]+)',
+                                            (upstream / package["program_source"]).read_text()))
 
     def test_bfv_permutation_is_bijective_and_preserves_each_word(self):
         words = struct.pack("<128I", *range(128))
@@ -48,19 +60,35 @@ class SchemeTests(unittest.TestCase):
         self.assertEqual(coefficients_to_physical(physical, 128), words)
         self.assertNotEqual(physical, words)
 
-    def test_original_ckks_missing_rounding_is_rejected_at_instruction_level(self):
+    def test_upstream_ckks_rounding_is_used_and_missing_half_data_is_rejected(self):
         source = ARGS.generated / "seal_ckks_reline_n4096" / "upstream"
         package = json.loads((source / "package.json").read_text())
-        with tempfile.TemporaryDirectory(prefix="scheme-negative-") as temporary:
+        fixed = json.loads((ARGS.generated / "seal_ckks_reline_n4096" / "AM_ADAPTATION.json").read_text())
+        self.assertEqual(fixed["ckks_rounded_p_instructions_added"], 0)
+        self.assertEqual(fixed["rounding_source"], "inline-asm/native")
+        parent = ARGS.generated.parent / "rounding-negative-tests"
+        parent.mkdir(parents=True, exist_ok=True)
+        temporary = Path(tempfile.mkdtemp(prefix="case-", dir=parent))
+        corrupted, actual = temporary / "missing-half.u32.bin", temporary / "result.u32.bin"
+        try:
+            image = bytearray((source / package["image"]).read_bytes())
+            with (source / package["line_map"]).open() as stream:
+                half = next(row for row in csv.DictReader(stream) if row["allocation_id"].endswith("/half/mod0"))
+            first, count = int(half["line_offset"]) * 256, int(half["line_count"]) * 256
+            self.assertNotEqual(image[first:first+count], b"\0" * count)
+            image[first:first+count] = b"\0" * count
+            corrupted.write_bytes(image)
             result = subprocess.run([
                 str(ARGS.model), str(source / package["program_asm"]),
-                str(source / package["image"]), str(source / package["dma_relocation_manifest"]),
+                str(corrupted), str(source / package["dma_relocation_manifest"]),
                 str(source / package["golden_manifest"]), str(source),
-                str(Path(temporary) / "raw.u32.bin")], capture_output=True, text=True)
+                str(actual)], capture_output=True, text=True)
             self.assertEqual(result.returncode, 1)
             self.assertIn("PROGRAM_MODEL_MISMATCH", result.stderr)
-        fixed = json.loads((ARGS.generated / "seal_ckks_reline_n4096" / "AM_ADAPTATION.json").read_text())
-        self.assertGreater(fixed["ckks_rounded_p_instructions_added"], 0)
+        finally:
+            if corrupted.exists(): corrupted.unlink()
+            if actual.exists(): actual.unlink()
+            temporary.rmdir()
 
     def test_terminal_live_object_is_rejected(self):
         source = ARGS.generated / "seal_ckks_hadd_n128" / "upstream"

@@ -98,6 +98,7 @@ prepare-inline-asm-mm:
 
 verify-inline-asm: prepare-inline-asm-mm
 	@python3 scripts/test-layer-separation.py
+	@python3 scripts/test-ckks-input-preservation.py
 	@python3 scripts/test-edge-cases.py
 	@python3 scripts/test-seal-delivery.py --generated "$(HPU_GENERATED_ROOT)/application-data"
 	@HPU_GENERATED_ROOT="$(HPU_GENERATED_ROOT)" \
@@ -114,7 +115,7 @@ verify-inline-asm: prepare-inline-asm-mm
 	@python3 scripts/test-log.py
 	@python3 scripts/test-verify-silent-elf.py
 	@python3 scripts/test-progress.py
-	@python3 scripts/test-perf.py
+	@HPU_GENERATED_ROOT="$(HPU_GENERATED_ROOT)" python3 scripts/test-perf.py
 	@python3 scripts/test-subtest-support.py
 	@python3 scripts/test-build-log-modes.py
 	@python3 scripts/test-run-subtests.py
