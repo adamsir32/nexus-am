@@ -928,15 +928,15 @@ for elf in "${elfs[@]}"; do
     reject_generated_hpu_words "$txt"
   elif [[ $qualifier == software-self-check && \
           ${roster_source[$name]} != src/00_bringup/* && \
-          $name != 02_window_write_order ]]; then
+          $name != 02_02_window_write_order ]]; then
     require_generated_hpu_word "$txt"
   fi
 
   case "$elf" in
     */001_hpu_smoke/*.elf)
       require_rns_fixture "$elf"
-      if [[ $name != 00_compute_irq && \
-            $name != 00_compute_mmio ]]; then
+      if [[ $name != 00_08_compute_irq && \
+            $name != 00_09_compute_mmio ]]; then
         reject_mm_only_fixture "$elf"
       fi ;;
     */01_configuration_and_data_paths/*.elf|*/02_boundaries_and_cpu_interaction/*.elf|\
@@ -944,26 +944,26 @@ for elf in "${elfs[@]}"; do
     */05_algorithm_library/*.elf|*/06_full_application/*.elf|*/07_performance/*.elf)
       if [[ $qualifier != blocked-not-issued && \
             -z $(awk -F '\t' -v id="$name" '$1 == id {print $2}' "$test_root/scheme-cases.tsv") && \
-            $name != 04_bconv_q4_to_p3_n4096 && \
-            $name != 04_ntt_n4096 && \
-            $name != 04_intt_n4096 && \
-            $name != 07_ntt_n4096 && \
-            $name != 07_intt_n4096 && \
-            $name != 04_ckks_keyswitch_n4096 && \
-            $name != 04_legacy_auto_n4096 && \
+            $name != 04_01_bconv_q4_to_p3_n4096 && \
+            $name != 04_02_ntt_n4096 && \
+            $name != 04_03_intt_n4096 && \
+            $name != 07_01_ntt_n4096 && \
+            $name != 07_02_intt_n4096 && \
+            $name != 04_05_ckks_keyswitch_n4096 && \
+            $name != 04_10_legacy_auto_n4096 && \
             $name != HPU_IT_DIR_CMB_009_BFV_HADD_N4096 && \
             $name != HPU_IT_DIR_CMB_010_BFV_HMUL_N4096 && \
             $name != HPU_IT_DIR_CMB_012_CKKS_RELINE_N4096 && \
             $name != HPU_IT_DIR_CMB_013_CKKS_RESCALE_N4096 && \
             $name != HPU_IT_DIR_CMB_014_BFV_ROTATE_N4096 && \
-            $name != 06_ckks_x2_add1_n65536 && $name != 06_ckks_rotate_conj_mul_add_n128 && \
-            $name != 06_bfv_mul_chain_n128 && $name != 06_bfv_rotate_chain_n128 && \
-            $name != 06_bgv_plain_chain_n128 && $name != 06_bgv_rotate_chain_n128 && \
-            $name != 06_bgv_mul_chain_n128 ]]; then
+            $name != 06_01_ckks_x2_add1_n65536 && $name != 06_02_ckks_rotate_conj_mul_add_n128 && \
+            $name != 06_03_bfv_mul_chain_n128 && $name != 06_04_bfv_rotate_chain_n128 && \
+            $name != 06_05_bgv_plain_chain_n128 && $name != 06_06_bgv_rotate_chain_n128 && \
+            $name != 06_07_bgv_mul_chain_n128 ]]; then
         require_rns_fixture "$elf"
       fi
-      if [[ $name == 02_watchdog_compute_before_dload || \
-            $name == 02_watchdog_pmodld_before_dload ]]; then
+      if [[ $name == 02_18_watchdog_compute_before_dload || \
+            $name == 02_19_watchdog_pmodld_before_dload ]]; then
         require_watchdog_mod_fixture "$elf"
       else
         reject_mm_only_fixture "$elf"
@@ -971,49 +971,49 @@ for elf in "${elfs[@]}"; do
   esac
 
   case "$name" in
-    00_dload_hold|00_dload_mmio)
+    00_01_dload_hold|00_03_dload_mmio)
       require_word "$txt" 00b5202b ;;
-    00_psync_irq)
+    00_04_psync_irq)
       require_word "$txt" 7000005b ;;
-    00_dload_irq)
+    00_05_dload_irq)
       require_word "$txt" 00b5202b
       require_word "$txt" 7000005b ;;
-    00_loopback_mmio)
+    00_06_loopback_mmio)
       require_word "$txt" 00b5202b
       require_word "$txt" 00b5502b
-      # 06 必须是真正的无 PSYNC 状态轮询，不能因构建成功而漏掉测试意图。
+      # 00_06必须是真正的无PSYNC状态轮询，不能因构建成功而漏掉测试意图。
       if grep -Eq '^[[:space:]]*[[:xdigit:]]+:[[:space:]]+700000(0b|5b)([[:space:]]|$)' "$txt"; then
-        printf 'ERROR: pure MMIO case 06 contains PSYNC: %s\n' "$txt" >&2
+        printf 'ERROR: pure MMIO case 00_06_loopback_mmio contains PSYNC: %s\n' "$txt" >&2
         exit 2
       fi ;;
-    00_loopback_irq)
+    00_07_loopback_irq)
       require_word "$txt" 00b5202b
       require_word "$txt" 00b5502b
       require_word "$txt" 7000005b ;;
-    00_compute_irq|00_compute_mmio)
+    00_08_compute_irq|00_09_compute_mmio)
       require_mm_fixture "$elf"
       require_generated_mm_stream "$txt" ;;
-    03_pntt)
+    03_05_pntt)
       require_stage_fixture "$elf" "$txt" ntt ;;
-    03_pintt)
+    03_06_pintt)
       require_stage_fixture "$elf" "$txt" intt ;;
-    04_ntt_n4096|07_ntt_n4096|04_intt_n4096|07_intt_n4096)
+    04_02_ntt_n4096|07_01_ntt_n4096|04_03_intt_n4096|07_02_intt_n4096)
       operator=ntt
-      [[ $name == 04_intt_n4096 || $name == 07_intt_n4096 ]] && operator=intt
+      [[ $name == 04_03_intt_n4096 || $name == 07_02_intt_n4096 ]] && operator=intt
       python3 "$script_dir/verify-operator-elf.py" \
         --delivery "$artifact_root/provenance/transform-data/$operator" \
         --elf "$elf" --disassembly "$txt" --operator "$operator" ;;
-    04_bconv_q4_to_p3_n4096)
+    04_01_bconv_q4_to_p3_n4096)
       python3 "$script_dir/verify-operator-elf.py" \
         --delivery "$artifact_root/provenance/bconv-data" \
         --elf "$elf" --disassembly "$txt" --operator bconv ;;
-    04_legacy_auto_n4096)
+    04_10_legacy_auto_n4096)
       python3 "$script_dir/verify-operator-elf.py" \
         --delivery "$artifact_root/provenance/auto-data" \
         --elf "$elf" --disassembly "$txt" --operator auto ;;
-    00_return_0)
+    00_10_return_0)
       require_main_return "$txt" 0 ;;
-    00_return_1)
+    00_11_return_1)
       require_main_return "$txt" 1 ;;
   esac
   operator=$(awk -F '\t' -v id="$name" '$1 == id {print $2}' "$test_root/scheme-cases.tsv")

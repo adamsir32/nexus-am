@@ -136,24 +136,24 @@ class UnifiedPackageTests(unittest.TestCase):
         release = self.package()
         package = release / "hputest"
         self.assertEqual(len(list(package.rglob("*.elf"))), 264)
-        normal = package / "01_configuration_and_data_paths/01_mmio_and_window/01_mmio_rw.elf"
-        silent = normal.with_name("01_mmio_rw_silent.elf")
+        normal = package / "01_configuration_and_data_paths/01_mmio_and_window/01_01_mmio_rw.elf"
+        silent = normal.with_name("01_01_mmio_rw_silent.elf")
         self.assertTrue(normal.is_file())
         self.assertTrue(silent.is_file())
-        self.assertFalse(any(path.name == "03_padd.elf"
+        self.assertFalse(any(path.name == "03_01_padd.elf"
                              for path in (package / "03_compute_instructions").rglob("*.elf")))
-        subtest = "03_padd_dst_p2"
+        subtest = "03_01_01_padd_dst_p2"
         self.assertTrue((package / "03_compute_instructions" / f"{subtest}.elf").is_file())
         self.assertTrue((package / "03_compute_instructions" / f"{subtest}_silent.elf").is_file())
         rows = PACKAGER.read_tsv(package / "INDEX.tsv", PACKAGER.INDEX_FIELDS)
         self.assertEqual(len(rows), 275)
         self.assertEqual(sum(bool(row["elf"]) for row in rows), 264)
         self.assertEqual(sum(row["publish_status"] == "BLOCKED_NOT_PUBLISHED" for row in rows), 11)
-        watchdog = package / "02_boundaries_and_cpu_interaction/05_faults_and_watchdog/02_watchdog_failstop.elf"
+        watchdog = package / "02_boundaries_and_cpu_interaction/05_faults_and_watchdog/02_17_watchdog_failstop.elf"
         self.assertTrue(watchdog.is_file())
         self.assertTrue(watchdog.with_name(watchdog.stem + "_silent.elf").is_file())
-        for suffix in ("compute_before_dload", "pmodld_before_dload"):
-            case = watchdog.with_name("02_watchdog_" + suffix + ".elf")
+        for name in ("02_18_watchdog_compute_before_dload", "02_19_watchdog_pmodld_before_dload"):
+            case = watchdog.with_name(name + ".elf")
             self.assertTrue(case.is_file())
             self.assertTrue(case.with_name(case.stem + "_silent.elf").is_file())
         self.assertEqual({row["variant"] for row in rows if row["elf"]}, {"normal", "silent"})

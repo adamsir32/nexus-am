@@ -10,12 +10,12 @@
 | HPU_LOG_LEVEL | HPU_DUMP_RESULTS | 行为 |
 | --- | --- | --- |
 | 0（silent） | 0 | 不打印；跳过AM串口初始化和输出；只保留原返回码与仿真结束指令 |
-| 1（minimal，默认） | 0 | HPU开始/最终PASS或FAIL；失败结果每块仅首错及总错误数；性能例外输出逐轮cycle及汇总，不打印其它用例的成功系数/每轮阶段 |
+| 1（minimal，默认） | 0 | HPU开始/最终PASS或FAIL；03独立子项额外一条固定编号记录；失败结果每块仅首错及总错误数；性能例外输出逐轮cycle及汇总，不打印其它用例的成功系数/每轮阶段 |
 | 2（verbose） | 0 | 详细配置/阶段/受限结果诊断，主要用于定位错误 |
 | 2（verbose） | 1 | 完整BEGIN/DATA/END逐项输出，最慢，仅按需使用 |
 
 最小版仍可能有少量公共AM启动日志；完全不需要UART时请选择silent。
-除06性能用例为度量工作显式读取cycle外，minimal/silent不再采样通用阶段cycle或写
+除07组性能用例为度量工作显式读取cycle外，minimal/silent不再采样通用阶段cycle或写
 `mcounteren.CY`，也不计算只用于详细误差报告的差值除法。性能用例的silent版本仍执行
 同样的计时与正确性检查，但不经UART输出统计；应使用同构建的minimal版本读取数值。
 它们仍逐项读取并精确比较结果，不能把输出先取模或放宽误差来制造PASS。
@@ -57,12 +57,12 @@ make -C tests/hputest unified
 
 静默仅影响ELF中执行的printf/UART，不关闭仿真器自身的日志与PASS/FAIL报告。
 有限用例依旧通过`main()`的0/非0及原`_halt`指令上报；超时、无日志不等于PASS。
-无限等待看波形的01冒烟和故意return1的探针仍保持原特殊行为。
+无限等待看波形的`00_01`和故意return1的`00_11`探针仍保持原特殊行为。
 并行脚本的进程exit0仍不是用例PASS，需核对IT的终止结果。
 
 静默构建不修改共享AM/klib或RTL：在链接阶段使用无输出空桩封住真实`printf_`、printf系列、
 字符输出及UART初始化，并在每个最终ELF中静态检查真正的格式化器/输出驱动已排除、空桩无UART访问，
-同时验证原`_halt`停止指令仍存在。验证涵盖原60例和37个subtest；不代表已在VCS执行通过。
+同时验证原`_halt`停止指令仍存在。验证涵盖当前主清单和37个subtest；不代表已在VCS执行通过。
 
 如果静默版仍超时，应继续区分计算/等待/硬件故障，而不是无限增加cycle-limit或删自检。
 需要定位时再用同版本的minimal或verbose单子项复现，并保留实际用例ID、log_mode、cycle-limit和simv版本。

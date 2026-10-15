@@ -7,11 +7,11 @@
 
 | 用例 | 已有软件检查 | 限制/外部证据 |
 |---|---|---|
-| `02_window_bounds` | 首端/末端1line、中间3lines、末端合法64lines，逐字比较 | AXI地址/长度、窗口外副作用需monitor |
-| `02_window_write_order` | 固定窗口偏移、BASE/SIZE两种写序、shadow读回/提交 | 非随机生成器；原子生效和随机回放未由软件证明 |
-| `02_object_isolation` | 两对象、四DDR区域、反序写回，结果和guard检查 | 只有两个驻留对象，不是容量上界；随机时序另需环境 |
-| `02_psync_rearm_mmio` | 两段独立空闲程序，逐轮观察并清MMIO完成电平 | 不替代真实PLIC/CPU中断次数检查 |
-| `02_dload_window_fault` | 越界DLOAD line512，检查load/p0 fault与W1C，DDR不改写 | 无非法AXI事务仍需monitor；不外推其它非法输入语义 |
+| `02_01_window_bounds` | 首端/末端1line、中间3lines、末端合法64lines，逐字比较 | AXI地址/长度、窗口外副作用需monitor |
+| `02_02_window_write_order` | 固定窗口偏移、BASE/SIZE两种写序、shadow读回/提交 | 非随机生成器；原子生效和随机回放未由软件证明 |
+| `02_03_object_isolation` | 两对象、四DDR区域、反序写回，结果和guard检查 | 只有两个驻留对象，不是容量上界；随机时序另需环境 |
+| `02_04_psync_rearm_mmio` | 两段独立空闲程序，逐轮观察并清MMIO完成电平 | 不替代真实PLIC/CPU中断次数检查 |
+| `02_05_dload_window_fault` | 越界DLOAD line512，检查load/p0 fault与W1C，DDR不改写 | 无非法AXI事务仍需monitor；不外推其它非法输入语义 |
 
 新增10个独立边缘用例（CPU混合、连续1/8/9/32/64条算术命令和三项核侧看门狗）见[EDGE_SMOKE](../../docs/EDGE_SMOKE.md)。
 看门狗为预期故障的负向自检，要求`IT-SCPU-RTL/two_core_no_fdi@ff86d9e`或包含同一机制的交付版本；
@@ -26,19 +26,19 @@
 
 | 文件 | 实际程序 | 软件自检 | 仍需 IT 提供的证据 |
 | --- | --- | --- | --- |
-| `02_cmd_timing` | 模表DLOAD→8条PMODLD→释放→PSYNC | DDR不变、完成和状态检查 | 固定激励，不代表外部STING随机/反压已覆盖 |
-| `02_cmd_queue_8_plus_1` | 模表DLOAD→9条PMODLD→释放→PSYNC | 完成、清电平、无fault、DDR不变 | 8条确实积压、第9条等待、释放后保序，需queue/ready monitor |
-| `02_channel_timing` | 两轮确定性p0/A、p1/B回环，每轮末尾PSYNC | 结果与非输出区检查 | 真实随机驱动、seed/replay和CDC监视另需平台 |
-| `02_cpu_hpu_config_mix` | 8次“PMODLD+128步CPU xorshift” | CPU末值`0xba61d264`和DDR不变 | 接收/提交顺序与队列满载不能由末值推断 |
+| `02_06_cmd_timing` | 模表DLOAD→8条PMODLD→释放→PSYNC | DDR不变、完成和状态检查 | 固定激励，不代表外部STING随机/反压已覆盖 |
+| `02_07_cmd_queue_8_plus_1` | 模表DLOAD→9条PMODLD→释放→PSYNC | 完成、清电平、无fault、DDR不变 | 8条确实积压、第9条等待、释放后保序，需queue/ready monitor |
+| `02_08_channel_timing` | 两轮确定性p0/A、p1/B回环，每轮末尾PSYNC | 结果与非输出区检查 | 真实随机驱动、seed/replay和CDC监视另需平台 |
+| `02_09_cpu_hpu_config_mix` | 8次“PMODLD+128步CPU xorshift” | CPU末值`0xba61d264`和DDR不变 | 接收/提交顺序与队列满载不能由末值推断 |
 
-`02_cmd_burst_1/8/9/32/64`是连续算术命令快测，`02_cpu_hpu_alu_mix`和
-`02_cpu_hpu_mem_branch_mix`检查普通CPU运算/访存分支与HPU交叉。
+`02_10_cmd_burst_1/8/9/32/64`是连续算术命令快测，`02_15_cpu_hpu_alu_mix`和
+`02_16_cpu_hpu_mem_branch_mix`检查普通CPU运算/访存分支与HPU交叉。
 三项`02_watchdog_*`为预期硬件故障测试，要求独立复位；实现和RTL限制见EDGE_SMOKE。
 
-`02_wrong_path`、`02_exception_privilege`和`02_random_cpu_hpu_mix`仍是未接入记录，
+`02_20_wrong_path`、`02_21_exception_privilege`和`02_22_random_cpu_hpu_mix`仍是未接入记录，
 不会因为换组或编译占位源文件就发布成可运行用例。
 
-原STR001正常通道回环已移到01的`01_channel_loopback`；其反压/CDC目标仍须monitor，不丢弃原检查要求。
+原STR001正常通道回环已移到01的`01_08_channel_loopback`；其反压/CDC目标仍须monitor，不丢弃原检查要求。
 
 其它分支预测、核内异常、特权进入/返回测试不因上述四项通过而自动覆盖；是否具有可运行入口以其源码说明、`INDEX.tsv` 和 `NOT_QUALIFIED.tsv` 为准。
 

@@ -17,17 +17,20 @@ class LayerTests(unittest.TestCase):
     def test_numeric_names_and_lossless_migration(self):
         cases = rows("cases.tsv")
         children = rows("subtests/cases.tsv")
-        migration = rows("case-migration.tsv")
+        migration = rows("case-migration.tsv") + rows("case-numbering.tsv")
         aliases = {r["previous_case_id"]: r["case_id"] for r in rows("case-aliases.tsv")}
         current = {r["case_id"]: r for r in cases}
         current.update({r["subtest_id"]: dict(r, qualifier="software-self-check") for r in children})
-        self.assertEqual((len(cases), len(children), len(migration)), (115, 37, 152))
+        self.assertEqual((len(cases), len(children), len(migration)), (115, 37, 304))
         self.assertEqual({r["case_id"] for r in migration}, set(current))
-        self.assertEqual(len({r["previous_case_id"] for r in migration}), 152)
+        self.assertEqual(len({r["previous_case_id"] for r in migration}), 304)
         self.assertEqual(sum(r["qualifier"] == "blocked-not-issued" for r in cases), 11)
         for row in migration:
             with self.subTest(case=row["case_id"]):
-                self.assertRegex(row["case_id"], r"^0[0-7]_[a-z][a-z0-9]*(?:_[a-z0-9]+)*$")
+                pattern = (r"^03_[0-9]{2}_[0-9]{2}_[a-z][a-z0-9]*(?:_[a-z0-9]+)*$"
+                           if row["kind"] == "subtest" else
+                           r"^0[0-7]_[0-9]{2}_[a-z][a-z0-9]*(?:_[a-z0-9]+)*$")
+                self.assertRegex(row["case_id"], pattern)
                 self.assertEqual(row["case_id"][:2], Path(row["source"]).parts[1][:2])
                 self.assertEqual(current[row["case_id"]]["source"], row["source"])
                 self.assertEqual(current[row["case_id"]]["qualifier"], row["qualifier"])
@@ -35,13 +38,29 @@ class LayerTests(unittest.TestCase):
                 self.assertFalse((ROOT / row["previous_source"]).exists())
         self.assertFalse(set(aliases) & set(current), "aliases must not shadow current names")
 
+    def test_case_numbers_are_unique_and_contiguous_across_subdirectories(self):
+        cases = rows("cases.tsv")
+        for group in range(8):
+            selected = [r["case_id"] for r in cases if r["case_id"].startswith(f"{group:02d}_")]
+            numbers = sorted(int(name.split("_")[1]) for name in selected)
+            self.assertEqual(numbers, list(range(1, len(selected) + 1)))
+        for child in rows("subtests/cases.tsv"):
+            number, operation = child["parent_case_id"].rsplit("_", 1)
+            self.assertTrue(child["subtest_id"].startswith(
+                f"{number}_{int(child['subcase']) + 1:02d}_{operation}_"))
+        numbered = {r["previous_case_id"]: r["case_id"] for r in rows("case-numbering.tsv")}
+        self.assertEqual(numbered["00_dload_hold"], "00_01_dload_hold")
+        self.assertEqual(numbered["01_dma_loopback"], "01_06_dma_loopback")
+        self.assertEqual(numbered["06_ckks_x2_add1_n65536"], "06_01_ckks_x2_add1_n65536")
+        self.assertEqual(numbered["07_ntt_n4096"], "07_01_ntt_n4096")
+
     def test_normal_paths_and_boundary_interaction_are_separate(self):
         ownership = {r["case_id"]: Path(r["source"]).parts[1][:2] for r in rows("cases.tsv")}
         self.assertEqual(sum(group == "01" for group in ownership.values()), 8)
         self.assertEqual(sum(group == "02" for group in ownership.values()), 22)
-        for name in ("01_mmio_rw", "01_window_commit", "01_cmd_handshake", "01_dma_arg_pair",
-                     "01_dma_loopback", "01_compute_writeback", "01_channel_loopback",
-                     "01_dma_busy_transition"):
+        for name in ("01_01_mmio_rw", "01_02_window_commit", "01_04_cmd_handshake", "01_05_dma_arg_pair",
+                     "01_06_dma_loopback", "01_07_compute_writeback", "01_08_channel_loopback",
+                     "01_03_dma_busy_transition"):
             self.assertEqual(ownership[name], "01")
         for name, group in ownership.items():
             if any(word in name for word in ("watchdog", "cpu_hpu", "cmd_burst", "window_bounds",

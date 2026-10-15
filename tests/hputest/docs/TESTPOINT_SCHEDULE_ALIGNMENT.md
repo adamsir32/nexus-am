@@ -8,13 +8,13 @@
 
 | 甘特图类别 | 源码目录 | 测试点数 | 测试点 ID |
 |---|---|---:|---|
-| 配置、正常连接与数据通路 | `src/01_configuration_and_data_paths` | 8 | `01_mmio_rw`、`01_dma_loopback`等 |
-| 边界、RISC-V交叉与故障 | `src/02_boundaries_and_cpu_interaction` | 22 | `02_window_bounds`、`02_cmd_burst_8`、`02_watchdog_failstop`等 |
-| 指令测试 | `src/03_compute_instructions` | 9 | `03_padd/psub/pmul/pmac/pntt/pintt/pmodld/psync/pfree`；交付37子项 |
-| 基本算子/指令链测试 | `src/04_composite_instruction_sequences` | 11 | `04_bconv_q4_to_p3_n4096`、`04_ckks_keyswitch_n4096`等 |
-| 算法库接口/参数回归 | `src/05_algorithm_library` | 39 | 30项标准接口、7项不同参数、2项待接入；名称为`05_算法_行为_规模` |
-| 应用测试 | `src/06_full_application` | 9 | `06_ckks_x2_add1_n65536`、`06_bfv_mul_chain_n128`等 |
-| 性能测试 | `src/07_performance` | 6 | `07_ntt_n4096`、`07_intt_n4096`等，4项未接入 |
+| 配置、正常连接与数据通路 | `src/01_configuration_and_data_paths` | 8 | `01_01_mmio_rw`、`01_06_dma_loopback`等 |
+| 边界、RISC-V交叉与故障 | `src/02_boundaries_and_cpu_interaction` | 22 | `02_01_window_bounds`、`02_11_cmd_burst_8`、`02_17_watchdog_failstop`等 |
+| 指令测试 | `src/03_compute_instructions` | 9 | `03_01_padd`至`03_09_pfree`；交付37项`03_父用例号_子项号_行为` |
+| 基本算子/指令链测试 | `src/04_composite_instruction_sequences` | 11 | `04_01_bconv_q4_to_p3_n4096`、`04_05_ckks_keyswitch_n4096`等 |
+| 算法库接口/参数回归 | `src/05_algorithm_library` | 39 | 30项标准接口、7项不同参数、2项待接入；名称为`05_用例号_算法_行为_规模` |
+| 应用测试 | `src/06_full_application` | 9 | `06_01_ckks_x2_add1_n65536`、`06_03_bfv_mul_chain_n128`等 |
+| 性能测试 | `src/07_performance` | 6 | `07_01_ntt_n4096`、`07_02_intt_n4096`等，4项未接入 |
 
 以上共104个后续用例。`src/00_bringup`下的9个冒烟用例和2个
 `main()`返回值探针是上板/仿真辅助程序，不应在甘特图中重复计为这104个IT
@@ -23,7 +23,8 @@
 
 ## 2. 冒烟用例的当前名称
 
-下表左列只追溯旧01～09序号；当前文件名统一以组号00开头，内部指令、同步和自检不变。
+下表列出完整编号；源码、日志和产物使用相同编号，内部指令、同步和自检不变。
+本页下文单独出现的01～09均指00组内用例，不是01～09组。
 
 当前 HPU 配置和状态寄存器只有地址 `0x08000000..0x0800001c` 的 MMIO
 访问方式。没有已定义的 HPU architectural CSR 编号，因此不提供 `csrr HPU_STATUS`
@@ -31,15 +32,17 @@
 
 | 编号 | 文件 | 唯一目的 |
 |---:|---|---|
-| 01 | `00_dload_hold.c` | DLOAD 后永久等待，给波形观察留下时间 |
-| 02 | `00_mmio_rw.c` | 逐地址写读 BASE/SIZE，COMMIT 后检查 MMIO STATUS |
-| 03 | `00_dload_mmio.c` | DLOAD，轮询 MMIO STATUS 的 busy 由 0→1→0 |
-| 04 | `00_psync_irq.c` | 空闲 PSYNC，以 PLIC source 257 中断完成 |
-| 05 | `00_dload_irq.c` | DLOAD+PSYNC，以 PLIC 中断和 `volatile` flag 完成 |
-| 06 | `00_loopback_mmio.c` | DLOAD→MMIO 等待 BUSY 1→0→DSTORE→MMIO 等待 BUSY 1→0，逐 4096 系数比对；无 PSYNC |
-| 07 | `00_loopback_irq.c` | 连续提交 DLOAD+DSTORE+PSYNC，以 CPU 中断完成并逐 4096 系数比对 |
-| 08 | `00_compute_irq.c` | producer PMUL 程序，以 PSYNC 中断完成并逐 4096 系数与 golden/C oracle 比对 |
-| 09 | `00_compute_mmio.c` | 同一 producer PMUL 程序，以 MMIO 完成电平轮询并逐 4096 系数与 golden/C oracle 比对 |
+| `00_01` | `00_01_dload_hold.c` | DLOAD后永久等待，给波形观察留下时间 |
+| `00_02` | `00_02_mmio_rw.c` | 逐地址写读BASE/SIZE，COMMIT后检查MMIO STATUS |
+| `00_03` | `00_03_dload_mmio.c` | DLOAD，轮询MMIO STATUS的busy由0→1→0 |
+| `00_04` | `00_04_psync_irq.c` | 空闲PSYNC，以PLIC source257中断完成 |
+| `00_05` | `00_05_dload_irq.c` | DLOAD+PSYNC，以PLIC中断和volatile flag完成 |
+| `00_06` | `00_06_loopback_mmio.c` | 分别等待DLOAD、DSTORE的BUSY 1→0，逐4096系数比较；无PSYNC |
+| `00_07` | `00_07_loopback_irq.c` | 连续DLOAD+DSTORE+PSYNC，CPU中断完成，逐4096系数比较 |
+| `00_08` | `00_08_compute_irq.c` | producer PMUL程序，PSYNC中断完成，golden/C oracle精确比较 |
+| `00_09` | `00_09_compute_mmio.c` | 同一PMUL程序，MMIO完成电平轮询，golden/C oracle精确比较 |
+| `00_10` | `00_10_return_0.c` | 故意返回0，仅验证结束通道，不验证HPU功能 |
+| `00_11` | `00_11_return_1.c` | 故意返回1的预期失败探针，不计为功能失败 |
 
 当前编号只保留 MMIO 状态访问方式：
 

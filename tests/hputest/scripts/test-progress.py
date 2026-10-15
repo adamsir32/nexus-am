@@ -45,7 +45,9 @@ int main(int argc, char **argv) {
         samples[0] = UINT64_MAX - 9U;
         samples[1] = 5U;
     }
-    int rc = progress_begin(strcmp(mode, "badid") == 0 ? NULL : "CASE", count);
+    const char *case_name = strcmp(mode, "numbered") == 0
+        ? "tests/hputest/src/03_compute_instructions/01_basic/03_01_padd.c" : "CASE";
+    int rc = progress_begin(strcmp(mode, "badid") == 0 ? NULL : case_name, count);
     if (strcmp(mode, "invalid") == 0 || strcmp(mode, "badid") == 0) {
         assert(rc == 1);
         assert(enabled == 0U && sampled == 0U);
@@ -183,6 +185,17 @@ class ProgressTests(unittest.TestCase):
                         self.assertEqual(output, "")
                     else:
                         self.assertIn("[FAIL]", output)
+
+    def test_numbered_subtest_log_uses_one_based_identity_and_zero_based_selection(self):
+        for level in (0, 1, 2):
+            for index in (0, 2, 3):
+                with self.subTest(level=level, index=index):
+                    output = self.run_case(f"subcase={index}", 4, "numbered", level)
+                    if level == 0:
+                        self.assertEqual(output, "")
+                    else:
+                        self.assertIn(f"[HPU][SUBTEST] id=03_01_{index + 1:02d} subcase={index}", output)
+                        self.assertEqual(output.count("[HPU][SUBTEST]"), 1)
 
 
 if __name__ == "__main__":

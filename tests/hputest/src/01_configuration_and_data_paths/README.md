@@ -10,14 +10,14 @@
 
 | 用例 | 本次实际软件检查 | 仍需外部证据 |
 | --- | --- | --- |
-| `01_mmio_rw` | 四个 shadow CSR 写入/读回、COMMIT 后窗口有效、空闲 PSYNC 完成、IRQ W1C 清除 | CSR 访问握手及逐周期状态，`needs-monitor` |
-| `01_window_commit` | 先提交 A 窗口、再提交 B 窗口，B 相对地址 `0→64` 对应物理 line `256→320` 的一行回环；B canary 为 A 首行逐项 `+1 mod q`，保证读错旧窗口不能通过 | COMMIT 前后原子生效、无 BASE/SIZE 半更新组合，`needs-monitor` |
-| `01_dma_busy_transition` | DLOAD/DSTORE 程序中实际采样到 BUSY，再观察最终 IRQ 与空闲，比较完整 4096-word 回环 | 更细的逐周期状态迁移，`needs-monitor` |
-| `01_cmd_handshake` | 模表DLOAD→PMODLD→PFREE→PSYNC；无fault且DDR不变 | 命令只接收一次、等待期间payload稳定 |
-| `01_dma_arg_pair` | p0/p1分别装载A/B并写回，独立CPU影子逐项比较 | x10/x11与每条DMA命令逐周期配对 |
-| `01_dma_loopback` | DDR[A]→p0→DDR[OUT]，完整4096-word回环 | DMA方向、AXI地址和长度 |
-| `01_compute_writeback` | A/B/模表DLOAD→PADD→DSTORE→末尾PSYNC，逐项CPU模加golden | 命令到数据通路的逐周期对应 |
-| `01_channel_loopback` | 两个profile，p0/A、p1/B分别回环；比较输出和全窗非输出区 | 正常接收/CDC无丢失、重复或串配；若施加反压需额外monitor证据 |
+| `01_01_mmio_rw` | 四个 shadow CSR 写入/读回、COMMIT 后窗口有效、空闲 PSYNC 完成、IRQ W1C 清除 | CSR 访问握手及逐周期状态，`needs-monitor` |
+| `01_02_window_commit` | 先提交 A 窗口、再提交 B 窗口，B 相对地址 `0→64` 对应物理 line `256→320` 的一行回环；B canary 为 A 首行逐项 `+1 mod q`，保证读错旧窗口不能通过 | COMMIT 前后原子生效、无 BASE/SIZE 半更新组合，`needs-monitor` |
+| `01_03_dma_busy_transition` | DLOAD/DSTORE 程序中实际采样到 BUSY，再观察最终 IRQ 与空闲，比较完整 4096-word 回环 | 更细的逐周期状态迁移，`needs-monitor` |
+| `01_04_cmd_handshake` | 模表DLOAD→PMODLD→PFREE→PSYNC；无fault且DDR不变 | 命令只接收一次、等待期间payload稳定 |
+| `01_05_dma_arg_pair` | p0/p1分别装载A/B并写回，独立CPU影子逐项比较 | x10/x11与每条DMA命令逐周期配对 |
+| `01_06_dma_loopback` | DDR[A]→p0→DDR[OUT]，完整4096-word回环 | DMA方向、AXI地址和长度 |
+| `01_07_compute_writeback` | A/B/模表DLOAD→PADD→DSTORE→末尾PSYNC，逐项CPU模加golden | 命令到数据通路的逐周期对应 |
+| `01_08_channel_loopback` | 两个profile，p0/A、p1/B分别回环；比较输出和全窗非输出区 | 正常接收/CDC无丢失、重复或串配；若施加反压需额外monitor证据 |
 
 ## 数据和通过条件
 
@@ -26,12 +26,12 @@
 - 仅将明确的 DSTORE 目标标记为允许写入，最后检查其余窗口中的输入、模表和 guard。
 - 窗口回环、数据检查、完成事件检查均通过才 `return 0`。日志中的
   `SW-CHECK-PASS` 只代表软件检查通过，不意味着 `needs-monitor` 部分已经验收。
-- `01_dma_busy_transition`有意要求软件观察到BUSY，与只检查回环数据的用例不是同一判据；日志记录最后的STATUS、是否曾见BUSY和
+- `01_03_dma_busy_transition`有意要求软件观察到BUSY，与只检查回环数据的用例不是同一判据；日志记录最后的STATUS、是否曾见BUSY和
   轮询次数。`TIMEOUT` 是轮询上限，不是 VCS cycle 数，不能据此保证一百万周期足够。
 
 ## 与02的衔接
 
-02保留`02_window_bounds`、`02_window_write_order`、`02_dload_window_fault`和`02_psync_rearm_mmio`，
+02保留`02_01_window_bounds`、`02_02_window_write_order`、`02_05_dload_window_fault`和`02_04_psync_rearm_mmio`，
 以及多对象隔离、队列压力、CPU交叉和看门狗。详见[02说明](../02_boundaries_and_cpu_interaction/README.md)。
 
 当前没有把“未提交配置”“零长度”“非法对象/不支持类型”等都当作同一种故障。

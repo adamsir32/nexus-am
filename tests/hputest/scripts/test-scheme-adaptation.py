@@ -23,7 +23,7 @@ class SchemeTests(unittest.TestCase):
             rows = [r for r in SPECS if r["role"] == role and r["degree"] == "4096"]
             self.assertEqual({r["scheme"] for r in rows}, {"ckks", "bfv", "bgv"})
             for row in rows:
-                self.assertEqual(row["case_id"].split("_")[1], row["scheme"])
+                self.assertEqual(row["case_id"].split("_")[2], row["scheme"])
                 self.assertEqual(Path(row["source"]).stem, row["case_id"])
         self.assertEqual(len([r for r in SPECS if r["role"] == "application"]), 8)
         self.assertEqual({r["scheme"] for r in SPECS if r["degree"] == "128" and

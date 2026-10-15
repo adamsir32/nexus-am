@@ -41,7 +41,7 @@ application package v1。新名称、原始包/SEAL golden和指令适配详见
 
 ## 2. 03：九项基础指令
 
-路径：`src/03_compute_instructions/`，父入口为`03_padd`到`03_pfree`九条指令。
+路径：`src/03_compute_instructions/`，父入口为`03_01_padd`到`03_09_pfree`九条指令。
 下表数字仅保留原表后缀以追溯历史测试点，当前名称不含该流水号。
 
 | ID | 被测指令 | 本轮实际组合 |

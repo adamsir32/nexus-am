@@ -25,7 +25,7 @@ class ChapterPackageTests(unittest.TestCase):
         (self.artifact / "provenance" / "PRODUCER_COMMIT").write_text(
             "producer-revision\n", encoding="utf-8")
 
-    def row(self, case_id="03_padd", group="core",
+    def row(self, case_id="03_01_padd", group="core",
             qualifier="software-self-check", chapter="03_compute_instructions"):
         return {"group": group, "qualifier": qualifier, "case_id": case_id,
                 "source": f"src/{chapter}/01_basic/{case_id}.c"}
@@ -65,12 +65,12 @@ class ChapterPackageTests(unittest.TestCase):
         return PACKAGER.read_tsv(release / "INDEX.tsv", PACKAGER.INDEX_FIELDS)
 
     def test_merge_groups_into_one_chapter(self):
-        self.fixture([self.row(), self.row("03_pntt", "transform"),
-                      self.row("04_ckks_keyswitch_n4096", "fhe", chapter="04_composite_instruction_sequences")])
+        self.fixture([self.row(), self.row("03_05_pntt", "transform"),
+                      self.row("04_05_ckks_keyswitch_n4096", "fhe", chapter="04_composite_instruction_sequences")])
         release = PACKAGER.package(self.artifact)
         self.assertEqual(release, self.root / "release")
-        self.assertTrue((release / "03_compute_instructions/01_basic/03_padd.elf").is_file())
-        self.assertTrue((release / "03_compute_instructions/01_basic/03_pntt.elf").is_file())
+        self.assertTrue((release / "03_compute_instructions/01_basic/03_01_padd.elf").is_file())
+        self.assertTrue((release / "03_compute_instructions/01_basic/03_05_pntt.elf").is_file())
         self.assertFalse((release / "core").exists())
         self.assertFalse((release / "transform").exists())
         self.assertEqual(len(list(release.rglob("PRODUCER_COMMIT"))), 1)
@@ -79,7 +79,7 @@ class ChapterPackageTests(unittest.TestCase):
             self.assertEqual((release / name).read_bytes(), (self.artifact / name).read_bytes())
 
     def test_blocked_is_index_only_and_reason_is_preserved(self):
-        blocked = self.row("03_pintt", "transform", "blocked-not-issued")
+        blocked = self.row("03_06_pintt", "transform", "blocked-not-issued")
         self.fixture([self.row(), blocked])
         release = PACKAGER.package(self.artifact)
         rows = {row["case_id"]: row for row in self.index(release)}
@@ -88,7 +88,7 @@ class ChapterPackageTests(unittest.TestCase):
         self.assertIn("缺少已验证", entry["notes"])
         for field in ("elf", "bin", "disassembly"):
             self.assertEqual(entry[field], "")
-        self.assertEqual(list(release.rglob("03_pintt.*")), [])
+        self.assertEqual(list(release.rglob("03_06_pintt.*")), [])
         self.assertEqual(len(list(release.rglob("*.elf"))), 1)
 
     def test_missing_binary_does_not_create_release(self):
@@ -100,7 +100,7 @@ class ChapterPackageTests(unittest.TestCase):
 
     def test_escape_is_rejected(self):
         row = self.row()
-        row["source"] = "src/03_compute_instructions/../../03_padd.c"
+        row["source"] = "src/03_compute_instructions/../../03_01_padd.c"
         self.fixture([row])
         with self.assertRaisesRegex(ValueError, "escaping source"):
             PACKAGER.package(self.artifact)
@@ -122,16 +122,16 @@ class ChapterPackageTests(unittest.TestCase):
 
     def test_hold_and_expected_failure_are_explicit(self):
         self.fixture([
-            self.row("00_dload_hold", qualifier="waveform-hold", chapter="00_bringup"),
-            self.row("00_return_1", qualifier="termination-probe-fail", chapter="00_bringup"),
-            self.row("00_return_0", qualifier="termination-probe-pass", chapter="00_bringup"),
+            self.row("00_01_dload_hold", qualifier="waveform-hold", chapter="00_bringup"),
+            self.row("00_11_return_1", qualifier="termination-probe-fail", chapter="00_bringup"),
+            self.row("00_10_return_0", qualifier="termination-probe-pass", chapter="00_bringup"),
         ])
         release = PACKAGER.package(self.artifact)
         rows = {row["case_id"]: row for row in self.index(release)}
-        self.assertIn("cycle-limit", rows["00_dload_hold"]["notes"])
-        self.assertEqual(rows["00_return_1"]["publish_status"], "EXPECTED_FAIL_PROBE_RETURN_1")
-        self.assertIn("return 0", rows["00_return_0"]["notes"])
-        self.assertIn("不验证 HPU 功能", rows["00_return_0"]["notes"])
+        self.assertIn("cycle-limit", rows["00_01_dload_hold"]["notes"])
+        self.assertEqual(rows["00_11_return_1"]["publish_status"], "EXPECTED_FAIL_PROBE_RETURN_1")
+        self.assertIn("return 0", rows["00_10_return_0"]["notes"])
+        self.assertIn("不验证 HPU 功能", rows["00_10_return_0"]["notes"])
         self.assertIn("不表示 IT/VCS 已通过", (release / "README.md").read_text())
 
     def test_single_case_does_not_require_all_nine(self):
@@ -145,12 +145,12 @@ class ChapterPackageTests(unittest.TestCase):
 
     def test_all_rejects_missing_005_006(self):
         self.fixture([self.row(parent) for parent in PACKAGER.PARENTS
-                      if parent not in ("03_pntt", "03_pintt")], selection="all")
+                      if parent not in ("03_05_pntt", "03_06_pintt")], selection="all")
         with self.assertRaisesRegex(ValueError, "all nine"):
             PACKAGER.package(self.artifact, require_all=True)
 
     def test_all_publishes_all_nine_in_same_chapter(self):
-        self.fixture([self.row(parent, "transform" if parent in ("03_pntt", "03_pintt") else "core")
+        self.fixture([self.row(parent, "transform" if parent in ("03_05_pntt", "03_06_pintt") else "core")
                       for parent in PACKAGER.PARENTS], selection="all")
         release = PACKAGER.package(self.artifact, require_all=True)
         self.assertEqual(len(list((release / "03_compute_instructions").rglob("*.elf"))), 9)

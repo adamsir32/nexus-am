@@ -95,6 +95,22 @@ int progress_begin(const char *case_id, unsigned subcases) {
         return 1;
     }
     total_subcases = subcases;
+#if HPU_LOG_LEVEL > 0
+    if (!selected_all) {
+        const char *name = case_id;
+        for (const char *cursor = case_id; *cursor != '\0'; ++cursor) {
+            if (*cursor == '/') name = cursor + 1;
+        }
+        if (name[0] == '0' && name[1] == '3' && name[2] == '_' &&
+            name[3] >= '0' && name[3] <= '9' &&
+            name[4] >= '0' && name[4] <= '9' && name[5] == '_') {
+            const char number[] = {name[0], name[1], name[2], name[3], name[4], '\0'};
+            /* 仅一条身份记录；不改零起始选择号，不增加逐系数或发令循环打印。 */
+            LOG_EVENT("[HPU][SUBTEST] id=%s_%02u subcase=%u\n",
+                      number, selected_subcase + 1U, selected_subcase);
+        }
+    }
+#endif
 #if HPU_LOG_LEVEL == 2
     enable_cycle();
     if (selected_all) {

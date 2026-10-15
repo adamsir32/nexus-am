@@ -316,7 +316,8 @@ cp -a "$test_root/tools/hpu-scheme-cases" "$artifact_root/provenance/testplan/ge
 mkdir -p "$artifact_root/tools"
 cp "$test_root/scripts/parse-uart-results.py" "$artifact_root/tools/"
 cp "$test_root/cases.tsv" "$test_root/blocked.tsv" "$test_root/scheme-cases.tsv" \
-  "$test_root/case-aliases.tsv" "$test_root/case-migration.tsv" "$test_root/layer-migration.tsv" "$test_root/edge-cases.tsv" "$artifact_root/provenance/testplan/"
+  "$test_root/case-aliases.tsv" "$test_root/case-migration.tsv" "$test_root/case-numbering.tsv" \
+  "$test_root/layer-migration.tsv" "$test_root/edge-cases.tsv" "$artifact_root/provenance/testplan/"
 if [[ -n $case_filter ]]; then
   selection="case:$case_filter"
   expected_cases=1

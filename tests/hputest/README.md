@@ -2,7 +2,8 @@
 
 当前分组为：00冒烟→01配置/连接/数据通路→02边界/RISC-V交叉→03指令→04算子→05算法库→06应用→07性能。
 完整命名规则、分组边界和历史路径对照见[用例整理说明](docs/TEST_ORGANIZATION.md)。
-源码、case_id和ELF/BIN/TXT统一使用`两位组号_行为[_必要参数]`，例如`01_dma_loopback`、`02_cmd_burst_8`、`05_ckks_hmul_reline_n4096`。
+源码、case_id和ELF/BIN/TXT统一使用`组号_用例号_行为[_必要参数]`，例如`01_06_dma_loopback`、`02_11_cmd_burst_8`、`05_07_ckks_hmul_reline_n4096`。
+组号、用例号均为两位；03独立子项再加两位子项号，如`03_01_01_padd_dst_p2.elf`，可直接称呼“03组01用例的01子项”。
 数字开头是合法文件名；C函数、变量和上游producer接口名不因此改成数字开头。
 
 04只保留基本/组合算子；05统一放算法库接口，包含30项modified-SEAL规范用例、7项不同参数回归和2项未接入记录。
@@ -21,6 +22,7 @@ committed.  GitHub Actions builds them as short-lived downloadable artifacts.
 11项未接入、1项波形hold及2项终止探针；下载包保留普通/静默版本。
 `scheme-cases.tsv`明确算法/操作/规模；`case-aliases.tsv`把旧名称直接映射到新名称，
 `case-migration.tsv`保留本次115个父用例和37个子项的原始路径、资格与新路径。
+`case-numbering.tsv`记录补编号前后的152项对应关系；每组跨子目录连续编号，编号不随字母排序变化。
 
 本轮按 v2 测试点更新后的实际覆盖、各指令轮次和未完成项见
 [V2_COVERAGE.md](docs/V2_COVERAGE.md)。后续104项中93项有软件自检，11项尚未接入；
@@ -43,18 +45,18 @@ The bring-up suites are deliberately flat at the testcase level:
 ```text
 src/00_bringup/
 ├── 001_hpu_smoke/
-│   ├── 00_dload_hold.c
-│   ├── 00_mmio_rw.c
-│   ├── 00_dload_mmio.c
-│   ├── 00_psync_irq.c
-│   ├── 00_dload_irq.c
-│   ├── 00_loopback_mmio.c
-│   ├── 00_loopback_irq.c
-│   ├── 00_compute_irq.c
-│   └── 00_compute_mmio.c
+│   ├── 00_01_dload_hold.c
+│   ├── 00_02_mmio_rw.c
+│   ├── 00_03_dload_mmio.c
+│   ├── 00_04_psync_irq.c
+│   ├── 00_05_dload_irq.c
+│   ├── 00_06_loopback_mmio.c
+│   ├── 00_07_loopback_irq.c
+│   ├── 00_08_compute_irq.c
+│   └── 00_09_compute_mmio.c
 └── 002_main_return_probe/
-    ├── 00_return_0.c
-    └── 00_return_1.c
+    ├── 00_10_return_0.c
+    └── 00_11_return_1.c
 
 src/common/
 ├── hpu_rns_fixture.S          # inline-asm MM input A/B via .incbin
@@ -120,15 +122,15 @@ and must be stopped by the simulation cycle limit.
 
 | Source | Operation | Completion |
 |---|---|---|
-| `00_dload_hold.c` | DLOAD then `while (1)` | Intentional waveform hold |
-| `00_mmio_rw.c` | Program/read the HPU MMIO register window | Return 0/1 |
-| `00_dload_mmio.c` | 64-line DLOAD and poll MMIO STATUS busy | Return 0/1 |
-| `00_psync_irq.c` | Idle PSYNC; PLIC handler handles the completion IRQ | Return 0/1 |
-| `00_dload_irq.c` | DLOAD + PSYNC; PLIC handler sets `volatile sync_flag` | Return 0/1 |
-| `00_loopback_mmio.c` | DLOAD → poll STATUS busy 1→0 → DSTORE → poll STATUS busy 1→0; compare 4096 coefficients; no PSYNC | Return 0/1 |
-| `00_loopback_irq.c` | DLOAD + DSTORE + PSYNC; wait by PLIC interrupt; compare 4096 coefficients | Return 0/1 |
-| `00_compute_irq.c` | Producer MM program; PSYNC interrupt; PMUL/golden/C check | Return 0/1 |
-| `00_compute_mmio.c` | Same producer MM program; poll MMIO completion; PMUL/golden/C check | Return 0/1 |
+| `00_01_dload_hold.c` | DLOAD then `while (1)` | Intentional waveform hold |
+| `00_02_mmio_rw.c` | Program/read the HPU MMIO register window | Return 0/1 |
+| `00_03_dload_mmio.c` | 64-line DLOAD and poll MMIO STATUS busy | Return 0/1 |
+| `00_04_psync_irq.c` | Idle PSYNC; PLIC handler handles the completion IRQ | Return 0/1 |
+| `00_05_dload_irq.c` | DLOAD + PSYNC; PLIC handler sets `volatile sync_flag` | Return 0/1 |
+| `00_06_loopback_mmio.c` | DLOAD → poll STATUS busy 1→0 → DSTORE → poll STATUS busy 1→0; compare 4096 coefficients; no PSYNC | Return 0/1 |
+| `00_07_loopback_irq.c` | DLOAD + DSTORE + PSYNC; wait by PLIC interrupt; compare 4096 coefficients | Return 0/1 |
+| `00_08_compute_irq.c` | Producer MM program; PSYNC interrupt; PMUL/golden/C check | Return 0/1 |
+| `00_09_compute_mmio.c` | Same producer MM program; poll MMIO completion; PMUL/golden/C check | Return 0/1 |
 
 Cases 04 and 05 both test interrupt completion, but they are not duplicates:
 case 04 submits only an idle PSYNC and isolates the interrupt path; case 05
@@ -299,8 +301,8 @@ path and the IT simulator report the value returned by `main()`.
 
 | Source | `main()` result | Source-level expectation |
 |---|---:|---|
-| `00_return_0.c` | 0 | Nexus-AM good trap; VCS PASS candidate |
-| `00_return_1.c` | 1 | Nexus-AM bad trap; VCS FAIL candidate |
+| `00_10_return_0.c` | 0 | Nexus-AM good trap; VCS PASS candidate |
+| `00_11_return_1.c` | 1 | Nexus-AM bad trap; VCS FAIL candidate |
 
 The table states the expected software path, not a claimed VCS result.  Run
 both ELF files in the same IT/VCS environment and retain both simulator logs
@@ -377,7 +379,7 @@ Build one case:
 
 ```bash
 make -C tests/hputest one \
-  CASE=00_bringup/001_hpu_smoke/00_loopback_mmio
+  CASE=00_bringup/001_hpu_smoke/00_06_loopback_mmio
 ```
 
 Build only one artifact group:

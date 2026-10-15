@@ -11,10 +11,10 @@ PMODLD 和计算之间不插入 PSYNC，也不把这些测试混同于 00-06 的
 
 | 用例 | 实际激励与软件检查 | 仍需外部证据 |
 | --- | --- | --- |
-| `01_cmd_handshake` | 模表 DLOAD、PMODLD(0)、PFREE(p4)、最终 PSYNC；检查无 fault 和 DDR 无改写 | 每条命令单次接收、无等待/单拍/多拍反压时的 payload，`needs-monitor` |
-| `01_dma_arg_pair` | p0/p1 两组 DLOAD/DSTORE，输出 A/B 分别与独立影子比较，各 4096 words | 每笔命令与 x10/x11 参数的周期级配对、无丢失/重复，`needs-monitor` |
-| `01_dma_loopback` | DDR[A]→p0→DDR[OUT] 完整 4096-word 回环 | DMA/AXI 事务及方向，`needs-monitor` |
-| `01_compute_writeback` | 模表、A/B DLOAD→PADD(p2,p0,p1)→DSTORE→释放剩余输入/模表→PSYNC；逐项与 CPU 模加 golden 比较 | 命令到数据通路的逐周期对应关系，`needs-monitor` |
+| `01_04_cmd_handshake` | 模表 DLOAD、PMODLD(0)、PFREE(p4)、最终 PSYNC；检查无 fault 和 DDR 无改写 | 每条命令单次接收、无等待/单拍/多拍反压时的 payload，`needs-monitor` |
+| `01_05_dma_arg_pair` | p0/p1 两组 DLOAD/DSTORE，输出 A/B 分别与独立影子比较，各 4096 words | 每笔命令与 x10/x11 参数的周期级配对、无丢失/重复，`needs-monitor` |
+| `01_06_dma_loopback` | DDR[A]→p0→DDR[OUT] 完整 4096-word 回环 | DMA/AXI 事务及方向，`needs-monitor` |
+| `01_07_compute_writeback` | 模表、A/B DLOAD→PADD(p2,p0,p1)→DSTORE→释放剩余输入/模表→PSYNC；逐项与 CPU 模加 golden 比较 | 命令到数据通路的逐周期对应关系，`needs-monitor` |
 
 ## 日志和 guard
 
