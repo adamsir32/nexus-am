@@ -38,17 +38,17 @@ python3 tools/run-subtests.py --package . --variant silent --jobs 4 --run-dir /t
 
 ## 拆分范围
 
-| 原用例 | 指令 | 独立 ELF 数量 | 每个 ELF 保留的内容 |
+| 父用例 | 指令 | 独立 ELF 数量 | 每个 ELF 保留的内容 |
 | --- | --- | ---: | --- |
-| 001 | PADD | 4 | 基础独立目的、边界覆盖 p0、边界覆盖 p1、连续依赖各一项 |
-| 002 | PSUB | 4 | 基础独立目的、边界覆盖 p0、边界覆盖 p1、连续依赖各一项 |
-| 003 | PMUL | 6 | 基础对象、基础立即数 7、边界覆盖 p0、边界立即数 0/1/255 |
-| 004 | PMAC | 4 | 初值 0、初值 q−1 连续两次乘加、初值 1/立即数 255、目的覆盖 p0 |
-| 005 | PNTT | 6 | 基础/边界数据分别执行单 stage 0、1、11 |
-| 006 | PINTT | 6 | 基础/边界数据分别执行单逆 stage 0、1、11 |
-| 007 | PMODLD | 2 | 基础/边界两项，每项保留 q0→q1→q0 和三组输出 |
-| 008 | PSYNC | 3 | 空闲/DMA/计算三项，每项保留连续两轮中断 |
-| 009 | PFREE | 2 | 基础 p0/边界 p7 两项，每项保留释放后复用 |
+| `03_padd` | PADD | 4 | 基础独立目的、边界覆盖p0、边界覆盖p1、连续依赖各一项 |
+| `03_psub` | PSUB | 4 | 基础独立目的、边界覆盖p0、边界覆盖p1、连续依赖各一项 |
+| `03_pmul` | PMUL | 6 | 基础对象、基础立即数7、边界覆盖p0、边界立即数0/1/255 |
+| `03_pmac` | PMAC | 4 | 初值0、初值q−1连续两次乘加、初值1/立即数255、目的覆盖p0 |
+| `03_pntt` | PNTT | 6 | 基础/边界数据分别执行单stage0、1、11 |
+| `03_pintt` | PINTT | 6 | 基础/边界数据分别执行单逆stage0、1、11 |
+| `03_pmodld` | PMODLD | 2 | 基础/边界两项，每项保留q0→q1→q0和三组输出 |
+| `03_psync` | PSYNC | 3 | 空闲/DMA/计算三项，每项保留连续两轮中断 |
+| `03_pfree` | PFREE | 2 | 基础p0/边界p7两项，每项保留释放后复用 |
 
 合计 **37 个独立子项、40 段完整程序**。`programs` 统计末尾各有一次 PSYNC 的完整程序数量，不是 HPU 指令条数；008 每项含两段程序，其余每项一段。完整覆盖一个父用例，需要其全部子项分别通过；仅一个子项 PASS 不能记为父用例全部通过。
 
@@ -68,22 +68,22 @@ python3 tools/run-subtests.py --package . --variant silent --jobs 4 --run-dir /t
 例如 001 的四项可以作为四个独立任务同时排队，任务名为：
 
 ```text
-HPU_IT_DIR_INS_C0_001__s00_basic_dst_p2
-HPU_IT_DIR_INS_C0_001__s01_boundary_alias_p0
-HPU_IT_DIR_INS_C0_001__s02_boundary_alias_p1
-HPU_IT_DIR_INS_C0_001__s03_boundary_dependent
+03_padd_dst_p2
+03_padd_alias_p0
+03_padd_alias_p1
+03_padd_dependent
 ```
 
 具体 `simv` 装载参数和 PASS 判定沿用已验证的 IT 脚本，本目录不假定其命令行接口。并发数受服务器内存、CPU 配额和仿真许可证等限制；每个任务仍有启动、初始化、golden 和 guard 成本，不能保证四任务等于四倍加速。退出码、最终 PASS/FAIL 和 UART 阶段日志都应分别保存；任一任务超时或失败都不能当作完成覆盖。
 
-### 只并行跑01的四项
+### 只并行跑PADD的四项
 
 包内调度器可按名称前缀选择。下面是命令模板，`<真实IT参数>`需要替换，不能原样执行：
 把你们原启动命令里的ELF路径替换为`{elf}`，其它仿真参数保持原样；程序/脚本须使用绝对路径并在前台等待仿真结束。
 
 ```text
 python3 tools/run-subtests.py --package /data/hputest \
-  --id-prefix HPU_IT_DIR_INS_C0_001__ \
+  --id-prefix 03_padd_ \
   --jobs 4 --run-dir /data/runs/padd-first \
   --cpus 0,1,2,3 \
   -- /absolute/path/to/simv <真实IT参数及含{elf}的加载参数>

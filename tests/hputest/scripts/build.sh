@@ -86,7 +86,7 @@ while IFS=$'\t' read -r group qualifier case_id source_path; do
   if [[ ! $group =~ ^(core|transform|fhe)$ ]] || \
      [[ ! $qualifier =~ ^(software-self-check|blocked-not-issued|waveform-hold|termination-probe-pass|termination-probe-fail)$ ]] || \
      [[ ! $case_id =~ ^[A-Za-z0-9_]+$ ]] || \
-     [[ ! $source_path =~ ^src/(00_bringup|01_configuration|02_data_paths|03_compute_instructions|04_composite_instruction_sequences|05_algorithm_library|08_cpu_hpu_structural_connectivity|06_performance|07_full_application)/[^/]+/[^/]+\.c$ ]] || \
+     [[ ! $source_path =~ ^src/(00_bringup|01_configuration_and_data_paths|02_boundaries_and_cpu_interaction|03_compute_instructions|04_composite_instruction_sequences|05_algorithm_library|06_full_application|07_performance)/[^/]+/[^/]+\.c$ ]] || \
      [[ -n ${roster_group[$case_id]:-} ]] || \
      [[ -n ${roster_path_ids[$source_path]:-} ]]; then
     printf 'ERROR: malformed or duplicate canonical roster row for %s\n' \
@@ -145,7 +145,7 @@ if [[ -n $case_filter ]]; then
   case_filter=${case_filter#src/}
   case_filter=${case_filter%.c}
   if [[ $case_filter == /* || $case_filter == *'..'* || \
-        ! $case_filter =~ ^(00_bringup|01_configuration|02_data_paths|03_compute_instructions|04_composite_instruction_sequences|05_algorithm_library|08_cpu_hpu_structural_connectivity|06_performance|07_full_application)/[^/]+/[^/]+$ ]]; then
+        ! $case_filter =~ ^(00_bringup|01_configuration_and_data_paths|02_boundaries_and_cpu_interaction|03_compute_instructions|04_composite_instruction_sequences|05_algorithm_library|06_full_application|07_performance)/[^/]+/[^/]+$ ]]; then
     printf 'ERROR: invalid testcase path: %s\n' "$case_filter" >&2
     exit 2
   fi
@@ -311,11 +311,12 @@ cp "$test_root/docs/SCHEME_DELIVERY_V1.md" "$test_root/docs/CMB004_CMB012_FAILUR
   "$artifact_root/provenance/testplan/docs/"
 cp "$test_root/docs/SEAL_LIBRARY.md" "$artifact_root/provenance/testplan/docs/"
 cp "$test_root/docs/EDGE_SMOKE.md" "$artifact_root/provenance/testplan/docs/"
+cp "$test_root/docs/TEST_ORGANIZATION.md" "$artifact_root/provenance/testplan/docs/"
 cp -a "$test_root/tools/hpu-scheme-cases" "$artifact_root/provenance/testplan/generators"
 mkdir -p "$artifact_root/tools"
 cp "$test_root/scripts/parse-uart-results.py" "$artifact_root/tools/"
 cp "$test_root/cases.tsv" "$test_root/blocked.tsv" "$test_root/scheme-cases.tsv" \
-  "$test_root/case-aliases.tsv" "$test_root/layer-migration.tsv" "$test_root/edge-cases.tsv" "$artifact_root/provenance/testplan/"
+  "$test_root/case-aliases.tsv" "$test_root/case-migration.tsv" "$test_root/layer-migration.tsv" "$test_root/edge-cases.tsv" "$artifact_root/provenance/testplan/"
 if [[ -n $case_filter ]]; then
   selection="case:$case_filter"
   expected_cases=1
@@ -359,9 +360,10 @@ fi
 
 EXPECTED_CASES=$expected_cases CROSS_COMPILE="$cross_compile" \
   "$script_dir/validate-build.sh" "$artifact_root"
-if awk -F '\t' '$2 == "software-self-check" && $3 ~ /^HPU_IT_EDGE_/ { found=1 } END { exit !found }' \
-     "$case_manifest"; then
-  HPU_EDGE_ELF_ROOT="$artifact_root/core/08_cpu_hpu_structural_connectivity/03_edge_cases" \
+if awk -F '\t' 'NR == FNR { if (FNR > 1) edge[$1]=1; next }
+     $2 == "software-self-check" && $3 in edge { found=1 } END { exit !found }' \
+     "$test_root/edge-cases.tsv" "$case_manifest"; then
+  HPU_EDGE_ELF_ROOT="$artifact_root/core" \
     HPU_GENERATED_ROOT="$generated_root" python3 "$script_dir/test-edge-cases.py" \
       EdgeTests.test_actual_elf_burst_counts_order_and_cpu_mix
 fi

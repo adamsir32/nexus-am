@@ -1,28 +1,29 @@
 # HPU 测试点、甘特图与冒烟用例对齐
 
 本文固定 Nexus-AM HPU 测试源码、测试点文档和项目甘特图之间的命名关系。
-机器可检查的唯一用例清单是 [`../cases.tsv`](../cases.tsv)。甘特图中的每一行都应
-填写该表中的完整 `case_id` 和 `source`，不能再建立一套独立编号或用相近标题代替。
+机器可检查的父用例清单是[`cases.tsv`](../cases.tsv)，03独立入口见`subtests/cases.tsv`。
+计划表每行填写清单中的短名`case_id`和源码路径；命名及旧名追溯见[整理说明](TEST_ORGANIZATION.md)。
 
 ## 1. 测试类别
 
 | 甘特图类别 | 源码目录 | 测试点数 | 测试点 ID |
 |---|---|---:|---|
-| 配置测试 | `src/01_configuration` | 7 | `HPU_IT_DIR_CFG_001..006`、`HPU_IT_STING_CFG_001` |
-| 数据通路测试 | `src/02_data_paths` | 6 | `HPU_IT_DIR_PATH_001..004`、`HPU_IT_STING_CMD_001`、`HPU_IT_STING_PATH_005` |
-| 指令测试 | `src/03_compute_instructions` | 9 | `HPU_IT_DIR_INS_C0_001..009` |
-| 基本算子/指令链测试 | `src/04_composite_instruction_sequences` | 11 | `HPU_IT_DIR_CMB_*`、`HPU_IT_STING_CMB_007`，详见cases.tsv |
-| 算法库接口/参数回归 | `src/05_algorithm_library` | 39 | 30项`HPU_IT_LIB_SEAL_*`、7项`HPU_IT_LIB_SEAL_*`、2项待接入 |
-| 结构/互联测试 | `src/08_cpu_hpu_structural_connectivity` | 17 | `HPU_IT_DIR_STR_001..004/006`、`HPU_IT_STING_STR_001/005`及10项`HPU_IT_EDGE_*`（含三项WATCHDOG） |
-| 性能测试 | `src/06_performance` | 6 | `HPU_IT_DIR_PERF_001..006` |
-| 应用测试 | `src/07_full_application` | 9 | `HPU_IT_DIR_APP_*`，详见cases.tsv |
+| 配置、正常连接与数据通路 | `src/01_configuration_and_data_paths` | 8 | `01_mmio_rw`、`01_dma_loopback`等 |
+| 边界、RISC-V交叉与故障 | `src/02_boundaries_and_cpu_interaction` | 22 | `02_window_bounds`、`02_cmd_burst_8`、`02_watchdog_failstop`等 |
+| 指令测试 | `src/03_compute_instructions` | 9 | `03_padd/psub/pmul/pmac/pntt/pintt/pmodld/psync/pfree`；交付37子项 |
+| 基本算子/指令链测试 | `src/04_composite_instruction_sequences` | 11 | `04_bconv_q4_to_p3_n4096`、`04_ckks_keyswitch_n4096`等 |
+| 算法库接口/参数回归 | `src/05_algorithm_library` | 39 | 30项标准接口、7项不同参数、2项待接入；名称为`05_算法_行为_规模` |
+| 应用测试 | `src/06_full_application` | 9 | `06_ckks_x2_add1_n65536`、`06_bfv_mul_chain_n128`等 |
+| 性能测试 | `src/07_performance` | 6 | `07_ntt_n4096`、`07_intt_n4096`等，4项未接入 |
 
 以上共104个后续用例。`src/00_bringup`下的9个冒烟用例和2个
 `main()`返回值探针是上板/仿真辅助程序，不应在甘特图中重复计为这104个IT
 测试点。测试是否已经具备真实指令和 self-check，还必须同时查看 `cases.tsv` 的
 `qualifier`；`blocked-not-issued` 不能因为排进甘特图就改写成已完成。
 
-## 2. 001 冒烟用例的最终编号
+## 2. 冒烟用例的当前名称
+
+下表左列只追溯旧01～09序号；当前文件名统一以组号00开头，内部指令、同步和自检不变。
 
 当前 HPU 配置和状态寄存器只有地址 `0x08000000..0x0800001c` 的 MMIO
 访问方式。没有已定义的 HPU architectural CSR 编号，因此不提供 `csrr HPU_STATUS`
@@ -30,15 +31,15 @@
 
 | 编号 | 文件 | 唯一目的 |
 |---:|---|---|
-| 01 | `01_dload_hold.c` | DLOAD 后永久等待，给波形观察留下时间 |
-| 02 | `02_read_write_mmio_csr.c` | 逐地址写读 BASE/SIZE，COMMIT 后检查 MMIO STATUS |
-| 03 | `03_dload_poll_mmio.c` | DLOAD，轮询 MMIO STATUS 的 busy 由 0→1→0 |
-| 04 | `04_psync_irq.c` | 空闲 PSYNC，以 PLIC source 257 中断完成 |
-| 05 | `05_dload_psync_irq.c` | DLOAD+PSYNC，以 PLIC 中断和 `volatile` flag 完成 |
-| 06 | `06_dload_dstore_poll_mmio.c` | DLOAD→MMIO 等待 BUSY 1→0→DSTORE→MMIO 等待 BUSY 1→0，逐 4096 系数比对；无 PSYNC |
-| 07 | `07_dload_dstore_psync_irq.c` | 连续提交 DLOAD+DSTORE+PSYNC，以 CPU 中断完成并逐 4096 系数比对 |
-| 08 | `08_dload_compute_dstore_psync_irq.c` | producer PMUL 程序，以 PSYNC 中断完成并逐 4096 系数与 golden/C oracle 比对 |
-| 09 | `09_dload_compute_dstore_poll_mmio.c` | 同一 producer PMUL 程序，以 MMIO 完成电平轮询并逐 4096 系数与 golden/C oracle 比对 |
+| 01 | `00_dload_hold.c` | DLOAD 后永久等待，给波形观察留下时间 |
+| 02 | `00_mmio_rw.c` | 逐地址写读 BASE/SIZE，COMMIT 后检查 MMIO STATUS |
+| 03 | `00_dload_mmio.c` | DLOAD，轮询 MMIO STATUS 的 busy 由 0→1→0 |
+| 04 | `00_psync_irq.c` | 空闲 PSYNC，以 PLIC source 257 中断完成 |
+| 05 | `00_dload_irq.c` | DLOAD+PSYNC，以 PLIC 中断和 `volatile` flag 完成 |
+| 06 | `00_loopback_mmio.c` | DLOAD→MMIO 等待 BUSY 1→0→DSTORE→MMIO 等待 BUSY 1→0，逐 4096 系数比对；无 PSYNC |
+| 07 | `00_loopback_irq.c` | 连续提交 DLOAD+DSTORE+PSYNC，以 CPU 中断完成并逐 4096 系数比对 |
+| 08 | `00_compute_irq.c` | producer PMUL 程序，以 PSYNC 中断完成并逐 4096 系数与 golden/C oracle 比对 |
+| 09 | `00_compute_mmio.c` | 同一 producer PMUL 程序，以 MMIO 完成电平轮询并逐 4096 系数与 golden/C oracle 比对 |
 
 当前编号只保留 MMIO 状态访问方式：
 

@@ -56,13 +56,13 @@ ifneq ($(findstring /src/00_bringup/,$(CASE_SOURCE)),)
 ifneq ($(findstring /001_hpu_smoke/,$(CASE_SOURCE)),)
 SRCS += $(TEST_ROOT)/src/common/hpu_rns_fixture.S
 endif
-ifneq ($(filter %/04_psync_irq.c %/05_dload_psync_irq.c \
-                %/07_dload_dstore_psync_irq.c \
-                %/08_dload_compute_dstore_psync_irq.c,$(CASE_SOURCE)),)
+ifneq ($(filter %/00_psync_irq.c %/00_dload_irq.c \
+                %/00_loopback_irq.c \
+                %/00_compute_irq.c,$(CASE_SOURCE)),)
 SRCS += $(TEST_ROOT)/src/common/hpu_irq.c
 endif
-ifneq ($(filter %/001_hpu_smoke/08_dload_compute_dstore_psync_irq.c \
-                %/001_hpu_smoke/09_dload_compute_dstore_poll_mmio.c,$(CASE_SOURCE)),)
+ifneq ($(filter %/001_hpu_smoke/00_compute_irq.c \
+                %/001_hpu_smoke/00_compute_mmio.c,$(CASE_SOURCE)),)
 ifeq ($(wildcard $(INLINE_ASM_MM_ROOT)/mm.c),)
 $(error missing complete producer MM program; run 'make prepare-inline-asm-mm')
 endif
@@ -86,35 +86,35 @@ APPLICATION_STEM := $(shell awk -F '\t' '$$1 == "$(CASE_ID)" {print $$2}' $(TEST
 ifeq ($(strip $(APPLICATION_STEM)),)
 SRCS += $(TEST_ROOT)/src/common/hpu_rns_fixture.S
 endif
-ifneq ($(filter %/HPU_IT_EDGE_WATCHDOG_COMPUTE_BEFORE_DLOAD.c %/HPU_IT_EDGE_WATCHDOG_PMODLD_BEFORE_DLOAD.c,$(CASE_SOURCE)),)
+ifneq ($(filter %/02_watchdog_compute_before_dload.c %/02_watchdog_pmodld_before_dload.c,$(CASE_SOURCE)),)
 # 缺依赖负向用例的后排DLOAD指向producer真模表，不合成或读取未初始化数据。
 SRCS += $(TEST_ROOT)/src/common/hpu_mm_fixture.S
 endif
-ifneq ($(filter %/HPU_IT_DIR_INS_C0_005.c %/HPU_IT_DIR_INS_C0_006.c,$(CASE_SOURCE)),)
+ifneq ($(filter %/03_pntt.c %/03_pintt.c,$(CASE_SOURCE)),)
 SRCS += $(TEST_ROOT)/src/common/it_stage_twiddle.S
 endif
-ifneq ($(filter %/HPU_IT_DIR_INS_C0_008.c,$(CASE_SOURCE)),)
+ifneq ($(filter %/03_psync.c,$(CASE_SOURCE)),)
 SRCS += $(TEST_ROOT)/src/common/hpu_irq.c
 endif
-ifneq ($(filter %/HPU_IT_DIR_CMB_002_NTT_N4096.c %/HPU_IT_DIR_CMB_003_INTT_N4096.c \
-                %/HPU_IT_DIR_PERF_002.c %/HPU_IT_DIR_PERF_003.c,$(CASE_SOURCE)),)
+ifneq ($(filter %/04_ntt_n4096.c %/04_intt_n4096.c \
+                %/07_ntt_n4096.c %/07_intt_n4096.c,$(CASE_SOURCE)),)
 SRCS += $(TEST_ROOT)/src/common/it_transform.c
 SRCS += $(TEST_ROOT)/src/common/it_transform_fixture.S
 INC_DIR += $(HPU_GENERATED_ROOT)/transform-data
 endif
-ifneq ($(filter %/HPU_IT_DIR_CMB_002_NTT_N4096.c %/HPU_IT_DIR_PERF_002.c,$(CASE_SOURCE)),)
+ifneq ($(filter %/04_ntt_n4096.c %/07_ntt_n4096.c,$(CASE_SOURCE)),)
 SRCS += $(HPU_GENERATED_ROOT)/transform-data/ntt/ntt.c
 endif
-ifneq ($(filter %/HPU_IT_DIR_CMB_003_INTT_N4096.c %/HPU_IT_DIR_PERF_003.c,$(CASE_SOURCE)),)
+ifneq ($(filter %/04_intt_n4096.c %/07_intt_n4096.c,$(CASE_SOURCE)),)
 SRCS += $(HPU_GENERATED_ROOT)/transform-data/intt/intt.c
 endif
-ifneq ($(filter %/HPU_IT_DIR_CMB_001_BCONV_Q4_TO_P3_N4096.c,$(CASE_SOURCE)),)
+ifneq ($(filter %/04_bconv_q4_to_p3_n4096.c,$(CASE_SOURCE)),)
 SRCS += $(TEST_ROOT)/src/common/it_bconv.c
 SRCS += $(TEST_ROOT)/src/common/it_bconv_fixture.S
 SRCS += $(HPU_GENERATED_ROOT)/bconv-data/bconv.c
 INC_DIR += $(HPU_GENERATED_ROOT)/bconv-data
 endif
-ifneq ($(filter %/HPU_IT_DIR_CMB_005_LEGACY_AUTO_N4096.c,$(CASE_SOURCE)),)
+ifneq ($(filter %/04_legacy_auto_n4096.c,$(CASE_SOURCE)),)
 ifeq ($(wildcard $(HPU_GENERATED_ROOT)/auto-data/auto_delivery.h),)
 $(error missing Auto delivery; run 'make prepare-inline-asm-mm')
 endif

@@ -195,7 +195,8 @@ int main(void) {
         add, mul = encoded("HPU_INSN_PADD_P0_P0_P1"), encoded("HPU_INSN_PMUL_IMM7_P0_P0")
         checked = 0
         for case in CASES:
-            elf = directory / (case["case_id"] + ".elf")
+            # 根目录是artifact/core；边界、交叉与看门狗位于不同子目录。
+            elf = directory / Path(case["source"]).relative_to("src").with_suffix(".elf")
             if not elf.is_file(): continue  # make one只验收实际选择项。
             checked += 1
             symbols = subprocess.check_output(["riscv64-linux-gnu-nm", str(elf)], text=True)

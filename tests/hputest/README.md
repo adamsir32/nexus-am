@@ -1,10 +1,13 @@
 # HPU tests for Nexus-AM
 
-08组新增CPU/HPU混合和连续算术发令快测，当前规模为1line/64系数。
-看门狗缺口、软件等待预算与IT/ST验收边界见[EDGE_SMOKE.md](docs/EDGE_SMOKE.md)。
+当前分组为：00冒烟→01配置/连接/数据通路→02边界/RISC-V交叉→03指令→04算子→05算法库→06应用→07性能。
+完整命名规则、分组边界和历史路径对照见[用例整理说明](docs/TEST_ORGANIZATION.md)。
+源码、case_id和ELF/BIN/TXT统一使用`两位组号_行为[_必要参数]`，例如`01_dma_loopback`、`02_cmd_burst_8`、`05_ckks_hmul_reline_n4096`。
+数字开头是合法文件名；C函数、变量和上游producer接口名不因此改成数字开头。
 
 04只保留基本/组合算子；05统一放算法库接口，包含30项modified-SEAL规范用例、7项不同参数回归和2项未接入记录。
-原结构连接测试保留至08组；Poseidon独立保存在`experiments/poseidon/`，不进入默认构建或下载包。
+原02数据通路和原08连接测试已按验收目标分到01/02，不再保留独立08组。
+Poseidon独立保存在`experiments/poseidon/`，不进入默认构建或下载包。
 覆盖范围、旋转约定和构建说明见
 [SEAL_LIBRARY.md](docs/SEAL_LIBRARY.md)。
 
@@ -16,7 +19,8 @@ committed.  GitHub Actions builds them as short-lived downloadable artifacts.
 2026-10-04 main v1更新、三算法差异、CMB004/CMB012修复及精度测量见
 [SCHEME_DELIVERY_V1.md](docs/SCHEME_DELIVERY_V1.md)。115项中101项软件自检、
 11项未接入、1项波形hold及2项终止探针；下载包保留普通/静默版本。
-`scheme-cases.tsv`明确算法/操作/规模，`case-aliases.tsv`映射旧编号。
+`scheme-cases.tsv`明确算法/操作/规模；`case-aliases.tsv`把旧名称直接映射到新名称，
+`case-migration.tsv`保留本次115个父用例和37个子项的原始路径、资格与新路径。
 
 本轮按 v2 测试点更新后的实际覆盖、各指令轮次和未完成项见
 [V2_COVERAGE.md](docs/V2_COVERAGE.md)。后续104项中93项有软件自检，11项尚未接入；
@@ -39,32 +43,31 @@ The bring-up suites are deliberately flat at the testcase level:
 ```text
 src/00_bringup/
 ├── 001_hpu_smoke/
-│   ├── 01_dload_hold.c
-│   ├── 02_read_write_mmio_csr.c
-│   ├── 03_dload_poll_mmio.c
-│   ├── 04_psync_irq.c
-│   ├── 05_dload_psync_irq.c
-│   ├── 06_dload_dstore_poll_mmio.c
-│   ├── 07_dload_dstore_psync_irq.c
-│   ├── 08_dload_compute_dstore_psync_irq.c
-│   └── 09_dload_compute_dstore_poll_mmio.c
+│   ├── 00_dload_hold.c
+│   ├── 00_mmio_rw.c
+│   ├── 00_dload_mmio.c
+│   ├── 00_psync_irq.c
+│   ├── 00_dload_irq.c
+│   ├── 00_loopback_mmio.c
+│   ├── 00_loopback_irq.c
+│   ├── 00_compute_irq.c
+│   └── 00_compute_mmio.c
 └── 002_main_return_probe/
-    ├── 01_return_0.c
-    └── 02_return_1.c
+    ├── 00_return_0.c
+    └── 00_return_1.c
 
 src/common/
 ├── hpu_rns_fixture.S          # inline-asm MM input A/B via .incbin
 ├── hpu_mm_fixture.S           # MM golden/mod_ctx; cases 08/09 only
 └── hpu_irq.c                  # cases 04/05/07/08 的 PLIC 公共机械层
 
-src/01_configuration/          # 7 migrated IT cases
-src/02_data_paths/             # 6 migrated IT cases
+src/01_configuration_and_data_paths/ # 8 normal configuration/connection/data-path cases
+src/02_boundaries_and_cpu_interaction/ # 22 boundary/interaction cases (19 active, 3 pending)
 src/03_compute_instructions/   # 9 migrated IT cases
 src/04_composite_instruction_sequences/ # 11 basic/operator-chain cases
 src/05_algorithm_library/       # 30 modified-SEAL API + 7 parameter regressions + 2 pending
-src/08_cpu_hpu_structural_connectivity/  # 17 structural/edge entries (14 active, 3 pending)
-src/06_performance/            # 6 migrated IT cases
-src/07_full_application/       # 9 migrated IT cases (8 active, 1 blocked)
+src/06_full_application/       # 9 migrated IT cases (8 active, 1 blocked)
+src/07_performance/            # 6 performance entries (2 active, 4 pending)
 
 include/hpu/steps.h            # short, one-step public testcase API
 include/hpu/result.h           # UART START/PASS/FAIL reporting helpers
@@ -117,15 +120,15 @@ and must be stopped by the simulation cycle limit.
 
 | Source | Operation | Completion |
 |---|---|---|
-| `01_dload_hold.c` | DLOAD then `while (1)` | Intentional waveform hold |
-| `02_read_write_mmio_csr.c` | Program/read the HPU MMIO register window | Return 0/1 |
-| `03_dload_poll_mmio.c` | 64-line DLOAD and poll MMIO STATUS busy | Return 0/1 |
-| `04_psync_irq.c` | Idle PSYNC; PLIC handler handles the completion IRQ | Return 0/1 |
-| `05_dload_psync_irq.c` | DLOAD + PSYNC; PLIC handler sets `volatile sync_flag` | Return 0/1 |
-| `06_dload_dstore_poll_mmio.c` | DLOAD → poll STATUS busy 1→0 → DSTORE → poll STATUS busy 1→0; compare 4096 coefficients; no PSYNC | Return 0/1 |
-| `07_dload_dstore_psync_irq.c` | DLOAD + DSTORE + PSYNC; wait by PLIC interrupt; compare 4096 coefficients | Return 0/1 |
-| `08_dload_compute_dstore_psync_irq.c` | Producer MM program; PSYNC interrupt; PMUL/golden/C check | Return 0/1 |
-| `09_dload_compute_dstore_poll_mmio.c` | Same producer MM program; poll MMIO completion; PMUL/golden/C check | Return 0/1 |
+| `00_dload_hold.c` | DLOAD then `while (1)` | Intentional waveform hold |
+| `00_mmio_rw.c` | Program/read the HPU MMIO register window | Return 0/1 |
+| `00_dload_mmio.c` | 64-line DLOAD and poll MMIO STATUS busy | Return 0/1 |
+| `00_psync_irq.c` | Idle PSYNC; PLIC handler handles the completion IRQ | Return 0/1 |
+| `00_dload_irq.c` | DLOAD + PSYNC; PLIC handler sets `volatile sync_flag` | Return 0/1 |
+| `00_loopback_mmio.c` | DLOAD → poll STATUS busy 1→0 → DSTORE → poll STATUS busy 1→0; compare 4096 coefficients; no PSYNC | Return 0/1 |
+| `00_loopback_irq.c` | DLOAD + DSTORE + PSYNC; wait by PLIC interrupt; compare 4096 coefficients | Return 0/1 |
+| `00_compute_irq.c` | Producer MM program; PSYNC interrupt; PMUL/golden/C check | Return 0/1 |
+| `00_compute_mmio.c` | Same producer MM program; poll MMIO completion; PMUL/golden/C check | Return 0/1 |
 
 Cases 04 and 05 both test interrupt completion, but they are not duplicates:
 case 04 submits only an idle PSYNC and isolates the interrupt path; case 05
@@ -296,8 +299,8 @@ path and the IT simulator report the value returned by `main()`.
 
 | Source | `main()` result | Source-level expectation |
 |---|---:|---|
-| `01_return_0.c` | 0 | Nexus-AM good trap; VCS PASS candidate |
-| `02_return_1.c` | 1 | Nexus-AM bad trap; VCS FAIL candidate |
+| `00_return_0.c` | 0 | Nexus-AM good trap; VCS PASS candidate |
+| `00_return_1.c` | 1 | Nexus-AM bad trap; VCS FAIL candidate |
 
 The table states the expected software path, not a claimed VCS result.  Run
 both ELF files in the same IT/VCS environment and retain both simulator logs
@@ -334,7 +337,7 @@ of informal testcase numbers is not authoritative.
 | `fhe` | KeySwitch, ciphertext multiplication, relinearization, other algorithm cases, and the application case |
 
 93个后续源码具有软件自检。03的PNTT/PINTT已补齐；04包含BConv、整体NTT/INTT、
-LEGACY Auto与三算法KeySwitch；05包含HADD/HMUL/Reline/降层/旋转，07包含八个完整应用。
+LEGACY Auto与三算法KeySwitch；05包含HADD/HMUL/Reline/降层/旋转，06包含八个完整应用。
 PERF002/003分别复用CMB002/003的N4096/Q0交付，逐轮比较CPU参考NTT/INTT与HPU结果并报告cycle。
 实际算法、参数和程序对应见`scheme-cases.tsv`。其它11项未接入，原因逐项记录于
 [blocked.tsv](blocked.tsv)，其中既有缺外部接口，也有AM接收工作未实现，不能笼统归因于
@@ -374,7 +377,7 @@ Build one case:
 
 ```bash
 make -C tests/hputest one \
-  CASE=00_bringup/001_hpu_smoke/06_dload_dstore_poll_mmio
+  CASE=00_bringup/001_hpu_smoke/00_loopback_mmio
 ```
 
 Build only one artifact group:
@@ -406,7 +409,7 @@ GitHub Actions在push/PR/手动运行中上传唯一的HPU产物`nexus-am-hpu-te
 内容来自`build/unified/release/hputest/`。包内按00至08章节组织；03以37个独立subtest
 替换原九个串行整例，其余章节保留workload。每个已发布测试同时提供普通文件和`_silent`文件，
 共132个已发布测试身份、264组ELF/BIN/TXT；11项未就绪只保留索引。`INDEX.tsv`列出模式和真实路径。
-08组三项看门狗用例要求RTL包含`IT-SCPU-RTL/two_core_no_fdi@ff86d9e`的核侧握手超时及故障码，
+02组三项看门狗用例要求RTL包含`IT-SCPU-RTL/two_core_no_fdi@ff86d9e`的核侧握手超时及故障码，
 详见[边缘快测说明](docs/EDGE_SMOKE.md)；不适用于尚未合入该机制的旧main交付。
 产物保留7天，不提交二进制到Git。
 

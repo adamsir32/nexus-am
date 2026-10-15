@@ -14,11 +14,45 @@ def rows(name):
 
 
 class LayerTests(unittest.TestCase):
+    def test_numeric_names_and_lossless_migration(self):
+        cases = rows("cases.tsv")
+        children = rows("subtests/cases.tsv")
+        migration = rows("case-migration.tsv")
+        aliases = {r["previous_case_id"]: r["case_id"] for r in rows("case-aliases.tsv")}
+        current = {r["case_id"]: r for r in cases}
+        current.update({r["subtest_id"]: dict(r, qualifier="software-self-check") for r in children})
+        self.assertEqual((len(cases), len(children), len(migration)), (115, 37, 152))
+        self.assertEqual({r["case_id"] for r in migration}, set(current))
+        self.assertEqual(len({r["previous_case_id"] for r in migration}), 152)
+        self.assertEqual(sum(r["qualifier"] == "blocked-not-issued" for r in cases), 11)
+        for row in migration:
+            with self.subTest(case=row["case_id"]):
+                self.assertRegex(row["case_id"], r"^0[0-7]_[a-z][a-z0-9]*(?:_[a-z0-9]+)*$")
+                self.assertEqual(row["case_id"][:2], Path(row["source"]).parts[1][:2])
+                self.assertEqual(current[row["case_id"]]["source"], row["source"])
+                self.assertEqual(current[row["case_id"]]["qualifier"], row["qualifier"])
+                self.assertEqual(aliases[row["previous_case_id"]], row["case_id"])
+                self.assertFalse((ROOT / row["previous_source"]).exists())
+        self.assertFalse(set(aliases) & set(current), "aliases must not shadow current names")
+
+    def test_normal_paths_and_boundary_interaction_are_separate(self):
+        ownership = {r["case_id"]: Path(r["source"]).parts[1][:2] for r in rows("cases.tsv")}
+        self.assertEqual(sum(group == "01" for group in ownership.values()), 8)
+        self.assertEqual(sum(group == "02" for group in ownership.values()), 22)
+        for name in ("01_mmio_rw", "01_window_commit", "01_cmd_handshake", "01_dma_arg_pair",
+                     "01_dma_loopback", "01_compute_writeback", "01_channel_loopback",
+                     "01_dma_busy_transition"):
+            self.assertEqual(ownership[name], "01")
+        for name, group in ownership.items():
+            if any(word in name for word in ("watchdog", "cpu_hpu", "cmd_burst", "window_bounds",
+                                             "object_isolation", "dload_window_fault")):
+                self.assertEqual(group, "02")
+
     def test_chapter_and_subdirectory_numbers_are_contiguous(self):
         # 按源码/下载清单检查；切分支遗留的未跟踪空目录不是交付目录。
         paths = [Path(row["source"]) for row in rows("cases.tsv")]
         chapters = sorted({path.parts[1] for path in paths})
-        self.assertEqual([int(re.match(r"^(\d+)_", name)[1]) for name in chapters], list(range(9)))
+        self.assertEqual([int(re.match(r"^(\d+)_", name)[1]) for name in chapters], list(range(8)))
         for chapter in chapters:
             with self.subTest(chapter=chapter):
                 children = sorted({path.parts[2] for path in paths if path.parts[1] == chapter})
@@ -37,7 +71,7 @@ class LayerTests(unittest.TestCase):
     def test_05_has_seal_matrix_distinct_parameter_regressions_and_pending(self):
         cases = [r for r in rows("cases.tsv") if r["source"].startswith("src/05_")]
         self.assertEqual(len(cases), 39)
-        self.assertTrue(all(r["case_id"].startswith("HPU_IT_LIB_SEAL_") for r in cases))
+        self.assertTrue(all(r["case_id"].startswith("05_") for r in cases))
         self.assertTrue(all(r["source"].startswith("src/05_algorithm_library/") for r in cases))
         specs = [r for r in rows("scheme-cases.tsv") if r["source"].startswith("src/05_")]
         seal = [r for r in specs if r["program_stem"].startswith("seal_")]
@@ -52,7 +86,7 @@ class LayerTests(unittest.TestCase):
                           "bgv_rotate_n4096"})
         for row in regression:
             self.assertIn("/04_parameter_regression/", row["source"])
-            self.assertTrue("_CF" in row["case_id"] or "_GEN3_STEP1_" in row["case_id"])
+            self.assertTrue("_cf" in row["case_id"] or "_gen3_step1_" in row["case_id"])
             self.assertIn("主机参考为SEAL", (ROOT / row["source"]).read_text())
         pending = [r for r in cases if r["qualifier"] == "blocked-not-issued"]
         self.assertEqual(len(pending), 2)
@@ -64,7 +98,8 @@ class LayerTests(unittest.TestCase):
         live = {r["case_id"]: r for r in rows("cases.tsv")}
         aliases = rows("case-aliases.tsv")
         self.assertEqual(len({r["previous_case_id"] for r in aliases}), len(aliases))
-        self.assertTrue(all(r["case_id"] in live for r in aliases))
+        current_ids = set(live) | {r["subtest_id"] for r in rows("subtests/cases.tsv")}
+        self.assertTrue(all(r["case_id"] in current_ids for r in aliases))
         alias_map = {r["previous_case_id"]: r["case_id"] for r in aliases}
         migrations = rows("layer-migration.tsv")
         self.assertEqual(len(migrations), 17)

@@ -29,7 +29,7 @@ class SealTests(unittest.TestCase):
         for row in ROWS:
             source = ROOT / row["source"]
             self.assertTrue(row["source"].startswith("src/05_algorithm_library/"))
-            self.assertTrue(row["case_id"].startswith("HPU_IT_LIB_SEAL_"))
+            self.assertTrue(row["case_id"].startswith("05_"))
             self.assertEqual(source.stem, row["case_id"])
             self.assertEqual(source.read_text().count("hpu_run_" + row["program_stem"] + "()"), 1)
 

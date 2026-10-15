@@ -9,14 +9,16 @@ import shutil
 import stat
 import tempfile
 
+from subtest_support import PARENTS
+
 
 ROOT = Path(__file__).resolve().parents[1]
 CHAPTERS = (
-    "00_bringup", "01_configuration", "02_data_paths",
+    "00_bringup", "01_configuration_and_data_paths", "02_boundaries_and_cpu_interaction",
     "03_compute_instructions", "04_composite_instruction_sequences",
-    "05_algorithm_library", "08_cpu_hpu_structural_connectivity", "06_performance", "07_full_application",
+    "05_algorithm_library", "06_full_application", "07_performance",
 )
-INSTRUCTION_IDS = {f"HPU_IT_DIR_INS_C0_{number:03d}" for number in range(1, 10)}
+INSTRUCTION_IDS = set(PARENTS)
 WORKLOAD_FIELDS = (
     "chapter", "case_id", "qualifier", "publish_status", "source",
     "elf", "bin", "disassembly", "notes",
@@ -441,7 +443,8 @@ def package(workloads, silent_workloads, subtests, silent_subtests, output_root)
             encoding="utf-8")
         (package_root / "README.md").write_text(
             "# HPU 统一测试包\n\n"
-            "本包把原 workload 与 03 独立 subtest 合并到同一棵 00 至 08 章节目录。"
+            "本包把workload与03独立subtest合并到同一棵00至07目录："
+            "00冒烟、01配置/连接/数据通路、02边界/RISC-V交叉、03指令、04算子、05算法库、06应用、07性能。"
             "03 不发布原先一个 ELF 串行执行多轮的九个父用例，只发布37个独立子项。\n\n"
             "每个已发布测试有两种文件：普通 minimal UART 版保留原名，真正无 UART 的版本在扩展名前加 "
             "`_silent`，例如 `foo.elf` 与 `foo_silent.elf`。BIN 和反汇编 TXT 使用同一规则。\n\n"
@@ -450,7 +453,7 @@ def package(workloads, silent_workloads, subtests, silent_subtests, output_root)
             "构建成功不代表已经在 IT/VCS 上运行通过。\n\n"
             "`INDEX.tsv` 标明 kind、父用例、subcase、variant 和真实路径。"
             "11个尚未接入的测试只保留索引与原因，不发布占位二进制。"
-            "08组三项WATCHDOG用例是预期故障测试，要求RTL包含two_core_no_fdi@ff86d9e的看门狗及故障码，每例独立复位。"
+            "02组三项watchdog用例是预期故障测试，要求RTL包含two_core_no_fdi@ff86d9e的看门狗及故障码，每例独立复位。"
             "并行运行03子项可使用 `tools/run-subtests.py`。\n",
             encoding="utf-8")
         (package_root / PACKAGE_MARKER).write_text(PACKAGE_IDENTITY, encoding="ascii")

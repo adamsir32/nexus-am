@@ -72,7 +72,7 @@ AM已有mainargs入口。03可通过`subcase=N`只运行一组，源码不需要
 ```bash
 export AM_HOME=/path/to/nexus-am
 make -C tests/hputest one \
-  CASE=03_compute_instructions/01_basic_compute_and_transform/HPU_IT_DIR_INS_C0_004 \
+  CASE=03_compute_instructions/01_basic_compute_and_transform/03_pmac \
   mainargs=subcase=0
 ```
 

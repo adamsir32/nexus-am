@@ -186,10 +186,10 @@ class RunnerTests(unittest.TestCase):
 
     def test_id_prefix_runs_only_matching_cases_after_full_validation(self):
         rows = self.package_cases(4)
-        rows[0]["subtest_id"] = "HPU_IT_DIR_INS_C0_001__round0"
-        rows[1]["subtest_id"] = "HPU_IT_DIR_INS_C0_001__round1"
+        rows[0]["subtest_id"] = "03_padd__round0"
+        rows[1]["subtest_id"] = "03_padd__round1"
         self.write_index(rows)
-        options = ("--id-prefix", "HPU_IT_DIR_INS_C0_001__", "--jobs", "2")
+        options = ("--id-prefix", "03_padd__", "--jobs", "2")
         # 未选中行也必须通过路径验证，不能用过滤隐藏破损/越界清单。
         original = rows[3]["elf"]
         rows[3]["elf"] = "../outside.elf"

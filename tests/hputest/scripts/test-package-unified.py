@@ -136,24 +136,24 @@ class UnifiedPackageTests(unittest.TestCase):
         release = self.package()
         package = release / "hputest"
         self.assertEqual(len(list(package.rglob("*.elf"))), 264)
-        normal = package / "01_configuration/01_hpu_register_access/HPU_IT_DIR_CFG_001.elf"
-        silent = normal.with_name("HPU_IT_DIR_CFG_001_silent.elf")
+        normal = package / "01_configuration_and_data_paths/01_mmio_and_window/01_mmio_rw.elf"
+        silent = normal.with_name("01_mmio_rw_silent.elf")
         self.assertTrue(normal.is_file())
         self.assertTrue(silent.is_file())
-        self.assertFalse(any(path.name == "HPU_IT_DIR_INS_C0_001.elf"
+        self.assertFalse(any(path.name == "03_padd.elf"
                              for path in (package / "03_compute_instructions").rglob("*.elf")))
-        subtest = "HPU_IT_DIR_INS_C0_001__s00_basic_dst_p2"
+        subtest = "03_padd_dst_p2"
         self.assertTrue((package / "03_compute_instructions" / f"{subtest}.elf").is_file())
         self.assertTrue((package / "03_compute_instructions" / f"{subtest}_silent.elf").is_file())
         rows = PACKAGER.read_tsv(package / "INDEX.tsv", PACKAGER.INDEX_FIELDS)
         self.assertEqual(len(rows), 275)
         self.assertEqual(sum(bool(row["elf"]) for row in rows), 264)
         self.assertEqual(sum(row["publish_status"] == "BLOCKED_NOT_PUBLISHED" for row in rows), 11)
-        watchdog = package / "08_cpu_hpu_structural_connectivity/03_edge_cases/HPU_IT_EDGE_WATCHDOG_FAIL_STOP.elf"
+        watchdog = package / "02_boundaries_and_cpu_interaction/05_faults_and_watchdog/02_watchdog_failstop.elf"
         self.assertTrue(watchdog.is_file())
         self.assertTrue(watchdog.with_name(watchdog.stem + "_silent.elf").is_file())
-        for suffix in ("COMPUTE_BEFORE_DLOAD", "PMODLD_BEFORE_DLOAD"):
-            case = watchdog.with_name("HPU_IT_EDGE_WATCHDOG_" + suffix + ".elf")
+        for suffix in ("compute_before_dload", "pmodld_before_dload"):
+            case = watchdog.with_name("02_watchdog_" + suffix + ".elf")
             self.assertTrue(case.is_file())
             self.assertTrue(case.with_name(case.stem + "_silent.elf").is_file())
         self.assertEqual({row["variant"] for row in rows if row["elf"]}, {"normal", "silent"})

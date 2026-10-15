@@ -1,6 +1,6 @@
 # 新API实验workload
 
-本目录单独验证inline-asm重构后的ApplicationBuilder/Evaluator和资源管理。**不替换旧hputest，不更改00～08组或已通过基线**。
+本目录单独验证inline-asm重构后的ApplicationBuilder/Evaluator和资源管理。**不替换hputest的00～07分组或其已通过的运算基线**。
 
 依赖固定为`feature/operator-resource-management@9ebd89f`，不是旧workload的main/legacy-main。完整commit见[producer.json](producer.json)。API和应用图直接采用该分支的`examples/*_evaluator_application.cpp`，不是用AM重新实现一套算法。
 

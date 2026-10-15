@@ -27,9 +27,9 @@ class BuildLogModeTests(unittest.TestCase):
         (self.generated / "instruction-data").mkdir()
         (self.generated / "instruction-data/selection.tsv").write_text("mock\n")
         self.commands = []
-        self.row = dict(parent_case_id="HPU_IT_DIR_INS_C0_001", subcase="2",
-                        subtest_id="HPU_IT_DIR_INS_C0_001__s02_boundary", programs="1",
-                        description="边界子项", source="src/03_compute_instructions/01_basic/HPU_IT_DIR_INS_C0_001.c")
+        self.row = dict(parent_case_id="03_padd", subcase="2",
+                        subtest_id="03_padd_boundary", programs="1",
+                        description="边界子项", source="src/03_compute_instructions/01_basic/03_padd.c")
 
     def mock_run(self, command, **kwargs):
         self.commands.append(command)

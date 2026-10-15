@@ -24,7 +24,7 @@ CMB012保留真实乘法tensor的c0/c1，验证最终合并，输入及golden不
 
 六个用例族主规模均为N4096，另有三个独立`CMB_004_*_KEYSWITCH_N128`定位项。
 每个ELF只运行一遍。N128通过不能代替N4096通过。
-例如`HPU_IT_DIR_CMB_004_BGV_KEYSWITCH_N4096`、
+例如`04_bgv_keyswitch_n4096`、
 `HPU_IT_DIR_CMB_013_CKKS_RESCALE_N4096`，源文件与ELF/BIN/TXT同名。
 
 ## Golden与门禁

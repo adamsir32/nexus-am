@@ -48,7 +48,7 @@ while IFS=$'\t' read -r group qualifier case_id source_path; do
   if [[ ! $group =~ ^(core|transform|fhe)$ ]] || \
      [[ ! $qualifier =~ ^(software-self-check|blocked-not-issued|waveform-hold|termination-probe-pass|termination-probe-fail)$ ]] || \
      [[ ! $case_id =~ ^[A-Za-z0-9_]+$ ]] || \
-     [[ ! $source_path =~ ^src/(00_bringup|01_configuration|02_data_paths|03_compute_instructions|04_composite_instruction_sequences|05_algorithm_library|08_cpu_hpu_structural_connectivity|06_performance|07_full_application)/[^/]+/[^/]+\.c$ ]] || \
+     [[ ! $source_path =~ ^src/(00_bringup|01_configuration_and_data_paths|02_boundaries_and_cpu_interaction|03_compute_instructions|04_composite_instruction_sequences|05_algorithm_library|06_full_application|07_performance)/[^/]+/[^/]+\.c$ ]] || \
      [[ -n ${roster_group[$case_id]:-} ]] || \
      [[ -n ${roster_path_ids[$source_path]:-} ]]; then
     printf 'ERROR: malformed or duplicate canonical roster row for %s\n' \
@@ -268,7 +268,7 @@ case "$manifest_selection" in
     ;;
   case:*)
     selected_relative=${manifest_selection#case:}
-    if [[ ! $selected_relative =~ ^(00_bringup|01_configuration|02_data_paths|03_compute_instructions|04_composite_instruction_sequences|05_algorithm_library|08_cpu_hpu_structural_connectivity|06_performance|07_full_application)/[^/]+/[^/]+$ ]]; then
+    if [[ ! $selected_relative =~ ^(00_bringup|01_configuration_and_data_paths|02_boundaries_and_cpu_interaction|03_compute_instructions|04_composite_instruction_sequences|05_algorithm_library|06_full_application|07_performance)/[^/]+/[^/]+$ ]]; then
       printf 'ERROR: malformed testcase selection: %s\n' \
         "$manifest_selection" >&2
       exit 2
@@ -339,7 +339,7 @@ while IFS=$'\t' read -r group qualifier case_id source_path; do
   if [[ ! $group =~ ^(core|transform|fhe)$ ]] || \
      [[ ! $qualifier =~ ^(software-self-check|blocked-not-issued|waveform-hold|termination-probe-pass|termination-probe-fail)$ ]] || \
      [[ ! $case_id =~ ^[A-Za-z0-9_]+$ ]] || \
-     [[ ! $source_path =~ ^src/(00_bringup|01_configuration|02_data_paths|03_compute_instructions|04_composite_instruction_sequences|05_algorithm_library|08_cpu_hpu_structural_connectivity|06_performance|07_full_application)/[^/]+/[^/]+\.c$ ]]; then
+     [[ ! $source_path =~ ^src/(00_bringup|01_configuration_and_data_paths|02_boundaries_and_cpu_interaction|03_compute_instructions|04_composite_instruction_sequences|05_algorithm_library|06_full_application|07_performance)/[^/]+/[^/]+\.c$ ]]; then
     printf 'ERROR: malformed CASE_MANIFEST.tsv row for %s\n' "$case_id" >&2
     exit 2
   fi
@@ -396,7 +396,7 @@ fi
 declare -A not_qualified_ids=()
 while IFS=$'\t' read -r case_id source_path reason; do
   if [[ ! $case_id =~ ^[A-Za-z0-9_]+$ ]] || \
-     [[ ! $source_path =~ ^src/(00_bringup|01_configuration|02_data_paths|03_compute_instructions|04_composite_instruction_sequences|05_algorithm_library|08_cpu_hpu_structural_connectivity|06_performance|07_full_application)/[^/]+/[^/]+\.c$ ]] || \
+     [[ ! $source_path =~ ^src/(00_bringup|01_configuration_and_data_paths|02_boundaries_and_cpu_interaction|03_compute_instructions|04_composite_instruction_sequences|05_algorithm_library|06_full_application|07_performance)/[^/]+/[^/]+\.c$ ]] || \
      [[ -n ${not_qualified_ids[$case_id]:-} ]] || \
      [[ -z ${selected_ids[$case_id]:-} ]] || \
      [[ ${roster_qualifier[$case_id]} != blocked-not-issued ]] || \
@@ -928,43 +928,42 @@ for elf in "${elfs[@]}"; do
     reject_generated_hpu_words "$txt"
   elif [[ $qualifier == software-self-check && \
           ${roster_source[$name]} != src/00_bringup/* && \
-          $name != HPU_IT_STING_CFG_001 ]]; then
+          $name != 02_window_write_order ]]; then
     require_generated_hpu_word "$txt"
   fi
 
   case "$elf" in
     */001_hpu_smoke/*.elf)
       require_rns_fixture "$elf"
-      if [[ $name != 08_dload_compute_dstore_psync_irq && \
-            $name != 09_dload_compute_dstore_poll_mmio ]]; then
+      if [[ $name != 00_compute_irq && \
+            $name != 00_compute_mmio ]]; then
         reject_mm_only_fixture "$elf"
       fi ;;
-    */01_configuration/*.elf|*/02_data_paths/*.elf|\
+    */01_configuration_and_data_paths/*.elf|*/02_boundaries_and_cpu_interaction/*.elf|\
     */03_compute_instructions/*.elf|*/04_composite_instruction_sequences/*.elf|\
-    */05_algorithm_library/*.elf|*/08_cpu_hpu_structural_connectivity/*.elf|*/06_performance/*.elf|\
-    */07_full_application/*.elf)
+    */05_algorithm_library/*.elf|*/06_full_application/*.elf|*/07_performance/*.elf)
       if [[ $qualifier != blocked-not-issued && \
             -z $(awk -F '\t' -v id="$name" '$1 == id {print $2}' "$test_root/scheme-cases.tsv") && \
-            $name != HPU_IT_DIR_CMB_001_BCONV_Q4_TO_P3_N4096 && \
-            $name != HPU_IT_DIR_CMB_002_NTT_N4096 && \
-            $name != HPU_IT_DIR_CMB_003_INTT_N4096 && \
-            $name != HPU_IT_DIR_PERF_002 && \
-            $name != HPU_IT_DIR_PERF_003 && \
-            $name != HPU_IT_DIR_CMB_004_CKKS_KEYSWITCH_N4096 && \
-            $name != HPU_IT_DIR_CMB_005_LEGACY_AUTO_N4096 && \
+            $name != 04_bconv_q4_to_p3_n4096 && \
+            $name != 04_ntt_n4096 && \
+            $name != 04_intt_n4096 && \
+            $name != 07_ntt_n4096 && \
+            $name != 07_intt_n4096 && \
+            $name != 04_ckks_keyswitch_n4096 && \
+            $name != 04_legacy_auto_n4096 && \
             $name != HPU_IT_DIR_CMB_009_BFV_HADD_N4096 && \
             $name != HPU_IT_DIR_CMB_010_BFV_HMUL_N4096 && \
             $name != HPU_IT_DIR_CMB_012_CKKS_RELINE_N4096 && \
             $name != HPU_IT_DIR_CMB_013_CKKS_RESCALE_N4096 && \
             $name != HPU_IT_DIR_CMB_014_BFV_ROTATE_N4096 && \
-            $name != HPU_IT_DIR_APP_002_CKKS_X2_ADD1_N65536 && $name != HPU_IT_DIR_APP_003_CKKS_ROTATE_CONJ_MUL_ADD_N128 && \
-            $name != HPU_IT_DIR_APP_004_BFV_MUL_RELINE_MODSWITCH_ADD_N128 && $name != HPU_IT_DIR_APP_005_BFV_ROTATE_ROWS_COLUMNS_ADD_N128 && \
-            $name != HPU_IT_DIR_APP_006_BGV_PLAIN_ADD_MUL_SUB_N128 && $name != HPU_IT_DIR_APP_007_BGV_ADD_ROTATE_ADD_N128 && \
-            $name != HPU_IT_DIR_APP_008_BGV_MUL_RELINE_MODSWITCH_ADD_N128 ]]; then
+            $name != 06_ckks_x2_add1_n65536 && $name != 06_ckks_rotate_conj_mul_add_n128 && \
+            $name != 06_bfv_mul_chain_n128 && $name != 06_bfv_rotate_chain_n128 && \
+            $name != 06_bgv_plain_chain_n128 && $name != 06_bgv_rotate_chain_n128 && \
+            $name != 06_bgv_mul_chain_n128 ]]; then
         require_rns_fixture "$elf"
       fi
-      if [[ $name == HPU_IT_EDGE_WATCHDOG_COMPUTE_BEFORE_DLOAD || \
-            $name == HPU_IT_EDGE_WATCHDOG_PMODLD_BEFORE_DLOAD ]]; then
+      if [[ $name == 02_watchdog_compute_before_dload || \
+            $name == 02_watchdog_pmodld_before_dload ]]; then
         require_watchdog_mod_fixture "$elf"
       else
         reject_mm_only_fixture "$elf"
@@ -972,14 +971,14 @@ for elf in "${elfs[@]}"; do
   esac
 
   case "$name" in
-    01_dload_hold|03_dload_poll_mmio)
+    00_dload_hold|00_dload_mmio)
       require_word "$txt" 00b5202b ;;
-    04_psync_irq)
+    00_psync_irq)
       require_word "$txt" 7000005b ;;
-    05_dload_psync_irq)
+    00_dload_irq)
       require_word "$txt" 00b5202b
       require_word "$txt" 7000005b ;;
-    06_dload_dstore_poll_mmio)
+    00_loopback_mmio)
       require_word "$txt" 00b5202b
       require_word "$txt" 00b5502b
       # 06 必须是真正的无 PSYNC 状态轮询，不能因构建成功而漏掉测试意图。
@@ -987,34 +986,34 @@ for elf in "${elfs[@]}"; do
         printf 'ERROR: pure MMIO case 06 contains PSYNC: %s\n' "$txt" >&2
         exit 2
       fi ;;
-    07_dload_dstore_psync_irq)
+    00_loopback_irq)
       require_word "$txt" 00b5202b
       require_word "$txt" 00b5502b
       require_word "$txt" 7000005b ;;
-    08_dload_compute_dstore_psync_irq|09_dload_compute_dstore_poll_mmio)
+    00_compute_irq|00_compute_mmio)
       require_mm_fixture "$elf"
       require_generated_mm_stream "$txt" ;;
-    HPU_IT_DIR_INS_C0_005)
+    03_pntt)
       require_stage_fixture "$elf" "$txt" ntt ;;
-    HPU_IT_DIR_INS_C0_006)
+    03_pintt)
       require_stage_fixture "$elf" "$txt" intt ;;
-    HPU_IT_DIR_CMB_002_NTT_N4096|HPU_IT_DIR_PERF_002|HPU_IT_DIR_CMB_003_INTT_N4096|HPU_IT_DIR_PERF_003)
+    04_ntt_n4096|07_ntt_n4096|04_intt_n4096|07_intt_n4096)
       operator=ntt
-      [[ $name == HPU_IT_DIR_CMB_003_INTT_N4096 || $name == HPU_IT_DIR_PERF_003 ]] && operator=intt
+      [[ $name == 04_intt_n4096 || $name == 07_intt_n4096 ]] && operator=intt
       python3 "$script_dir/verify-operator-elf.py" \
         --delivery "$artifact_root/provenance/transform-data/$operator" \
         --elf "$elf" --disassembly "$txt" --operator "$operator" ;;
-    HPU_IT_DIR_CMB_001_BCONV_Q4_TO_P3_N4096)
+    04_bconv_q4_to_p3_n4096)
       python3 "$script_dir/verify-operator-elf.py" \
         --delivery "$artifact_root/provenance/bconv-data" \
         --elf "$elf" --disassembly "$txt" --operator bconv ;;
-    HPU_IT_DIR_CMB_005_LEGACY_AUTO_N4096)
+    04_legacy_auto_n4096)
       python3 "$script_dir/verify-operator-elf.py" \
         --delivery "$artifact_root/provenance/auto-data" \
         --elf "$elf" --disassembly "$txt" --operator auto ;;
-    01_return_0)
+    00_return_0)
       require_main_return "$txt" 0 ;;
-    02_return_1)
+    00_return_1)
       require_main_return "$txt" 1 ;;
   esac
   operator=$(awk -F '\t' -v id="$name" '$1 == id {print $2}' "$test_root/scheme-cases.tsv")

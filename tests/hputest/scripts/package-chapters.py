@@ -10,6 +10,8 @@ import shutil
 import stat
 import tempfile
 
+from subtest_support import PARENTS
+
 
 GROUPS = {"core", "transform", "fhe"}
 QUALIFIERS = {
@@ -17,9 +19,9 @@ QUALIFIERS = {
     "termination-probe-pass", "termination-probe-fail",
 }
 CHAPTERS = {
-    "00_bringup", "01_configuration", "02_data_paths",
+    "00_bringup", "01_configuration_and_data_paths", "02_boundaries_and_cpu_interaction",
     "03_compute_instructions", "04_composite_instruction_sequences",
-    "05_algorithm_library", "08_cpu_hpu_structural_connectivity", "06_performance", "07_full_application",
+    "05_algorithm_library", "06_full_application", "07_performance",
 }
 with (Path(__file__).resolve().parents[1] / "cases.tsv").open() as stream:
     DIAGNOSTIC_IDS = {row["case_id"] for row in csv.DictReader(stream, delimiter="\t")
@@ -191,7 +193,7 @@ def package(artifact, require_all=False, require_diagnostic=False, require_silen
         if seen_ids != DIAGNOSTIC_IDS or any(
                 row["qualifier"] != "software-self-check" or
                 row["chapter"] != (
-                    "03_compute_instructions" if "_INS_" in row["case_id"]
+                    "03_compute_instructions" if row["case_id"].startswith("03_")
                     else "04_composite_instruction_sequences")
                 for row in indexes):
             raise ValueError("diagnostic package must contain exactly the 19 ready 03/04 cases")
@@ -200,7 +202,7 @@ def package(artifact, require_all=False, require_diagnostic=False, require_silen
             row["case_id"] for row in indexes
             if row["chapter"] == "03_compute_instructions"
         }
-        required = {f"HPU_IT_DIR_INS_C0_{index:03d}" for index in range(1, 10)}
+        required = set(PARENTS)
         if not required.issubset(instruction_ids):
             raise ValueError("full package must include all nine 03 instruction cases, including 005/006")
 
@@ -253,7 +255,7 @@ def package(artifact, require_all=False, require_diagnostic=False, require_silen
             "需要定位失败时，换精简日志包运行同一用例/子项。\n\n"
             if require_silent else
             "## 全量 UART 正确性诊断版（不是加速包）\n\n"
-            "本包只包含03的九个用例以及04的BConv、整体NTT、整体INTT、KeySwitch、Auto，共14个ELF。"
+            "本包只包含03的九个父用例以及04的十个已接入算子，共19个ELF。"
             "构建参数为 `HPU_LOG_LEVEL=2 HPU_DUMP_RESULTS=1`；每个已执行的结果比较都会保留完整的 "
             "4096 项 HPU 实际结果及软件 golden，多 RNS 时逐分量打印，不以抽样代替正确性检查。\n\n"
             "全量串口输出会明显增加仿真 cycle 和现实耗时；只对需要定位的用例使用本包，"

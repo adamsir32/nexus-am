@@ -1,7 +1,9 @@
 # 08边缘快测与ST前置证据
 
 既有算子N4096通过可作为回归基线，但不能据此宣布结构/故障场景已覆盖。
-本轮新增十个独立定向用例，位于`src/08_cpu_hpu_structural_connectivity/03_edge_cases`。
+十个独立定向快测现位于`src/02_boundaries_and_cpu_interaction`：
+连续算术发令归`03_command_timing`，CPU交叉归`04_cpu_hpu_interaction`，看门狗归`05_faults_and_watchdog`。
+旧文件名和路径见`../case-migration.tsv`；本次只整理名称，不更改快测逻辑。
 机器清单为`edge-cases.tsv`，每项一个ELF，不把多个规模/profile串在同一文件运行。
 
 | 用例 | 主要刺激与软件验收 |

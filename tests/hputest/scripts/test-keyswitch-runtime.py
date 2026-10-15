@@ -107,7 +107,7 @@ class KeySwitchRuntimeTests(unittest.TestCase):
             ], check=True)
 
     def test_main_keeps_fault_irq_completion_and_result_checks_visible(self):
-        case = ROOT / "src/04_composite_instruction_sequences/01_composite_operators/HPU_IT_DIR_CMB_004_CKKS_KEYSWITCH_N4096.c"
+        case = ROOT / "src/04_composite_instruction_sequences/01_composite_operators/04_ckks_keyswitch_n4096.c"
         source = case.read_text(encoding="utf-8")
         ordered = (
             "application_prepare()", "csr_write(CSR_FAULT, FAULT_VALID)",

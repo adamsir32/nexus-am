@@ -25,7 +25,7 @@ class CatalogTests(unittest.TestCase):
         self.parents = []
         self.rows = []
         for number, count in enumerate(COUNTS, start=1):
-            parent = f"HPU_IT_DIR_INS_C0_{number:03d}"
+            parent = SUPPORT.PARENTS[number - 1]
             source = f"src/03_compute_instructions/01_basic/{parent}.c"
             path = self.root / source
             path.parent.mkdir(parents=True, exist_ok=True)
@@ -37,7 +37,7 @@ class CatalogTests(unittest.TestCase):
                                  "case_id": parent, "source": source})
             for index in range(count):
                 self.rows.append({"parent_case_id": parent, "subcase": str(index),
-                                  "subtest_id": f"{parent}__s{index:02d}_variant_{index}",
+                                  "subtest_id": f"{parent}_variant_{index}",
                                   "programs": "2" if number == 8 else "1",
                                   "description": f"独立子项 {index}", "source": source})
 
@@ -119,14 +119,14 @@ class CatalogTests(unittest.TestCase):
             self.load()
 
     def test_wrong_program_count(self):
-        row = next(row for row in self.rows if row["parent_case_id"].endswith("008"))
+        row = next(row for row in self.rows if row["parent_case_id"] == "03_psync")
         row["programs"] = "1"
         with self.assertRaisesRegex(ValueError, "wrong programs"):
             self.load()
 
     def test_invalid_subtest_name_or_noncanonical_number(self):
-        for name in ("../../other", "HPU_IT_DIR_INS_C0_001__s00_foo/bar",
-                     "HPU_IT_DIR_INS_C0_001__s00_含糊名", "HPU_IT_DIR_INS_C0_001__s01_variant"):
+        for name in ("../../other", "03_padd__s00_foo/bar",
+                     "03_padd__s00_含糊名", "03_padd__s01_variant"):
             with self.subTest(name=name):
                 self.rows[0]["subtest_id"] = name
                 with self.assertRaisesRegex(ValueError, "invalid subtest_id"):
@@ -151,9 +151,9 @@ class ElfTests(unittest.TestCase):
         self.temporary = tempfile.TemporaryDirectory(prefix="hpu-subtest-elf-")
         self.addCleanup(self.temporary.cleanup)
         self.elf = Path(self.temporary.name) / "subtest.elf"
-        parent = "HPU_IT_DIR_INS_C0_001"
+        parent = "03_padd"
         self.row = {"parent_case_id": parent, "subcase": "2",
-                    "subtest_id": parent + "__s02_boundary", "programs": "1",
+                    "subtest_id": parent + "_boundary", "programs": "1",
                     "description": "边界子项", "source": f"src/03_compute_instructions/01_basic/{parent}.c"}
         self.base = SUPPORT.ELF_ENTRY
         self.file_offset = 0x100

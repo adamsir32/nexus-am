@@ -12,7 +12,8 @@ CATALOG_FIELDS = (
     "parent_case_id", "subcase", "subtest_id", "programs", "description", "source",
 )
 PARENT_FIELDS = ("group", "qualifier", "case_id", "source")
-PARENTS = tuple(f"HPU_IT_DIR_INS_C0_{number:03d}" for number in range(1, 10))
+PARENTS = tuple("03_" + instruction for instruction in
+                ("padd", "psub", "pmul", "pmac", "pntt", "pintt", "pmodld", "psync", "pfree"))
 CHAPTER = "03_compute_instructions"
 ELF_ENTRY = 0x80000000
 
@@ -55,10 +56,11 @@ def _check_row(row):
         raise ValueError(f"unknown parent_case_id: {parent}")
     subcase = _canonical_number(row.get("subcase"), "subcase")
     programs = _canonical_number(row.get("programs"), "programs")
-    expected_programs = 2 if parent.endswith("_008") else 1
+    expected_programs = 2 if parent == "03_psync" else 1
     if programs != expected_programs:
         raise ValueError(f"wrong programs for {parent}: {programs}, expected {expected_programs}")
-    prefix = f"{parent}__s{subcase:02d}_"
+    # 子项序号保留在subcase列，文件名只写指令与实际组合，不重复编码序号。
+    prefix = parent + "_"
     identifier = row.get("subtest_id", "")
     if not identifier.startswith(prefix) or not re.fullmatch(
             r"[a-z][a-z0-9]*(?:_[a-z0-9]+)*", identifier[len(prefix):]):

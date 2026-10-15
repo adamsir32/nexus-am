@@ -16,7 +16,7 @@ import unittest
 
 TEST_ROOT = Path(__file__).resolve().parents[1]
 SMOKE_SOURCE = (TEST_ROOT / "src" / "00_bringup" / "001_hpu_smoke"
-                / "06_dload_dstore_poll_mmio.c")
+                / "00_loopback_mmio.c")
 
 MOCK_API = r"""
 #ifndef MOCK_DMA_POLL_API_H

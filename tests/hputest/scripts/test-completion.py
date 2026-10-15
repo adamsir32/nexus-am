@@ -391,7 +391,7 @@ class CompletionTests(unittest.TestCase):
         case_source.write_text(CASE_HARNESS, encoding="utf-8")
         cls.case_binaries = []
         smoke = TEST_ROOT / "src" / "00_bringup" / "001_hpu_smoke"
-        for name in ("09_dload_compute_dstore_poll_mmio",):
+        for name in ("00_compute_mmio",):
             binary = root / name
             subprocess.run(
                 shlex.split(os.environ.get("HOST_CC", "cc"))
