@@ -196,7 +196,7 @@ def package(artifact, require_all=False, require_diagnostic=False, require_silen
                     "03_compute_instructions" if row["case_id"].startswith("03_")
                     else "04_composite_instruction_sequences")
                 for row in indexes):
-            raise ValueError("diagnostic package must contain exactly the 19 ready 03/04 cases")
+            raise ValueError("diagnostic package must contain exactly the 35 ready 03/04 cases")
     if require_all or require_silent:
         instruction_ids = {
             row["case_id"] for row in indexes
@@ -255,9 +255,9 @@ def package(artifact, require_all=False, require_diagnostic=False, require_silen
             "需要定位失败时，换精简日志包运行同一用例/子项。\n\n"
             if require_silent else
             "## 全量 UART 正确性诊断版（不是加速包）\n\n"
-            "本包只包含03的九个父用例以及04的十个已接入算子，共19个ELF。"
+            "本包只包含03的18个用例以及04的17个已接入算子，共35个ELF。"
             "构建参数为 `HPU_LOG_LEVEL=2 HPU_DUMP_RESULTS=1`；每个已执行的结果比较都会保留完整的 "
-            "4096 项 HPU 实际结果及软件 golden，多 RNS 时逐分量打印，不以抽样代替正确性检查。\n\n"
+            "4096或65536项HPU实际结果及软件golden，多RNS时逐分量打印，不以抽样代替正确性检查。\n\n"
             "全量串口输出会明显增加仿真 cycle 和现实耗时；只对需要定位的用例使用本包，"
             "并为 UART 输出单独预留仿真周期。它不是提速版本，也不改变比较标准。"
             "这是按需本地生成的诊断目录，不由CI作为独立下载包发布。\n\n"

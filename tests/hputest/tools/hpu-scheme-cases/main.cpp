@@ -14,7 +14,7 @@ int main(int argc, char **argv) {
         const bool library = argc == 6 && std::string(argv[5]) == "library";
         const bool regression = argc == 6 && std::string(argv[5]) == "regression";
         const bool seal_profile = library || regression;
-        if (library && ((degree != 128 && degree != 4096) ||
+        if (library && ((degree != 128 && degree != 4096 && degree != 65536) ||
             (operation != "hadd" && operation != "hmul" && operation != "reline" &&
              operation != "modswitch" && operation != "rotate")))
             throw std::invalid_argument("unsupported library profile");

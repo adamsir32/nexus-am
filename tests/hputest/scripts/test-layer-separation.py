@@ -20,18 +20,20 @@ class LayerTests(unittest.TestCase):
         migration = rows("case-migration.tsv") + rows("case-numbering.tsv")
         aliases = {r["previous_case_id"]: r["case_id"] for r in rows("case-aliases.tsv")}
         current = {r["case_id"]: r for r in cases}
+        current.update({r["case_id"]: r for r in rows("archived-cases.tsv")})
         current.update({r["subtest_id"]: dict(r, qualifier="software-self-check") for r in children})
-        self.assertEqual((len(cases), len(children), len(migration)), (115, 37, 304))
-        self.assertEqual({r["case_id"] for r in migration}, set(current))
+        self.assertEqual((len(cases), len(children), len(migration)), (162, 37, 304))
+        self.assertTrue({r["case_id"] for r in migration} <= set(current))
         self.assertEqual(len({r["previous_case_id"] for r in migration}), 304)
-        self.assertEqual(sum(r["qualifier"] == "blocked-not-issued" for r in cases), 11)
+        self.assertEqual(sum(r["qualifier"] == "blocked-not-issued" for r in cases), 7)
         for row in migration:
             with self.subTest(case=row["case_id"]):
                 pattern = (r"^03_[0-9]{2}_[0-9]{2}_[a-z][a-z0-9]*(?:_[a-z0-9]+)*$"
                            if row["kind"] == "subtest" else
                            r"^0[0-7]_[0-9]{2}_[a-z][a-z0-9]*(?:_[a-z0-9]+)*$")
                 self.assertRegex(row["case_id"], pattern)
-                self.assertEqual(row["case_id"][:2], Path(row["source"]).parts[1][:2])
+                if row["case_id"] not in {r["case_id"] for r in rows("archived-cases.tsv")}:
+                    self.assertEqual(row["case_id"][:2], Path(row["source"]).parts[1][:2])
                 self.assertEqual(current[row["case_id"]]["source"], row["source"])
                 self.assertEqual(current[row["case_id"]]["qualifier"], row["qualifier"])
                 self.assertEqual(aliases[row["previous_case_id"]], row["case_id"])
@@ -80,24 +82,24 @@ class LayerTests(unittest.TestCase):
 
     def test_04_contains_only_basic_operators_and_orchestration(self):
         cases = [r for r in rows("cases.tsv") if r["source"].startswith("src/04_")]
-        self.assertEqual(len(cases), 11)
+        self.assertEqual(len(cases), 18)
         self.assertTrue(all("/02_algorithm_library_operators/" not in r["source"] for r in cases))
         specs = [r for r in rows("scheme-cases.tsv") if r["source"].startswith("src/04_")]
-        self.assertEqual(len(specs), 6)
+        self.assertEqual(len(specs), 9)
         self.assertEqual({r["role"] for r in specs}, {"keyswitch"})
         self.assertTrue(all(not r["case_id"].startswith("HPU_IT_LIB_") for r in cases))
 
     def test_05_has_seal_matrix_distinct_parameter_regressions_and_pending(self):
         cases = [r for r in rows("cases.tsv") if r["source"].startswith("src/05_")]
-        self.assertEqual(len(cases), 39)
+        self.assertEqual(len(cases), 54)
         self.assertTrue(all(r["case_id"].startswith("05_") for r in cases))
         self.assertTrue(all(r["source"].startswith("src/05_algorithm_library/") for r in cases))
         specs = [r for r in rows("scheme-cases.tsv") if r["source"].startswith("src/05_")]
         seal = [r for r in specs if r["program_stem"].startswith("seal_")]
         regression = [r for r in specs if not r["program_stem"].startswith("seal_")]
-        self.assertEqual(len(seal), 30)
+        self.assertEqual(len(seal), 45)
         self.assertEqual({(r["scheme"], r["degree"], r["role"]) for r in seal},
-                         {(s, n, op) for s in ("ckks", "bfv", "bgv") for n in ("128", "4096")
+                         {(s, n, op) for s in ("ckks", "bfv", "bgv") for n in ("128", "4096", "65536")
                           for op in ("hadd", "hmul", "reline", "modswitch", "rotate")})
         self.assertEqual({r["program_stem"] for r in regression},
                          {"bgv_hadd_n4096", "bgv_hmul_n4096", "bgv_reline_n4096",
@@ -117,7 +119,7 @@ class LayerTests(unittest.TestCase):
         live = {r["case_id"]: r for r in rows("cases.tsv")}
         aliases = rows("case-aliases.tsv")
         self.assertEqual(len({r["previous_case_id"] for r in aliases}), len(aliases))
-        current_ids = set(live) | {r["subtest_id"] for r in rows("subtests/cases.tsv")}
+        current_ids = {r["case_id"] for r in rows("archived-cases.tsv")} | set(live) | {r["subtest_id"] for r in rows("subtests/cases.tsv")}
         self.assertTrue(all(r["case_id"] in current_ids for r in aliases))
         alias_map = {r["previous_case_id"]: r["case_id"] for r in aliases}
         migrations = rows("layer-migration.tsv")

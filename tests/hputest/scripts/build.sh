@@ -115,10 +115,10 @@ while IFS=$'\t' read -r group qualifier case_id source_path; do
   fi
 done < "$roster"
 
-if [[ ${#roster_ids[@]} -ne 115 || ${roster_group_counts[core]} -ne 49 || \
-      ${roster_group_counts[transform]} -ne 8 || \
-      ${roster_group_counts[fhe]} -ne 58 || $roster_migrated -ne 104 || \
-      $roster_migrated_software -ne 93 || $roster_migrated_blocked -ne 11 ]]; then
+if [[ ${#roster_ids[@]} -ne 162 || ${roster_group_counts[core]} -ne 58 || \
+      ${roster_group_counts[transform]} -ne 11 || \
+      ${roster_group_counts[fhe]} -ne 93 || $roster_migrated -ne 151 || \
+      $roster_migrated_software -ne 144 || $roster_migrated_blocked -ne 7 ]]; then
   printf 'ERROR: canonical testcase roster counts changed unexpectedly\n' >&2
   exit 2
 fi
@@ -298,6 +298,7 @@ while IFS=$'\t' read -r case_id stem scheme degree role source; do
   # 只接收当前清单：旧缓存中的Poseidon或已去重交付不能混入默认下载包。
   cp -a "$generated_root/application-data/$stem" "$artifact_root/provenance/application-data/"
 done < "$test_root/scheme-cases.tsv"
+cp -aL "$generated_root/large-data" "$artifact_root/provenance/large-data"
 mkdir -p "$artifact_root/provenance/testplan/docs"
 cp "$test_root/docs/V2_COVERAGE.md" "$artifact_root/provenance/testplan/docs/"
 cp "$test_root/docs/RUNTIME_UART_DIAGNOSTICS.md" "$artifact_root/provenance/testplan/docs/"
@@ -315,7 +316,10 @@ cp "$test_root/docs/TEST_ORGANIZATION.md" "$artifact_root/provenance/testplan/do
 cp -a "$test_root/tools/hpu-scheme-cases" "$artifact_root/provenance/testplan/generators"
 mkdir -p "$artifact_root/tools"
 cp "$test_root/scripts/parse-uart-results.py" "$artifact_root/tools/"
+cp "$test_root/scripts/parse-perf-results.py" "$artifact_root/tools/"
+cp "$test_root/docs/N65536_PERFORMANCE.md" "$artifact_root/provenance/testplan/docs/"
 cp "$test_root/cases.tsv" "$test_root/blocked.tsv" "$test_root/scheme-cases.tsv" \
+  "$test_root/large-cases.tsv" "$test_root/perf-cases.tsv" "$test_root/archived-cases.tsv" \
   "$test_root/case-aliases.tsv" "$test_root/case-migration.tsv" "$test_root/case-numbering.tsv" \
   "$test_root/layer-migration.tsv" "$test_root/edge-cases.tsv" "$artifact_root/provenance/testplan/"
 if [[ -n $case_filter ]]; then
@@ -324,11 +328,11 @@ if [[ -n $case_filter ]]; then
 else
   selection=$case_group
   case "$case_group" in
-    all) expected_cases=115 ;;
-    core) expected_cases=49 ;;
-    transform) expected_cases=8 ;;
-    fhe) expected_cases=58 ;;
-    diagnostic) expected_cases=19 ;;
+    all) expected_cases=162 ;;
+    core) expected_cases=58 ;;
+    transform) expected_cases=11 ;;
+    fhe) expected_cases=93 ;;
+    diagnostic) expected_cases=35 ;;
   esac
 fi
 if [[ ${#case_sources[@]} -ne $expected_cases ]]; then

@@ -21,10 +21,10 @@ REGRESSION_ROWS = [r for r in ROWS if "/04_parameter_regression/" in r["source"]
 
 class SealTests(unittest.TestCase):
     def test_complete_seal_matrix_and_single_run_sources(self):
-        self.assertEqual(len(ROWS), 37)
+        self.assertEqual(len(ROWS), 52)
         self.assertEqual(len(REGRESSION_ROWS), 7)
         self.assertEqual({(r["scheme"], r["degree"], r["role"]) for r in STANDARD_ROWS},
-                         {(s, n, op) for s in ("ckks", "bfv", "bgv") for n in ("128", "4096")
+                         {(s, n, op) for s in ("ckks", "bfv", "bgv") for n in ("128", "4096", "65536")
                           for op in ("hadd", "hmul", "reline", "modswitch", "rotate")})
         for row in ROWS:
             source = ROOT / row["source"]

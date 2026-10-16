@@ -1,0 +1,7 @@
+group	qualifier	case_id	source
+transform	software-self-check	07_01_ntt_n4096	archive/performance_before_n65536/07_01_ntt_n4096.c
+transform	software-self-check	07_02_intt_n4096	archive/performance_before_n65536/07_02_intt_n4096.c
+transform	blocked-not-issued	07_03_bconv	archive/performance_before_n65536/07_03_bconv.c
+fhe	blocked-not-issued	07_04_keyswitch	archive/performance_before_n65536/07_04_keyswitch.c
+fhe	blocked-not-issued	07_05_ciphertext_mul	archive/performance_before_n65536/07_05_ciphertext_mul.c
+fhe	blocked-not-issued	07_06_relin_only	archive/performance_before_n65536/07_06_relin_only.c

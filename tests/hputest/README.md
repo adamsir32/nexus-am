@@ -6,26 +6,27 @@
 组号、用例号均为两位；03独立子项再加两位子项号，如`03_01_01_padd_dst_p2.elf`，可直接称呼“03组01用例的01子项”。
 数字开头是合法文件名；C函数、变量和上游producer接口名不因此改成数字开头。
 
-04只保留基本/组合算子；05统一放算法库接口，包含30项modified-SEAL规范用例、7项不同参数回归和2项未接入记录。
+04只保留基本/组合算子；05统一放算法库接口，包含45项modified-SEAL规范用例（N128/N4096/N65536）、7项不同参数回归和2项未接入记录。
+N65536新增范围、07计时口径、内存要求及CPU复现方法见[N65536功能与性能交付](docs/N65536_PERFORMANCE.md)。
 原02数据通路和原08连接测试已按验收目标分到01/02，不再保留独立08组。
 Poseidon独立保存在`experiments/poseidon/`，不进入默认构建或下载包。
 覆盖范围、旋转约定和构建说明见
 [SEAL_LIBRARY.md](docs/SEAL_LIBRARY.md)。
 
 `hputest` is the canonical Nexus-AM source tree for HPU bring-up and IT
-testcases.  It contains the eleven bring-up/return probes plus the 104 subsequent
+testcases.  It contains the eleven bring-up/return probes plus the 151 subsequent
 IT cases.  Generated ELF, BIN, TXT, object files, and archives are never
 committed.  GitHub Actions builds them as short-lived downloadable artifacts.
 
 2026-10-04 main v1更新、三算法差异、CMB004/CMB012修复及精度测量见
-[SCHEME_DELIVERY_V1.md](docs/SCHEME_DELIVERY_V1.md)。115项中101项软件自检、
-11项未接入、1项波形hold及2项终止探针；下载包保留普通/静默版本。
+[SCHEME_DELIVERY_V1.md](docs/SCHEME_DELIVERY_V1.md)。当前162项中152项软件自检、
+7项未接入、1项波形hold及2项终止探针；下载包保留普通/静默版本。
 `scheme-cases.tsv`明确算法/操作/规模；`case-aliases.tsv`把旧名称直接映射到新名称，
 `case-migration.tsv`保留本次115个父用例和37个子项的原始路径、资格与新路径。
 `case-numbering.tsv`记录补编号前后的152项对应关系；每组跨子目录连续编号，编号不随字母排序变化。
 
 本轮按 v2 测试点更新后的实际覆盖、各指令轮次和未完成项见
-[V2_COVERAGE.md](docs/V2_COVERAGE.md)。后续104项中93项有软件自检，11项尚未接入；
+[V2_COVERAGE.md](docs/V2_COVERAGE.md)。该文档记录原规模覆盖，新增N65536见上方独立说明；
 软件自检不等于整个测试点或IT验证已通过。00冒烟流程和数据不变，日志使用统一编译开关。
 
 **当前默认是少打印版**，不再打印成功系数、每轮阶段和DMA计划；同一个
@@ -36,7 +37,7 @@ committed.  GitHub Actions builds them as short-lived downloadable artifacts.
 默认摘要、真正静默、单子项选择及本地全量结果构建均已支持；不会以误差容限放宽模整数自检。
 
 03还提供 [独立subtest目录](subtests/README.md)：9个父用例拆成37个可直接加载的ELF/BIN，
-统一下载包只发布这些独立子项，不再发布03的整例ELF；可在用例外并行或可选绑核。
+统一下载包对原9个父用例只发布独立子项；新增9个N65536单程序ELF另外保留，可在用例外并行或可选绑核。
 
 ## Source layout
 

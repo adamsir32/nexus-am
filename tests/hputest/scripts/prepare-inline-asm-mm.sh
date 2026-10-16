@@ -242,12 +242,15 @@ mkdir -p "$package_parent"
 package_root=$(mktemp -d "$package_parent/generation.XXXXXX")
 cmake -S "$test_root/tools/hpu-scheme-cases" -B "$hpu_main_build" \
   -DINLINE_ASM_ROOT="$hpu_applications_root" -DCMAKE_BUILD_TYPE=Release \
+  -DLEGACY_INLINE_ASM_ROOT="$inline_asm_root" \
   -DHPU_APPLICATION_OUTPUT_ROOT="$package_root"
 HPU_DELIVERY_COMMIT="$hpu_applications_commit" \
 HPU_DELIVERY_WORKTREE_STATE=clean-at-configure \
   cmake --build "$hpu_main_build" --parallel "$jobs" --target \
-    hpu_fhe_delivery hpu_scheme_case_generator \
-    hpu_program_model hpu_program_model_test hpu_encode_program \
+    hpu_fhe_delivery hpu_scheme_case_generator hpu_fixture_parameters hpu_cpu_benchmark \
+    hpu_program_model hpu_program_model_test hpu_encode_program hpu_render_program \
+    hpu_render_legacy_program hpu_legacy_program_model \
+    inline_asm_codegen inline_asm_encode_outputs hpu_reference_vectors \
     hpu_ckks_multilevel_codegen_test hpu_seal_ckks_application_image_test \
     hpu_seal_ckks_multiply_operation_plan_test hpu_seal_ckks_galois_operation_plan_test
 # 直接使用上游回归：N128/N4096、多层Q与两个accumulator的half-P绑定。
@@ -278,7 +281,45 @@ while IFS=$'\t' read -r case_id stem scheme degree role source; do
     --encoder "$hpu_main_build/hpu_encode_program" \
     --program-model "$hpu_main_build/hpu_program_model" \
     --producer-commit "$hpu_applications_commit"
+  if [[ $role != application ]]; then
+    parameter_profile=kernel
+    if [[ $stem == seal_* ]]; then parameter_profile=library; fi
+    if [[ $source == src/05_algorithm_library/04_parameter_regression/* ]]; then parameter_profile=regression; fi
+    "$hpu_main_build/hpu_fixture_parameters" "$scheme" "$role" "$degree" "$parameter_profile" \
+      > "$generated_root/application-data/$stem/FIXTURE_PARAMETERS.json"
+  fi
 done < "$test_root/scheme-cases.tsv"
+# N65536原语和基础算子使用同一main编码器；不改变原N4096交付或其gitlink。
+large_generation=$(mktemp -d "$package_parent/large.XXXXXX")
+(
+  cd "$large_generation"
+  "$hpu_main_build/inline-asm/inline_asm_codegen" both --config "$test_root/config/n65536.conf"
+  "$hpu_main_build/inline-asm/test/encode/inline_asm_encode_outputs" --config "$test_root/config/n65536.conf"
+  "$hpu_main_build/inline-asm/test/reference/hpu_reference_vectors" \
+    outputs/ciphertext_multiply/test_data outputs --config "$test_root/config/n65536.conf"
+)
+large_delivery="$large_generation/delivery"
+python3 "$script_dir/prepare-large-data.py" --source "$large_generation/outputs" \
+  --destination "$large_delivery" --renderer "$hpu_main_build/hpu_render_program" \
+  --model "$hpu_main_build/hpu_program_model" --legacy-commit "$hpu_applications_commit" \
+  --only padd,psub,pmul,pmac,pntt,pintt,pmodld,psync,pfree,ntt,intt,bconv
+legacy_large=$(mktemp -d "$package_parent/large-auto.XXXXXX")
+(
+  cd "$legacy_large"
+  "$cmake_build/inline_asm_codegen" both --config "$test_root/config/n65536-legacy-auto.conf"
+  "$cmake_build/test/encode/inline_asm_encode_outputs" --config "$test_root/config/n65536-legacy-auto.conf"
+  "$cmake_build/test/reference/hpu_reference_vectors" outputs/ciphertext_multiply/test_data outputs \
+    --config "$test_root/config/n65536-legacy-auto.conf"
+)
+python3 "$script_dir/prepare-large-data.py" --source "$legacy_large/outputs" \
+  --destination "$large_delivery" --renderer "$hpu_main_build/hpu_render_legacy_program" \
+  --model "$hpu_main_build/hpu_legacy_program_model" --legacy-commit "$producer_commit" --only auto
+# 只切换本次生成目录的链接；既有交付留在其generation目录，便于回查。
+if [[ -e $generated_root/large-data && ! -L $generated_root/large-data ]]; then
+  echo 'ERROR: large-data is not a managed generation symlink' >&2
+  exit 2
+fi
+ln -sfn "$large_delivery" "$generated_root/large-data"
 printf '%s\n' "$package_root" > "$generated_root/application-data/PRODUCER_ROOT"
 printf '%s\n' "$hpu_applications_commit" > "$generated_root/application-data/PRODUCER_COMMIT"
 echo '[hputest] legacy primitive/control + main scheme/application import PASS'

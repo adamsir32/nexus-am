@@ -84,12 +84,12 @@ while IFS=$'\t' read -r group qualifier case_id source_path; do
   fi
 done < <(tail -n +2 "$roster")
 
-if [[ ${#roster_ids[@]} -ne 115 || ${roster_group_counts[core]} -ne 49 || \
-      ${roster_group_counts[transform]} -ne 8 || \
-      ${roster_group_counts[fhe]} -ne 58 || $roster_migrated -ne 104 || \
-      $roster_migrated_software -ne 93 || $roster_migrated_blocked -ne 11 || \
-      ${roster_qualifier_counts[software-self-check]} -ne 101 || \
-      ${roster_qualifier_counts[blocked-not-issued]} -ne 11 || \
+if [[ ${#roster_ids[@]} -ne 162 || ${roster_group_counts[core]} -ne 58 || \
+      ${roster_group_counts[transform]} -ne 11 || \
+      ${roster_group_counts[fhe]} -ne 93 || $roster_migrated -ne 151 || \
+      $roster_migrated_software -ne 144 || $roster_migrated_blocked -ne 7 || \
+      ${roster_qualifier_counts[software-self-check]} -ne 152 || \
+      ${roster_qualifier_counts[blocked-not-issued]} -ne 7 || \
       ${roster_qualifier_counts[waveform-hold]} -ne 1 || \
       ${roster_qualifier_counts[termination-probe-pass]} -ne 1 || \
       ${roster_qualifier_counts[termination-probe-fail]} -ne 1 ]]; then
@@ -943,7 +943,7 @@ for elf in "${elfs[@]}"; do
     */03_compute_instructions/*.elf|*/04_composite_instruction_sequences/*.elf|\
     */05_algorithm_library/*.elf|*/06_full_application/*.elf|*/07_performance/*.elf)
       if [[ $qualifier != blocked-not-issued && \
-            -z $(awk -F '\t' -v id="$name" '$1 == id {print $2}' "$test_root/scheme-cases.tsv") && \
+            -z $(awk -F '\t' -v id="$name" '$1 == id {print $2}' "$test_root/scheme-cases.tsv" "$test_root/large-cases.tsv" "$test_root/perf-cases.tsv") && \
             $name != 04_01_bconv_q4_to_p3_n4096 && \
             $name != 04_02_ntt_n4096 && \
             $name != 04_03_intt_n4096 && \
@@ -1017,9 +1017,23 @@ for elf in "${elfs[@]}"; do
       require_main_return "$txt" 1 ;;
   esac
   operator=$(awk -F '\t' -v id="$name" '$1 == id {print $2}' "$test_root/scheme-cases.tsv")
+  operator_delivery=application-data
+  large_operator=$(awk -F '\t' -v id="$name" '$1 == id {print $2}' "$test_root/large-cases.tsv")
+  perf_operator=$(awk -F '\t' -v id="$name" '$1 == id {print $3}' "$test_root/perf-cases.tsv")
+  if [[ -n $large_operator ]]; then
+    operator=$large_operator
+    operator_delivery=large-data
+  fi
+  if [[ -n $perf_operator ]]; then
+    operator=$perf_operator
+    operator_delivery=$(awk -F '\t' -v id="$name" '$1 == id {print $4}' "$test_root/perf-cases.tsv")
+    [[ $(grep -Ec 'jal[[:space:]].*<perf_cycle_read>' "$txt") -eq 2 ]] || {
+      echo "ERROR: expected two cycle endpoint calls: $name" >&2; exit 2;
+    }
+  fi
   if [[ -n $operator ]]; then
     python3 "$script_dir/verify-operator-elf.py" \
-      --delivery "$artifact_root/provenance/application-data/$operator" \
+      --delivery "$artifact_root/provenance/$operator_delivery/$operator" \
       --elf "$elf" --disassembly "$txt" --operator "$operator"
   fi
 done

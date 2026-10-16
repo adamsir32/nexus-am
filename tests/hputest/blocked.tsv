@@ -6,7 +6,3 @@ case_id	reason
 05_38_encode_pending	modified-SEAL版本已固定；AM尚缺encode完整参数、精度、fixture及目标执行入口。
 05_39_bootstrap_pending	modified-SEAL版本已固定；AM尚缺bootstrap完整指令链、参数、评估数据、golden及执行入口。
 06_09_mul_add_reduction_pending	需确认应用为真实密文/FHE 还是模多项式，并提供对应接口/密钥/输入/精度/golden；当前两项均未实现。
-07_03_bconv	缺 AM BConv 完整接收和相同输入/参数的 CPU 对照、纯计算计数边界与轮数。
-07_04_keyswitch	KeySwitch 数据绑定已完成；尚缺功能用例运行验证、匹配 CPU 基线、纯计算计数边界与轮数。
-07_05_ciphertext_mul	缺项目算法库密文乘法接口/基线与纯计算计数边界，不能用单系数 PMUL 计时替代。
-07_06_relin_only	缺匹配的 CPU/HPU RelinOnly 实现、评估数据、统一纯计算计时边界与重复轮数。

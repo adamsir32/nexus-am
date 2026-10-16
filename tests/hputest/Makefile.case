@@ -83,6 +83,23 @@ SRCS += $(HPU_IT_RUNTIME_SRCS)
 # inputs. Application-package cases own complete images and must not link that
 # unrelated fixture.
 APPLICATION_STEM := $(shell awk -F '\t' '$$1 == "$(CASE_ID)" {print $$2}' $(TEST_ROOT)/scheme-cases.tsv)
+APPLICATION_DELIVERY := application-data
+LARGE_STEM := $(shell awk -F '\t' '$$1 == "$(CASE_ID)" {print $$2}' $(TEST_ROOT)/large-cases.tsv)
+ifneq ($(strip $(LARGE_STEM)),)
+APPLICATION_STEM := $(LARGE_STEM)
+APPLICATION_DELIVERY := large-data
+endif
+PERF_STEM := $(shell awk -F '\t' '$$1 == "$(CASE_ID)" {print $$3}' $(TEST_ROOT)/perf-cases.tsv)
+ifneq ($(strip $(PERF_STEM)),)
+APPLICATION_STEM := $(PERF_STEM)
+APPLICATION_DELIVERY := $(shell awk -F '\t' '$$1 == "$(CASE_ID)" {print $$4}' $(TEST_ROOT)/perf-cases.tsv)
+ifeq ($(HPU_LOG_LEVEL),2)
+$(error performance endpoints exclude UART; use HPU_LOG_LEVEL=0 or 1)
+endif
+endif
+ifneq ($(filter 03_%_n65536 04_%_n65536 05_%_n65536 07_%_n65536,$(CASE_ID)),)
+CFLAGS += -DHPU_CASE_MEM_BASE=0x90000000ULL
+endif
 ifeq ($(strip $(APPLICATION_STEM)),)
 SRCS += $(TEST_ROOT)/src/common/hpu_rns_fixture.S
 endif
@@ -93,7 +110,7 @@ endif
 ifneq ($(filter %/03_05_pntt.c %/03_06_pintt.c,$(CASE_SOURCE)),)
 SRCS += $(TEST_ROOT)/src/common/it_stage_twiddle.S
 endif
-ifneq ($(filter %/03_08_psync.c,$(CASE_SOURCE)),)
+ifneq ($(filter %/03_08_psync.c %/03_17_psync_n65536.c,$(CASE_SOURCE)),)
 SRCS += $(TEST_ROOT)/src/common/hpu_irq.c
 endif
 ifneq ($(filter %/04_02_ntt_n4096.c %/04_03_intt_n4096.c \
@@ -125,7 +142,7 @@ INC_DIR += $(HPU_GENERATED_ROOT)/auto-data
 endif
 # 所有 scheme 用例沿用原目录；从显式清单选取本例的独立 producer 程序。
 ifneq ($(strip $(APPLICATION_STEM)),)
-APPLICATION_DATA := $(HPU_GENERATED_ROOT)/application-data/$(APPLICATION_STEM)
+APPLICATION_DATA := $(HPU_GENERATED_ROOT)/$(APPLICATION_DELIVERY)/$(APPLICATION_STEM)
 ifeq ($(wildcard $(APPLICATION_DATA)/application_layout.h),)
 $(error missing $(CASE_ID) application delivery; run 'make prepare-inline-asm-mm')
 endif

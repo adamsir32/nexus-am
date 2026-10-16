@@ -11,6 +11,8 @@ import subprocess
 
 with (Path(__file__).resolve().parents[1] / "scheme-cases.tsv").open() as stream:
     SCHEME_PROGRAMS = {row["program_stem"] for row in csv.DictReader(stream, delimiter="\t")}
+with (Path(__file__).resolve().parents[1] / "large-cases.tsv").open() as stream:
+    LARGE_PROGRAMS = {row["program_stem"] for row in csv.DictReader(stream, delimiter="\t")}
 
 
 def symbol_bytes(elf, symbol):
@@ -61,6 +63,9 @@ def stream(disassembly, function):
 def verify(delivery, elf, disassembly, operator):
     expected = [int(word, 2) for word in (delivery / f"{operator}.inst32").read_text().split()]
     actual = stream(disassembly.read_text(), f"hpu_program_{operator}")
+    if not actual:
+        # 短程序可能被GCC完全内联到唯一的已绑定span入口；仍逐字核对完整序列。
+        actual = stream(disassembly.read_text(), f"hpu_run_{operator}")
     if not expected or actual != expected:
         raise ValueError(f"{operator}: linked instruction sequence differs from delivery")
     if expected[-1] != 0x7000005b or expected.count(0x7000005b) != 1:
@@ -88,7 +93,7 @@ def verify(delivery, elf, disassembly, operator):
         fixtures = [("rotate_window", "window.u32.bin"),
                      ("rotate_golden", "golden.u32.bin"),
                      ("rotate_writable", "rotate_writable.u8.bin")]
-    if operator.startswith("ckks_"):
+    if operator.startswith("ckks_") and operator not in SCHEME_PROGRAMS:
         fixtures = [("ckks_window", "ckks_window.u32.bin"),
                     ("ckks_golden", "ckks_golden.u32.bin"),
                     ("ckks_writable", "ckks_writable.u8.bin")]
@@ -98,15 +103,19 @@ def verify(delivery, elf, disassembly, operator):
         end = re.search(r"^([0-9a-fA-F]+)\s+\w\s+_end$", listing, re.M)
         if not end or int(end[1], 16) >= 0x87000000:
             raise ValueError("CKKS ELF/heap start overlaps the HPU DDR window")
-    if operator in SCHEME_PROGRAMS:
+    if operator in SCHEME_PROGRAMS or operator in LARGE_PROGRAMS:
         fixtures = [("application_window", "application_window.u32.bin"),
                     ("application_golden", "application_golden.u32.bin"),
                     ("application_writable", "application_writable.u8.bin")]
         listing = subprocess.check_output(
             [os.environ.get("CROSS_COMPILE", "riscv64-linux-gnu-") + "nm", str(elf)], text=True)
         end = re.search(r"^([0-9a-fA-F]+)\s+\w\s+_end$", listing, re.M)
-        if not end or int(end[1], 16) >= 0x87000000:
+        large = operator.endswith("_n65536")
+        memory_base = 0x90000000 if large else 0x87000000
+        if not end or int(end[1], 16) >= memory_base:
             raise ValueError("application ELF/heap start overlaps the HPU DDR window")
+        if large and memory_base + (delivery / "application_window.u32.bin").stat().st_size > 0xA0000000:
+            raise ValueError("N65536 window and guard exceed the 512MiB RAM contract")
     for symbol, filename in fixtures:
         if symbol_bytes(elf, symbol) != (delivery / filename).read_bytes():
             raise ValueError(f"{operator}: linked {symbol} differs from validated delivery")
@@ -119,7 +128,7 @@ if __name__ == "__main__":
     parser.add_argument("--elf", required=True, type=Path)
     parser.add_argument("--disassembly", required=True, type=Path)
     parser.add_argument("--operator", required=True,
-                        choices=tuple(SCHEME_PROGRAMS) + ("ntt", "intt", "bconv", "keyswitch", "auto", "hadd",
+                        choices=tuple(SCHEME_PROGRAMS | LARGE_PROGRAMS) + ("ntt", "intt", "bconv", "keyswitch", "auto", "hadd",
                                  "hmul", "rotate", "ckks_reline", "ckks_rescale",
                                  "ckks_polynomial_x2_plus_one",
                                  "ckks_composed_application",

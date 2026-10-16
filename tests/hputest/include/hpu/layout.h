@@ -4,7 +4,11 @@
 #include <hpu/inline_asm_mm_delivery.h>
 #include <stdint.h>
 
-#define MEM_BASE          UINT64_C(0x87000000)
+/* 大规模用例单独选择高地址窗口，避免ELF内嵌镜像与运行时DDR数据重叠。 */
+#ifndef HPU_CASE_MEM_BASE
+#define HPU_CASE_MEM_BASE UINT64_C(0x87000000)
+#endif
+#define MEM_BASE          HPU_CASE_MEM_BASE
 #define SMOKE_LINES       256U
 #define LINE_BYTES        256U
 #define WORDS_PER_LINE    64U

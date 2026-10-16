@@ -133,7 +133,7 @@ jobs:
   build-hpu:
     name: build unified HPU package
     runs-on: ubuntu-24.04
-    timeout-minutes: 30
+    timeout-minutes: 120
     steps:
       - name: Checkout repository
         uses: actions/checkout@v7
@@ -153,7 +153,7 @@ jobs:
             gcc-riscv64-linux-gnu \
             g++-riscv64-linux-gnu \
             binutils-riscv64-linux-gnu \
-            python3
+            python3 python3-openpyxl
       - name: Build and validate all HPU tests
         env:
           AM_HOME: ${{ github.workspace }}
@@ -176,6 +176,15 @@ jobs:
         run: make -C tests/hputest silent-subtests JOBS=4
       - name: Assemble normal and silent HPU artifacts
         run: make -C tests/hputest unified
+      - name: Export parameter inventory with unfilled acceptance cells
+        run: |
+          legacy_revision=$(git -C tests/hputest/third_party/inline-asm rev-parse HEAD)
+          producer_revision=$(git -C tests/hputest/third_party/hpu-applications rev-parse HEAD)
+          python3 tests/hputest/scripts/export-case-inventory.py \
+            --generated tests/hputest/build/generated \
+            --legacy "tests/hputest/build/inline-asm-producer/$legacy_revision/outputs" \
+            --parameter-tool "$GITHUB_WORKSPACE/tests/hputest/build/hpu-main-cmake/$producer_revision/hpu_fixture_parameters" \
+            --output tests/hputest/build/unified/release/parameter-inventory
       - name: Upload one HPU package
         uses: actions/upload-artifact@v7
         with:

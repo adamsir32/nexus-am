@@ -144,8 +144,8 @@ def compare_trees(left, right, label):
 
 def workload_rows(release, mode):
     rows = read_tsv(release / "INDEX.tsv", WORKLOAD_FIELDS)
-    if len(rows) != 115:
-        raise ValueError(f"{mode} workloads must describe 115 canonical cases")
+    if len(rows) != 162:
+        raise ValueError(f"{mode} workloads must describe 162 canonical cases")
     seen = set()
     for row in rows:
         identity = row["case_id"]
@@ -163,10 +163,10 @@ def workload_rows(release, mode):
                     raise ValueError(f"wrong {field} extension for workload: {identity}")
     blocked = sum(row["qualifier"] == "blocked-not-issued" for row in rows)
     published = sum(bool(row["elf"]) for row in rows)
-    if (published, blocked) != (104, 11):
-        raise ValueError(f"{mode} workloads require 104 published and 11 blocked cases")
+    if (published, blocked) != (155, 7):
+        raise ValueError(f"{mode} workloads require 155 published and 7 blocked cases")
     instruction = {row["case_id"] for row in rows
-                   if row["chapter"] == "03_compute_instructions" and row["elf"]}
+                   if row["case_id"] in INSTRUCTION_IDS and row["elf"]}
     if instruction != INSTRUCTION_IDS:
         raise ValueError(f"{mode} workloads must contain the nine 03 parent cases")
     return rows
@@ -355,7 +355,7 @@ def package(workloads, silent_workloads, subtests, silent_subtests, output_root)
     try:
         silent_by_id = {row["case_id"]: row for row in quiet_workloads}
         for normal in normal_workloads:
-            if normal["chapter"] == "03_compute_instructions":
+            if normal["case_id"] in INSTRUCTION_IDS:
                 continue
             if not normal["elf"]:
                 indexes.append({
@@ -426,7 +426,7 @@ def package(workloads, silent_workloads, subtests, silent_subtests, output_root)
 
         published = sum(bool(row["elf"]) for row in indexes)
         blocked = sum(row["publish_status"] == "BLOCKED_NOT_PUBLISHED" for row in indexes)
-        if (published, blocked, len(indexes)) != (264, 11, 275):
+        if (published, blocked, len(indexes)) != (366, 7, 373):
             raise ValueError(f"unexpected unified counts: published={published} blocked={blocked} rows={len(indexes)}")
         metadata = manifests["workloads"]
         (package_root / "MANIFEST.txt").write_text(
@@ -438,21 +438,22 @@ def package(workloads, silent_workloads, subtests, silent_subtests, output_root)
             f"golden_backend={metadata['golden_backend']}\n"
             "variants=normal,silent\nnormal_log_mode=minimal\nsilent_log_mode=silent\n"
             "parent_instruction_cases_replaced=9\nsubtests=37\n"
-            "published_test_identities=132\npublished_variant_sets=264\n"
-            "blocked_index_only=11\nqualification=BUILD_READY_NOT_IT_PASS\n",
+            "published_test_identities=183\npublished_variant_sets=366\n"
+            "blocked_index_only=7\nqualification=BUILD_READY_NOT_IT_PASS\n",
             encoding="utf-8")
         (package_root / "README.md").write_text(
             "# HPU 统一测试包\n\n"
             "本包把workload与03独立subtest合并到同一棵00至07目录："
             "00冒烟、01配置/连接/数据通路、02边界/RISC-V交叉、03指令、04算子、05算法库、06应用、07性能。"
-            "03 不发布原先一个 ELF 串行执行多轮的九个父用例，只发布37个独立子项。\n\n"
+            "03的原九个父用例替换为37个独立子项，另保留9个N65536单程序用例。\n\n"
             "每个已发布测试有两种文件：普通 minimal UART 版保留原名，真正无 UART 的版本在扩展名前加 "
             "`_silent`，例如 `foo.elf` 与 `foo_silent.elf`。BIN 和反汇编 TXT 使用同一规则。\n\n"
             "普通版仍执行完整自检并输出必要的开始、最终结果和失败摘要；silent 版执行相同指令、同步、"
             "golden 与 guard 检查，但不打印，必须依靠仿真终止状态判定。"
             "构建成功不代表已经在 IT/VCS 上运行通过。\n\n"
             "`INDEX.tsv` 标明 kind、父用例、subcase、variant 和真实路径。"
-            "11个尚未接入的测试只保留索引与原因，不发布占位二进制。"
+            "7个尚未接入的测试只保留索引与原因，不发布占位二进制。"
+            "新增N65536必须配置至少512MiB RAM，HPU窗口0x90000000；07记录发令至完成的SCPU cycle。"
             "02组三项watchdog用例是预期故障测试，要求RTL包含two_core_no_fdi@ff86d9e的看门狗及故障码，每例独立复位。"
             "并行运行03子项可使用 `tools/run-subtests.py`。\n",
             encoding="utf-8")
@@ -466,7 +467,7 @@ def package(workloads, silent_workloads, subtests, silent_subtests, output_root)
             shutil.rmtree(staging)
         raise
     print(f"Unified HPU package: {output / 'release' / 'hputest'}; "
-          "132 tests x 2 variants, 11 blocked index-only")
+          "183 tests x 2 variants, 7 blocked index-only")
     return output / "release"
 
 

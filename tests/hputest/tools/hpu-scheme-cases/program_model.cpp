@@ -157,9 +157,16 @@ int main(int argc,char **argv) {
             } else if (i.mnemonic==M::kPsync) {
                 if (pc+1!=encoded.size()) throw std::runtime_error("nonterminal PSYNC");
             } else if (i.mnemonic==M::kPntt || i.mnemonic==M::kPintt) {
-                require_live(i.pdst); require_live(i.psrc1);
                 if (!q) throw std::runtime_error("missing modulus");
+#ifdef HPU_LEGACY_STG
+                require_live(i.psrc1); require_live(i.psrc2);
+                if (i.pdst != i.psrc1 && live[i.pdst]) throw std::runtime_error("STG overwrites live destination");
+                objects[i.pdst] = objects[i.psrc1]; live[i.pdst] = true;
+                stage(objects[i.pdst],objects[i.psrc2],i.idx0,q,i.mnemonic==M::kPintt);
+#else
+                require_live(i.pdst); require_live(i.psrc1);
                 stage(objects[i.pdst],objects[i.psrc1],i.idx0,q,i.mnemonic==M::kPintt);
+#endif
             } else {
                 require_live(i.psrc1);
                 if (i.imm8<0) require_live(i.psrc2);
