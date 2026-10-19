@@ -6,7 +6,7 @@
 #include <hpu/report.h>
 #include <hpu/result.h>
 #include <hpu/trace.h>
-#include <ntt_n65536.h>
+#include <ntt_n65536_perf.h>
 
 /*
  * 测试点：07_01_ntt_n65536，N=65536。
@@ -26,6 +26,14 @@ int main(void) {
     phase_mark("prepare");
     /* 拷贝本用例的密文、密钥和模表；输出预置毒值，防止漏写误通过。 */
     if (application_prepare() != 0) return case_fail(__FILE__, __LINE__);
+
+    /* 完整复用生产者参数检查；此阶段不发HPU指令，不计入性能cycle。 */
+    phase_mark("validate-program");
+    rc = hpu_validate_ntt_n65536();
+    if (rc != 0) {
+        LOG_ERROR("[HPU][PERF][PREFLIGHT-FAIL] rc=%d\n", rc);
+        return case_fail(__FILE__, __LINE__);
+    }
 
     trace_phase(TRACE_CONFIGURE);
     phase_mark("configure");
@@ -47,8 +55,8 @@ int main(void) {
 
     trace_phase(TRACE_ISSUE);
     phase_mark("issue");
-    /* 指令发射及DMA位置可从application_trace定位，不逐系数打印。 */
-    /* 计时只覆盖发令、DMA、计算及等待完成；不含准备、UART、自检。 */
+    /* 发令沿用已校验的只读参数，不执行参数检查或逐DMA trace写入。 */
+    /* 计时只覆盖发令、DMA、计算及等待完成；不含准备、预检查、UART、自检。 */
     cycle_start = perf_cycle_read();
     rc = hpu_run_ntt_n65536();
     if (rc != 0) {
@@ -72,7 +80,7 @@ int main(void) {
     trace_phase(TRACE_DONE);
     phase_mark("case-done");
     /* 两个端点及差值统一在自检之后输出；静默版仍读取cycle。 */
-    LOG_EVENT("[HPU][PERF] case=07_01_ntt_n65536 N=65536 metric=issue_to_done "
+    LOG_EVENT("[HPU][PERF] case=07_01_ntt_n65536 N=65536 metric=issue_to_done_v2 "
               "start=%lu end=%lu cycles=%lu verified=1\n",
               (unsigned long)cycle_start, (unsigned long)cycle_end,
               (unsigned long)(cycle_end-cycle_start));

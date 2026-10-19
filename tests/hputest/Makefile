@@ -102,6 +102,7 @@ verify-inline-asm: prepare-inline-asm-mm
 	@python3 scripts/test-edge-cases.py
 	@python3 scripts/test-seal-delivery.py --generated "$(HPU_GENERATED_ROOT)/application-data"
 	@python3 scripts/test-large-cases.py --generated "$(HPU_GENERATED_ROOT)"
+	@python3 scripts/test-perf-programs.py
 	@HPU_GENERATED_ROOT="$(HPU_GENERATED_ROOT)" \
 	  scripts/verify-inline-asm-encodings.sh "$(INLINE_ASM_ROOT)"
 	@python3 scripts/test-mm-delivery.py "$(HPU_GENERATED_ROOT)/inline-asm/mm/mm.c"

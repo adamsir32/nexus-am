@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""接收N65536交付；复用上游编码器和数据，不改变既有N4096导入路径。"""
+"""接收多规模交付；复用上游编码器和数据，不改变既有N4096导入路径。"""
 import argparse
 import csv
 import json
@@ -137,7 +137,7 @@ def primitives(source, root, renderer, model, commit, selected):
     b = u32((hw/"images/input_b.u32.bin").read_bytes())
     params = json.loads((source/"bconv/test_data/params.json").read_text())
     q, q1 = params["moduli"][:2]
-    require(len(a) == len(b) == N and all(v < q for v in a+b), "N65536 input geometry")
+    require(len(a) == len(b) == N and all(v < q for v in a+b), f"N{N} input geometry")
     mod = (source/"bconv/test_data/hardware/constants/mod_ctx.u32.bin").read_bytes()
     for operation in ("padd", "psub", "pmul", "pmac", "pntt", "pintt", "pmodld", "psync", "pfree"):
         if selected and operation not in selected: continue
@@ -165,10 +165,11 @@ def primitives(source, root, renderer, model, commit, selected):
             commands.append("pfree p0"); load(0, span_b); store(0, b)
         elif operation in ("pntt", "pintt"):
             direction = operation[1:]
-            twiddle = (source/direction/f"test_data/hardware/constants/twiddle/{direction}/basis_00/stage_15.u32.bin").read_bytes()
+            stage = N.bit_length() - 2
+            twiddle = (source/direction/f"test_data/hardware/constants/twiddle/{direction}/basis_00/stage_{stage:02d}.u32.bin").read_bytes()
             load(1, allocate(twiddle))
-            commands.append(f"{operation} p0, p1, 15, 0, 0")
-            store(0, stage_reference(a, u32(twiddle), q, 15, inverse=operation=="pintt"))
+            commands.append(f"{operation} p0, p1, {stage}, 0, 0")
+            store(0, stage_reference(a, u32(twiddle), q, stage, inverse=operation=="pintt"))
             commands.append("pfree p1")
         else:
             load(1, span_b)
@@ -192,10 +193,10 @@ def primitives(source, root, renderer, model, commit, selected):
             commands.append("pfree p3")
         commands.append("psync")
         metadata = dict(operation=operation, scheme="RNS primitive", q_moduli=[q,q1] if operation=="pmodld" else [q],
-                        p_moduli=[], dnum=None, stage=15 if operation in ("pntt","pintt") else None,
+                        p_moduli=[], dnum=None, stage=N.bit_length()-2 if operation in ("pntt","pintt") else None,
                         input_source="inline-asm/mm", golden_source="independent modular/stage reference",
                         legacy_commit=commit, security_level_bits=0)
-        emit(root, f"{operation}_n65536", "\n".join(commands)+"\n", image, bindings, outputs, metadata, renderer, model)
+        emit(root, f"{operation}_n{N}", "\n".join(commands)+"\n", image, bindings, outputs, metadata, renderer, model)
 
 
 def composite(source, root, renderer, model, commit, selected):
@@ -215,7 +216,7 @@ def composite(source, root, renderer, model, commit, selected):
             paths = ["constants/mod_ctx.u32.bin", "images/input.u32.bin"]
             factor = f"constants/twiddle/{operation}/basis_00/"+("pre_twist.u32.bin" if operation=="ntt" else "post_untwist_scale.u32.bin")
             if operation == "ntt": paths.append(factor)
-            paths += [f"constants/twiddle/{operation}/basis_00/stage_{i:02d}.u32.bin" for i in range(16)]
+            paths += [f"constants/twiddle/{operation}/basis_00/stage_{i:02d}.u32.bin" for i in range(N.bit_length()-1)]
             if operation == "intt": paths.append(factor)
             paths.append("images/expected.u32.bin")
             bindings = [(int(line_map[path]["line_offset"]), int(line_map[path]["line_count"])) for path in paths]
@@ -242,7 +243,7 @@ def composite(source, root, renderer, model, commit, selected):
             metadata["auto_layout"] = json.loads((package/"test_data/AUTO_LAYOUT.json").read_text())
             require(metadata["auto_layout"].get("host_preprocess") is False,
                     "full Auto requires on-HPU permutation, not CPU-preprocessed KeySwitch")
-        emit(root, f"{operation}_n65536", "\n".join(program)+"\n", image, bindings, outputs, metadata, renderer, model)
+        emit(root, f"{operation}_n{N}", "\n".join(program)+"\n", image, bindings, outputs, metadata, renderer, model)
 
 
 if __name__ == "__main__":
@@ -250,8 +251,11 @@ if __name__ == "__main__":
     for key in ("source", "destination", "renderer", "model"):
         parser.add_argument("--"+key, type=Path, required=True)
     parser.add_argument("--legacy-commit", required=True)
+    parser.add_argument("--degree", type=int, choices=(8192, 16384, 32768, 65536), default=65536)
     parser.add_argument("--only", help="逗号分隔的操作列表；用于独立交付/受影响项重验")
     args = parser.parse_args()
+    N = args.degree
+    POLY_LINES = N // 64
     selected = set(args.only.split(",")) if args.only else None
     primitives(args.source, args.destination, args.renderer, args.model, args.legacy_commit, selected)
     composite(args.source, args.destination, args.renderer, args.model, args.legacy_commit, selected)

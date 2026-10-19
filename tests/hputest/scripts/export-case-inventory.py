@@ -10,9 +10,11 @@ import re
 import struct
 import subprocess
 
+from case_catalog import application_specs
+
 ROOT = Path(__file__).resolve().parents[1]
 REPO = ROOT.parents[1]
-GROUPS = ["冒烟", "配置、连接与数据通路", "边界与CPU交叉", "基础指令", "基本/组合算子", "SEAL算法库", "完整应用", "N65536性能"]
+GROUPS = ["冒烟", "配置、连接与数据通路", "边界与CPU交叉", "基础指令", "基本/组合算子", "SEAL算法库", "完整应用", "多规模性能"]
 
 
 def table(path, delimiter="\t"):
@@ -89,6 +91,20 @@ def application(spec, generated, native, cache):
         model_verified=True,rtl_verified=False)
 
 
+def large_parameters(stem, generated):
+    directory=generated/"large-data"/stem
+    params=load(directory/"PARAMETERS.json")
+    params.update(N=params["degree"],Q=params["q_moduli"],P=params["p_moduli"],L=None,
+                  producer_commit=params["legacy_commit"],
+                  degree_source=f"N{params['degree']} producer + independent model")
+    params.update(image_bytes=(directory/"application_window.u32.bin").stat().st_size,
+                  golden_bytes=(directory/"application_golden.u32.bin").stat().st_size)
+    if params['operation']=='pmodld':
+        params.update(Q=params['q_moduli'][:1],modulus_table=params['q_moduli'],
+                      note='三个串接子操作选择q0/q1/q0；每次仅1个RNS，不是Q2密文。')
+    return params
+
+
 def legacy_parameters(case,generated,legacy):
     cid=case["case_id"]
     if cid in ("04_01_bconv_q4_to_p3_n4096","04_02_ntt_n4096","04_03_intt_n4096","04_10_legacy_auto_n4096"):
@@ -116,24 +132,26 @@ def collect(args):
     cases=table(ROOT/"cases.tsv"); schemes={r["case_id"]:r for r in table(ROOT/"scheme-cases.tsv")}
     large={r["case_id"]:r for r in table(ROOT/"large-cases.tsv")}
     perf={r["case_id"]:r for r in table(ROOT/"perf-cases.tsv")}
+    applications=application_specs()
     cache=args.output/"fixture-parameters";cache.mkdir(parents=True,exist_ok=True)
     records=[]; by_id={}
     for row in cases:
         cid=row["case_id"]
         if cid in schemes: params=application(schemes[cid],args.generated,args.parameter_tool,cache)
         elif cid in large:
-            directory=args.generated/"large-data"/large[cid]["program_stem"]
-            params=load(directory/"PARAMETERS.json")
-            params.update(N=params["degree"],Q=params["q_moduli"],P=params["p_moduli"],L=None,
-                          producer_commit=params["legacy_commit"],degree_source="N65536 producer + independent model")
-            params.update(image_bytes=(directory/"application_window.u32.bin").stat().st_size,
-                          golden_bytes=(directory/"application_golden.u32.bin").stat().st_size)
-            if params['operation']=='pmodld':
-                params.update(Q=params['q_moduli'][:1],modulus_table=params['q_moduli'],
-                              note='三个串接子操作选择q0/q1/q0；每次仅1个RNS，不是Q2密文。')
+            params=large_parameters(large[cid]["program_stem"],args.generated)
         elif cid in perf:
-            params=dict(by_id[perf[cid]["functional_case_id"]]["parameters"])
-            params.update(functional_case_id=perf[cid]["functional_case_id"],metric="SCPU cycle: first HPU issue to completion")
+            spec=perf[cid];stem=spec["program_stem"]
+            if spec["delivery"]=="application-data":
+                params=application(applications[stem],args.generated,args.parameter_tool,cache)
+            elif spec["delivery"]=="large-data":
+                params=large_parameters(stem,args.generated)
+            else:
+                raise ValueError(f"{cid}: unknown performance delivery {spec['delivery']}")
+            if params["N"]!=int(spec["degree"]):
+                raise ValueError(f"{cid}: delivered degree differs from performance catalog")
+            params.update(functional_case_id=spec["functional_case_id"] or None,
+                          metric=spec["metric"],memory_base="0x90000000",minimum_ram_bytes=536870912)
         else: params=legacy_parameters(row,args.generated,args.legacy)
         item=dict(row,parameters=params,IT_pass=None,ST_pass=None,measured_seconds=None,
                   tested_AM_revision=None,tested_RTL_revision=None)
@@ -200,11 +218,11 @@ def output(args,records,by_id):
       ["dnum","真实评估密钥digit向量长度。未使用评估密钥填不适用。legacy Auto为2；SEAL以原生密钥对象为准。"],
       ["RNS分量","一条多项式有|Q|个RNS分量；2分量密文有2×|Q|条多项式。三个算法的Q/P并不相同。"],
       ["golden","05使用inline-asm自带modified-SEAL；逐原始物理word精确比较，不能用解密近似相等掩盖reference不一致。"],
-      ["计时区间","07每个ELF一次：首条HPU发令前rdcycle，到末尾PSYNC完成且BUSY清零后rdcycle；统一在自检后打印。"],
-      ["计时不包含","镜像拷贝/cache clean、CSR初始化、golden比较、guard检查、UART打印。包含CPU发令/反压、DLOAD/DSTORE、HPU计算及完成轮询；不是纯HPU核心cycle。"],
+      ["计时区间","07每个ELF一次，metric=issue_to_done_v2：预检查通过后、首条HPU发令前rdcycle，到末尾PSYNC完成且BUSY清零后rdcycle；统一在自检后打印。"],
+      ["计时不包含","DMA参数/对象容量预检查、trace记录、镜像拷贝/cache clean、CSR初始化、golden比较、guard检查、UART打印。包含CPU发令/反压、DLOAD/DSTORE、HPU计算及完成轮询；不是纯HPU核心cycle。"],
       ["对比","HPU秒=cycles/目标SCPU频率Hz；Speedup=188服务器CPU秒/HPU秒。不能拿不同频率主机cycle直接相除；未实测不填10x。"],
       ["重复测量","07默认不串行塞多轮。建议同一ELF至少独立运行3次，记录每轮再算平均/最小/最大/波动。"],
-      ["内存","新增N65536窗口0x90000000，RAM至少512MiB；VCS使用+ram_size=536870912。软件轮询budget不等于仿真max-cycle预算。"],
+      ["内存","07的N8192/N16384/N32768/N65536及新增N65536功能用例均使用窗口0x90000000，RAM至少512MiB；VCS使用+ram_size=536870912。软件轮询budget不等于仿真max-cycle预算。"],
       ["安全参数","本交付SEALContext(sec_level_type::none)，security_level_bits=0；仅功能/性能demo，不能用于真实密文安全性声明。"],
       ["ST","System-test仍有未接入producer的占位项。ST页的对应IT编号仅作映射，不能继承IT通过标记或宣称相同执行路径。"],
       ["版本","AM源码版本="+am_revision+"；实测版本另填，不能由当前HEAD反推此前通过版本。"],
@@ -246,7 +264,7 @@ def output(args,records,by_id):
     for row in table(ROOT/'perf-cases.tsv'):
         p=by_id[row['case_id']]['parameters']
         for run in range(1,4):
-            perf.append([row['case_id'],row['functional_case_id'],run,None,65536,p.get('scheme'),len(p['Q']),len(p['P']),p.get('dnum'),
+            perf.append([row['case_id'],row['functional_case_id'],run,None,p['N'],p.get('scheme'),len(p['Q']),len(p['P']),p.get('dnum'),
                          None,None,None,None,None,None,None,None,None,None])
     ws=sheet('07性能逐轮记录',['用例编号','对应功能用例','独立轮次','功能通过','N','方案','Q-RNS数','P-RNS数','dnum',
              'cycle_start','cycle_end','cycle_delta','SCPU频率Hz','HPU秒','CPU188秒','Speedup','AM/RTL版本','CPU型号/编译参数','日志位置'],perf,(4,))

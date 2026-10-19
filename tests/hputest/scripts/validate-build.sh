@@ -84,11 +84,11 @@ while IFS=$'\t' read -r group qualifier case_id source_path; do
   fi
 done < <(tail -n +2 "$roster")
 
-if [[ ${#roster_ids[@]} -ne 162 || ${roster_group_counts[core]} -ne 58 || \
-      ${roster_group_counts[transform]} -ne 11 || \
-      ${roster_group_counts[fhe]} -ne 93 || $roster_migrated -ne 151 || \
-      $roster_migrated_software -ne 144 || $roster_migrated_blocked -ne 7 || \
-      ${roster_qualifier_counts[software-self-check]} -ne 152 || \
+if [[ ${#roster_ids[@]} -ne 228 || ${roster_group_counts[core]} -ne 58 || \
+      ${roster_group_counts[transform]} -ne 20 || \
+      ${roster_group_counts[fhe]} -ne 150 || $roster_migrated -ne 217 || \
+      $roster_migrated_software -ne 210 || $roster_migrated_blocked -ne 7 || \
+      ${roster_qualifier_counts[software-self-check]} -ne 218 || \
       ${roster_qualifier_counts[blocked-not-issued]} -ne 7 || \
       ${roster_qualifier_counts[waveform-hold]} -ne 1 || \
       ${roster_qualifier_counts[termination-probe-pass]} -ne 1 || \
@@ -441,12 +441,24 @@ while IFS=$'\t' read -r case_id stem scheme degree role source; do
                   PROGRAM_MODEL.log AM_ADAPTATION.json; do
     test -s "$delivery/$required" || { printf 'ERROR: missing %s/%s\n' "$stem" "$required" >&2; exit 2; }
   done
-  if [[ $stem == seal_* ]]; then
+  if [[ $source == src/05_algorithm_library/* || $stem == seal_* ]]; then
     test -s "$delivery/SEAL_ORACLE.json"
     python3 -c 'import json,sys; r=json.load(open(sys.argv[1])); assert r["status"] == "PASS" and r["producer_commit"] == sys.argv[2] and r["comparison"] == "all raw physical words" and r["raw_word_mismatches"] == 0' \
       "$delivery/SEAL_ORACLE.json" "$manifest_hpu_applications"
   fi
-done < "$test_root/scheme-cases.tsv"
+done < <(python3 "$script_dir/case_catalog.py")
+# functional_case_id在新增规模中可为空；先移除此列，避免Bash合并相邻TAB使字段错位。
+while IFS=$'\t' read -r case_id stem delivery degree source metric; do
+  [[ $case_id == case_id ]] && continue
+  directory="$artifact_root/provenance/$delivery/$stem"
+  for required in "${stem}_perf.c" "${stem}_perf.h" PERF_ADAPTATION.json; do
+    test -s "$directory/$required" || {
+      printf 'ERROR: missing performance delivery %s/%s\n' "$stem" "$required" >&2; exit 2;
+    }
+  done
+  python3 -c 'import json,sys; r=json.load(open(sys.argv[1])); assert r["schema_version"] == 1 and r["metric"] == "issue_to_done_v2" and r["program_stem"] == sys.argv[2] and r["instruction_words_unchanged"] is True and r["preflight_emits_hpu"] is False and r["timed_parameter_checks"] is False and r["timed_trace_writes"] is False' \
+    "$directory/PERF_ADAPTATION.json" "$stem"
+done < <(cut -f1,3- "$test_root/perf-cases.tsv")
 for required in encoder_words.tsv RESOLVED_DMA_SPANS.csv DELIVERY_SUMMARY.md \
                 mm.c mm.h mm.asm mm.inst32 mm.cmd26 dma_relocation_manifest.csv \
                 opcode_map.csv upstream/mm.c upstream/mm.h upstream/mm.asm \
@@ -1030,6 +1042,7 @@ for elf in "${elfs[@]}"; do
     [[ $(grep -Ec 'jal[[:space:]].*<perf_cycle_read>' "$txt") -eq 2 ]] || {
       echo "ERROR: expected two cycle endpoint calls: $name" >&2; exit 2;
     }
+    python3 "$script_dir/verify-perf-elf.py" --disassembly "$txt" --operator "$operator"
   fi
   if [[ -n $operator ]]; then
     python3 "$script_dir/verify-operator-elf.py" \

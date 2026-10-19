@@ -93,11 +93,12 @@ PERF_STEM := $(shell awk -F '\t' '$$1 == "$(CASE_ID)" {print $$3}' $(TEST_ROOT)/
 ifneq ($(strip $(PERF_STEM)),)
 APPLICATION_STEM := $(PERF_STEM)
 APPLICATION_DELIVERY := $(shell awk -F '\t' '$$1 == "$(CASE_ID)" {print $$4}' $(TEST_ROOT)/perf-cases.tsv)
+CFLAGS += -DHPU_CASE_MEM_BASE=0x90000000ULL
 ifeq ($(HPU_LOG_LEVEL),2)
 $(error performance endpoints exclude UART; use HPU_LOG_LEVEL=0 or 1)
 endif
 endif
-ifneq ($(filter 03_%_n65536 04_%_n65536 05_%_n65536 07_%_n65536,$(CASE_ID)),)
+ifneq ($(filter 03_%_n65536 04_%_n65536 05_%_n65536,$(CASE_ID)),)
 CFLAGS += -DHPU_CASE_MEM_BASE=0x90000000ULL
 endif
 ifeq ($(strip $(APPLICATION_STEM)),)
@@ -148,7 +149,14 @@ $(error missing $(CASE_ID) application delivery; run 'make prepare-inline-asm-mm
 endif
 SRCS += $(TEST_ROOT)/src/common/it_application.c
 SRCS += $(TEST_ROOT)/src/common/it_application_fixture.S
+ifneq ($(strip $(PERF_STEM)),)
+ifeq ($(wildcard $(APPLICATION_DATA)/$(APPLICATION_STEM)_perf.h),)
+$(error missing preflight/issue adapter; run scripts/prepare-perf-programs.py --generated $(HPU_GENERATED_ROOT))
+endif
+SRCS += $(APPLICATION_DATA)/$(APPLICATION_STEM)_perf.c
+else
 SRCS += $(APPLICATION_DATA)/$(APPLICATION_STEM).c
+endif
 INC_DIR += $(APPLICATION_DATA)
 ASFLAGS += -Wa,-I$(APPLICATION_DATA)
 $(HPU_DST_DIR)/$(TEST_ROOT)/src/common/it_application_fixture.o: \

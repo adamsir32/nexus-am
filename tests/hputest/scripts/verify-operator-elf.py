@@ -8,11 +8,13 @@ from pathlib import Path
 import re
 import struct
 import subprocess
+from case_catalog import application_specs, rows
 
-with (Path(__file__).resolve().parents[1] / "scheme-cases.tsv").open() as stream:
-    SCHEME_PROGRAMS = {row["program_stem"] for row in csv.DictReader(stream, delimiter="\t")}
+SCHEME_PROGRAMS = set(application_specs())
 with (Path(__file__).resolve().parents[1] / "large-cases.tsv").open() as stream:
     LARGE_PROGRAMS = {row["program_stem"] for row in csv.DictReader(stream, delimiter="\t")}
+PERF_PROGRAMS = {row["program_stem"] for row in rows("perf-cases.tsv")}
+LARGE_PROGRAMS.update(row["program_stem"] for row in rows("perf-cases.tsv") if row["delivery"] == "large-data")
 
 
 def symbol_bytes(elf, symbol):
@@ -110,12 +112,12 @@ def verify(delivery, elf, disassembly, operator):
         listing = subprocess.check_output(
             [os.environ.get("CROSS_COMPILE", "riscv64-linux-gnu-") + "nm", str(elf)], text=True)
         end = re.search(r"^([0-9a-fA-F]+)\s+\w\s+_end$", listing, re.M)
-        large = operator.endswith("_n65536")
+        large = operator.endswith("_n65536") or operator in PERF_PROGRAMS
         memory_base = 0x90000000 if large else 0x87000000
         if not end or int(end[1], 16) >= memory_base:
             raise ValueError("application ELF/heap start overlaps the HPU DDR window")
         if large and memory_base + (delivery / "application_window.u32.bin").stat().st_size > 0xA0000000:
-            raise ValueError("N65536 window and guard exceed the 512MiB RAM contract")
+            raise ValueError("large/performance window and guard exceed the 512MiB RAM contract")
     for symbol, filename in fixtures:
         if symbol_bytes(elf, symbol) != (delivery / filename).read_bytes():
             raise ValueError(f"{operator}: linked {symbol} differs from validated delivery")

@@ -180,6 +180,9 @@ jobs:
         run: |
           legacy_revision=$(git -C tests/hputest/third_party/inline-asm rev-parse HEAD)
           producer_revision=$(git -C tests/hputest/third_party/hpu-applications rev-parse HEAD)
+          python3 tests/hputest/scripts/test-inventory-perf.py \
+            --generated tests/hputest/build/generated \
+            --parameter-tool "$GITHUB_WORKSPACE/tests/hputest/build/hpu-main-cmake/$producer_revision/hpu_fixture_parameters"
           python3 tests/hputest/scripts/export-case-inventory.py \
             --generated tests/hputest/build/generated \
             --legacy "tests/hputest/build/inline-asm-producer/$legacy_revision/outputs" \

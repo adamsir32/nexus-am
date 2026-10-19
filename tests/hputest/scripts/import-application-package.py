@@ -11,12 +11,12 @@ import subprocess
 import tempfile
 
 from program_adaptation import adapt_bfv_image, preserve_ckks_inputs, coefficients_to_physical
+from case_catalog import application_specs
 
 ROOT = Path(__file__).resolve().parents[1]
 GUARD_LINES = 64
 WORDS_PER_LINE = 64
-with (ROOT / "scheme-cases.tsv").open() as stream:
-    CASE_SPECS = {r["program_stem"]: r for r in csv.DictReader(stream, delimiter="\t")}
+CASE_SPECS = application_specs()
 
 
 def require(ok, message):
@@ -52,7 +52,7 @@ def package_files(source):
 
 
 def validate_seal(source, spec, producer_commit):
-    if not spec["source"].startswith("src/05_algorithm_library/"):
+    if not (spec["source"].startswith("src/05_algorithm_library/") or spec["program_stem"].startswith("seal_")):
         return None
     report = load_json(source.with_name(source.name + ".seal.json"))
     api = {"hadd": "add", "hmul": "multiply+relinearize", "reline": "relinearize",
@@ -298,7 +298,7 @@ def import_package(source, destination, validator, producer_commit, encoder, pro
                       "rounding_source": "inline-asm/native" if spec["scheme"] == "ckks" else "scheme-native",
                       "instruction_words_source": "inline-asm/native",
                       "program_model_matches_seal": True, "rtl_verified": False}
-        if spec["source"].startswith("src/05_algorithm_library/"):
+        if spec["source"].startswith("src/05_algorithm_library/") or stem.startswith("seal_"):
             sidecar = source.with_name(source.name + ".seal.json")
             adaptation["seal_oracle"] = load_json(sidecar)
             shutil.copy2(sidecar, root / "SEAL_ORACLE.json")

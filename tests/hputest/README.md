@@ -7,26 +7,28 @@
 数字开头是合法文件名；C函数、变量和上游producer接口名不因此改成数字开头。
 
 04只保留基本/组合算子；05统一放算法库接口，包含45项modified-SEAL规范用例（N128/N4096/N65536）、7项不同参数回归和2项未接入记录。
-N65536新增范围、07计时口径、内存要求及CPU复现方法见[N65536功能与性能交付](docs/N65536_PERFORMANCE.md)。
+07按性能规模组织：N65536、N8192、N16384、N32768各22项，共88项；每个规模包含7项基本/组合算子和15项三算法库操作。
+05的54项包含不同规模、特殊参数回归和未接入记录，因此与原来只有一个规模的07（22项）不能直接比较数量。
+05/07的完整分工、编号、计时口径、内存要求及CPU复现方法见[功能与多规模性能交付](docs/N65536_PERFORMANCE.md)。
 原02数据通路和原08连接测试已按验收目标分到01/02，不再保留独立08组。
 Poseidon独立保存在`experiments/poseidon/`，不进入默认构建或下载包。
 覆盖范围、旋转约定和构建说明见
 [SEAL_LIBRARY.md](docs/SEAL_LIBRARY.md)。
 
 `hputest` is the canonical Nexus-AM source tree for HPU bring-up and IT
-testcases.  It contains the eleven bring-up/return probes plus the 151 subsequent
+testcases.  It contains the eleven bring-up/return probes plus the 217 subsequent
 IT cases.  Generated ELF, BIN, TXT, object files, and archives are never
 committed.  GitHub Actions builds them as short-lived downloadable artifacts.
 
 2026-10-04 main v1更新、三算法差异、CMB004/CMB012修复及精度测量见
-[SCHEME_DELIVERY_V1.md](docs/SCHEME_DELIVERY_V1.md)。当前162项中152项软件自检、
+[SCHEME_DELIVERY_V1.md](docs/SCHEME_DELIVERY_V1.md)。当前228项中218项软件自检、
 7项未接入、1项波形hold及2项终止探针；下载包保留普通/静默版本。
 `scheme-cases.tsv`明确算法/操作/规模；`case-aliases.tsv`把旧名称直接映射到新名称，
 `case-migration.tsv`保留本次115个父用例和37个子项的原始路径、资格与新路径。
 `case-numbering.tsv`记录补编号前后的152项对应关系；每组跨子目录连续编号，编号不随字母排序变化。
 
 本轮按 v2 测试点更新后的实际覆盖、各指令轮次和未完成项见
-[V2_COVERAGE.md](docs/V2_COVERAGE.md)。该文档记录原规模覆盖，新增N65536见上方独立说明；
+[V2_COVERAGE.md](docs/V2_COVERAGE.md)。该文档记录原规模覆盖，新增大规模功能和多规模性能用例见上方独立说明；
 软件自检不等于整个测试点或IT验证已通过。00冒烟流程和数据不变，日志使用统一编译开关。
 
 **当前默认是少打印版**，不再打印成功系数、每轮阶段和DMA计划；同一个
@@ -66,11 +68,15 @@ src/common/
 
 src/01_configuration_and_data_paths/ # 8 normal configuration/connection/data-path cases
 src/02_boundaries_and_cpu_interaction/ # 22 boundary/interaction cases (19 active, 3 pending)
-src/03_compute_instructions/   # 9 migrated IT cases
-src/04_composite_instruction_sequences/ # 11 basic/operator-chain cases
-src/05_algorithm_library/       # 30 modified-SEAL API + 7 parameter regressions + 2 pending
+src/03_compute_instructions/   # 9 original parents + 9 N65536 single-program cases
+src/04_composite_instruction_sequences/ # 18 basic/operator-chain cases (17 active, 1 pending)
+src/05_algorithm_library/       # 45 modified-SEAL API + 7 parameter regressions + 2 pending
 src/06_full_application/       # 9 migrated IT cases (8 active, 1 blocked)
-src/07_performance/            # 6 performance entries (2 active, 4 pending)
+src/07_performance/            # 88 timed, self-checking cases; one program per ELF
+├── 01_n65536/                # 07_01..07_22
+├── 02_n8192/                 # 07_23..07_44
+├── 03_n16384/                # 07_45..07_66
+└── 04_n32768/                # 07_67..07_88
 
 include/hpu/steps.h            # short, one-step public testcase API
 include/hpu/result.h           # UART START/PASS/FAIL reporting helpers
@@ -315,8 +321,8 @@ window.  DLOAD/DSTORE explicitly use `x10=line offset` and `x11=line count`.
 
 ## Migrated IT suites and artifact groups
 
-The 49 migrated sources retain the original hierarchy and testcase IDs from
-`IT-SCPU-TestCases`.  Files below `src/common/` and `runtime/` are deliberately
+Migrated sources retain their `IT-SCPU-TestCases` provenance through the
+alias and migration tables.  Files below `src/common/` and `runtime/` are deliberately
 excluded from testcase discovery.  The tracked `cases.tsv` file is the
 canonical roster: deleting, renaming, duplicating, or silently reclassifying a
 case makes the build fail. Internal build groups remain available for local
@@ -339,10 +345,12 @@ of informal testcase numbers is not authoritative.
 | `transform` | PNTT, PINTT, BConv, NTT/INTT sequences, and their performance cases |
 | `fhe` | KeySwitch, ciphertext multiplication, relinearization, other algorithm cases, and the application case |
 
-93个后续源码具有软件自检。03的PNTT/PINTT已补齐；04包含BConv、整体NTT/INTT、
+03的PNTT/PINTT已补齐；04包含BConv、整体NTT/INTT、
 LEGACY Auto与三算法KeySwitch；05包含HADD/HMUL/Reline/降层/旋转，06包含八个完整应用。
-PERF002/003分别复用CMB002/003的N4096/Q0交付，逐轮比较CPU参考NTT/INTT与HPU结果并报告cycle。
-实际算法、参数和程序对应见`scheme-cases.tsv`。其它11项未接入，原因逐项记录于
+07覆盖四种规模的22项操作；先完成参数预检查，再统计发令到完成的`issue_to_done_v2`，逐word自检后打印cycle。
+计时程序保留producer的原始HPU指令字，但计时区间不再执行参数检查和逐DMA trace写入；03/04/05继续使用原检查入口。
+原PERF002/003等6个旧性能入口归档于`archive/performance_before_n65536/`，不计入当前07。
+实际算法、参数和程序对应见`scheme-cases.tsv`、`perf-cases.tsv`。当前7项未接入，原因逐项记录于
 [blocked.tsv](blocked.tsv)，其中既有缺外部接口，也有AM接收工作未实现，不能笼统归因于
 上游“没有数据”。旧CMB_009/010/012/013/014已归05，modified-SEAL接口与SEAL参数回归分别注明参考机制；
 基础PADD/PMUL覆盖仍保留在03-001/003，具体旧ID映射见`layer-migration.tsv`。
@@ -363,7 +371,8 @@ Initialize the pinned producer source after cloning Nexus-AM:
 
 ```bash
 git submodule update --init --recursive \
-  tests/hputest/third_party/inline-asm tests/hputest/third_party/hpu-seal
+  tests/hputest/third_party/inline-asm tests/hputest/third_party/hpu-seal \
+  tests/hputest/third_party/hpu-applications
 ```
 
 Then build normally.  `make` generates and imports the selected MM delivery,
@@ -392,7 +401,7 @@ make -C tests/hputest group GROUP=fhe
 ```
 
 Local output is ignored under `tests/hputest/build/`.  A full build produces
-104 ELF/BIN/TXT sets from 115 canonical entries, partitioned below `artifact/core/`,
+221 ELF/BIN/TXT sets from 228 canonical entries, partitioned below `artifact/core/`,
 `artifact/transform/`, and `artifact/fhe/`.  It also produces
 `MANIFEST.txt`, `CASE_MANIFEST.tsv`, `NOT_QUALIFIED.tsv`, and a compact
 `provenance/inline-asm-mm/` directory containing the selected producer
@@ -409,9 +418,9 @@ make -C tests/hputest unified
 ```
 
 GitHub Actions在push/PR/手动运行中上传唯一的HPU产物`nexus-am-hpu-tests`，
-内容来自`build/unified/release/hputest/`。包内按00至08章节组织；03以37个独立subtest
-替换原九个串行整例，其余章节保留workload。每个已发布测试同时提供普通文件和`_silent`文件，
-共132个已发布测试身份、264组ELF/BIN/TXT；11项未就绪只保留索引。`INDEX.tsv`列出模式和真实路径。
+内容来自`build/unified/release/hputest/`。包内按00至07章节组织；03以37个独立subtest
+替换原九个串行整例，新增N65536及其余章节保留单用例入口。每个已发布测试同时提供普通文件和`_silent`文件，
+共249个已发布测试身份、498组ELF/BIN/TXT；7项未就绪只保留索引。`INDEX.tsv`列出模式和真实路径。
 02组三项看门狗用例要求RTL包含`IT-SCPU-RTL/two_core_no_fdi@ff86d9e`的核侧握手超时及故障码，
 详见[边缘快测说明](docs/EDGE_SMOKE.md)；不适用于尚未合入该机制的旧main交付。
 产物保留7天，不提交二进制到Git。

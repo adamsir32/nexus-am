@@ -7,7 +7,7 @@ from pathlib import Path
 import re
 import statistics
 
-PATTERN = re.compile(r"\[HPU\]\[PERF\] case=(\w+) N=65536 metric=issue_to_done start=(\d+) end=(\d+) cycles=(\d+) verified=1$")
+PATTERN = re.compile(r"\[HPU\]\[PERF\] case=(\w+) N=(8192|16384|32768|65536) metric=issue_to_done_v2 start=(\d+) end=(\d+) cycles=(\d+) verified=1$")
 
 
 def parse(logs, allowed):
@@ -17,10 +17,12 @@ def parse(logs, allowed):
             if '[HPU][PERF] case=' not in line: continue
             match=PATTERN.search(line.strip())
             if not match: raise ValueError(f'{path}:{line_number}: invalid/incomplete performance record')
-            name,start,end,cycles=match.groups();start,end,cycles=map(int,(start,end,cycles))
-            if name not in allowed or any(value<0 or value>=1<<64 for value in (start,end,cycles)) or not cycles or ((end-start)&((1<<64)-1))!=cycles:
+            name,degree,start,end,cycles=match.groups();start,end,cycles=map(int,(start,end,cycles))
+            if name not in allowed or not name.endswith('_n'+degree) or \
+                    isinstance(allowed, dict) and str(allowed[name]) != degree or \
+                    any(value<0 or value>=1<<64 for value in (start,end,cycles)) or not cycles or ((end-start)&((1<<64)-1))!=cycles:
                 raise ValueError(f'{path}:{line_number}: unknown case or inconsistent cycle endpoints')
-            samples.append(dict(case_id=name,start=start,end=end,cycles=cycles,log=str(path),line=line_number))
+            samples.append(dict(case_id=name,degree=int(degree),metric='issue_to_done_v2',start=start,end=end,cycles=cycles,log=str(path),line=line_number))
     if not samples: raise ValueError('no verified 07 performance records')
     return samples
 
@@ -37,7 +39,7 @@ def main():
     catalog=root/'perf-cases.tsv'
     if not catalog.exists(): catalog=root/'provenance/testplan/perf-cases.tsv'
     with catalog.open() as stream:
-        allowed={r['case_id'] for r in csv.DictReader(stream,delimiter='\t')}
+        allowed={r['case_id']: r['degree'] for r in csv.DictReader(stream,delimiter='\t')}
     samples=parse(args.logs,allowed);groups=defaultdict(list)
     for row in samples: groups[row['case_id']].append(row['cycles'])
     args.output.mkdir(parents=True,exist_ok=True)
@@ -46,10 +48,10 @@ def main():
         writer.writeheader();writer.writerows(dict(row,revision=args.revision) for row in samples)
     with (args.output/'summary.csv').open('w',newline='') as stream:
         writer=csv.writer(stream)
-        writer.writerow(['case_id','rounds','average_cycles','minimum_cycles','maximum_cycles','spread_cycles','SCPU_Hz','average_seconds','revision'])
+        writer.writerow(['case_id','degree','metric','rounds','average_cycles','minimum_cycles','maximum_cycles','spread_cycles','SCPU_Hz','average_seconds','revision'])
         for name,values in sorted(groups.items()):
             average=statistics.mean(values)
-            writer.writerow([name,len(values),average,min(values),max(values),max(values)-min(values),
+            writer.writerow([name,allowed[name],'issue_to_done_v2',len(values),average,min(values),max(values),max(values)-min(values),
                              args.cpu_hz,average/args.cpu_hz if args.cpu_hz else None,args.revision])
     print(f'{len(samples)} verified samples, {len(groups)} cases; no CPU speedup is inferred')
 

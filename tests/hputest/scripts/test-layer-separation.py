@@ -22,7 +22,7 @@ class LayerTests(unittest.TestCase):
         current = {r["case_id"]: r for r in cases}
         current.update({r["case_id"]: r for r in rows("archived-cases.tsv")})
         current.update({r["subtest_id"]: dict(r, qualifier="software-self-check") for r in children})
-        self.assertEqual((len(cases), len(children), len(migration)), (162, 37, 304))
+        self.assertEqual((len(cases), len(children), len(migration)), (228, 37, 304))
         self.assertTrue({r["case_id"] for r in migration} <= set(current))
         self.assertEqual(len({r["previous_case_id"] for r in migration}), 304)
         self.assertEqual(sum(r["qualifier"] == "blocked-not-issued" for r in cases), 7)

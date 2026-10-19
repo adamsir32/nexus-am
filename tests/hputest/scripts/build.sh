@@ -115,10 +115,10 @@ while IFS=$'\t' read -r group qualifier case_id source_path; do
   fi
 done < "$roster"
 
-if [[ ${#roster_ids[@]} -ne 162 || ${roster_group_counts[core]} -ne 58 || \
-      ${roster_group_counts[transform]} -ne 11 || \
-      ${roster_group_counts[fhe]} -ne 93 || $roster_migrated -ne 151 || \
-      $roster_migrated_software -ne 144 || $roster_migrated_blocked -ne 7 ]]; then
+if [[ ${#roster_ids[@]} -ne 228 || ${roster_group_counts[core]} -ne 58 || \
+      ${roster_group_counts[transform]} -ne 20 || \
+      ${roster_group_counts[fhe]} -ne 150 || $roster_migrated -ne 217 || \
+      $roster_migrated_software -ne 210 || $roster_migrated_blocked -ne 7 ]]; then
   printf 'ERROR: canonical testcase roster counts changed unexpectedly\n' >&2
   exit 2
 fi
@@ -297,7 +297,7 @@ while IFS=$'\t' read -r case_id stem scheme degree role source; do
     "$generated_root/application-data/$stem/producer_commit.txt"
   # 只接收当前清单：旧缓存中的Poseidon或已去重交付不能混入默认下载包。
   cp -a "$generated_root/application-data/$stem" "$artifact_root/provenance/application-data/"
-done < "$test_root/scheme-cases.tsv"
+done < <(python3 "$script_dir/case_catalog.py")
 cp -aL "$generated_root/large-data" "$artifact_root/provenance/large-data"
 mkdir -p "$artifact_root/provenance/testplan/docs"
 cp "$test_root/docs/V2_COVERAGE.md" "$artifact_root/provenance/testplan/docs/"
@@ -328,10 +328,10 @@ if [[ -n $case_filter ]]; then
 else
   selection=$case_group
   case "$case_group" in
-    all) expected_cases=162 ;;
+    all) expected_cases=228 ;;
     core) expected_cases=58 ;;
-    transform) expected_cases=11 ;;
-    fhe) expected_cases=93 ;;
+    transform) expected_cases=20 ;;
+    fhe) expected_cases=150 ;;
     diagnostic) expected_cases=35 ;;
   esac
 fi

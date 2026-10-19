@@ -288,38 +288,47 @@ while IFS=$'\t' read -r case_id stem scheme degree role source; do
     "$hpu_main_build/hpu_fixture_parameters" "$scheme" "$role" "$degree" "$parameter_profile" \
       > "$generated_root/application-data/$stem/FIXTURE_PARAMETERS.json"
   fi
-done < "$test_root/scheme-cases.tsv"
-# N65536原语和基础算子使用同一main编码器；不改变原N4096交付或其gitlink。
+done < <(python3 "$script_dir/case_catalog.py")
+# 多规模算子共用main编码器和独立golden；N65536同时保留原03功能交付。
 large_generation=$(mktemp -d "$package_parent/large.XXXXXX")
-(
-  cd "$large_generation"
-  "$hpu_main_build/inline-asm/inline_asm_codegen" both --config "$test_root/config/n65536.conf"
-  "$hpu_main_build/inline-asm/test/encode/inline_asm_encode_outputs" --config "$test_root/config/n65536.conf"
-  "$hpu_main_build/inline-asm/test/reference/hpu_reference_vectors" \
-    outputs/ciphertext_multiply/test_data outputs --config "$test_root/config/n65536.conf"
-)
 large_delivery="$large_generation/delivery"
-python3 "$script_dir/prepare-large-data.py" --source "$large_generation/outputs" \
-  --destination "$large_delivery" --renderer "$hpu_main_build/hpu_render_program" \
-  --model "$hpu_main_build/hpu_program_model" --legacy-commit "$hpu_applications_commit" \
-  --only padd,psub,pmul,pmac,pntt,pintt,pmodld,psync,pfree,ntt,intt,bconv
-legacy_large=$(mktemp -d "$package_parent/large-auto.XXXXXX")
-(
-  cd "$legacy_large"
-  "$cmake_build/inline_asm_codegen" both --config "$test_root/config/n65536-legacy-auto.conf"
-  "$cmake_build/test/encode/inline_asm_encode_outputs" --config "$test_root/config/n65536-legacy-auto.conf"
-  "$cmake_build/test/reference/hpu_reference_vectors" outputs/ciphertext_multiply/test_data outputs \
-    --config "$test_root/config/n65536-legacy-auto.conf"
-)
-python3 "$script_dir/prepare-large-data.py" --source "$legacy_large/outputs" \
-  --destination "$large_delivery" --renderer "$hpu_main_build/hpu_render_legacy_program" \
-  --model "$hpu_main_build/hpu_legacy_program_model" --legacy-commit "$producer_commit" --only auto
+for degree in 65536 8192 16384 32768; do
+  main_generation="$large_generation/n$degree"
+  mkdir -p "$main_generation"
+  (
+    cd "$main_generation"
+    "$hpu_main_build/inline-asm/inline_asm_codegen" both --config "$test_root/config/n$degree.conf"
+    "$hpu_main_build/inline-asm/test/encode/inline_asm_encode_outputs" --config "$test_root/config/n$degree.conf"
+    "$hpu_main_build/inline-asm/test/reference/hpu_reference_vectors" \
+      outputs/ciphertext_multiply/test_data outputs --config "$test_root/config/n$degree.conf"
+  )
+  operators=ntt,intt,bconv
+  if [[ $degree == 65536 ]]; then operators=padd,psub,pmul,pmac,pntt,pintt,pmodld,psync,pfree,$operators; fi
+  python3 "$script_dir/prepare-large-data.py" --source "$main_generation/outputs" \
+    --destination "$large_delivery" --renderer "$hpu_main_build/hpu_render_program" \
+    --model "$hpu_main_build/hpu_program_model" --legacy-commit "$hpu_applications_commit" \
+    --degree "$degree" --only "$operators"
+  legacy_large="$large_generation/legacy-n$degree"
+  mkdir -p "$legacy_large"
+  (
+    cd "$legacy_large"
+    "$cmake_build/inline_asm_codegen" both --config "$test_root/config/n$degree-legacy-auto.conf"
+    "$cmake_build/test/encode/inline_asm_encode_outputs" --config "$test_root/config/n$degree-legacy-auto.conf"
+    "$cmake_build/test/reference/hpu_reference_vectors" outputs/ciphertext_multiply/test_data outputs \
+      --config "$test_root/config/n$degree-legacy-auto.conf"
+  )
+  python3 "$script_dir/prepare-large-data.py" --source "$legacy_large/outputs" \
+    --destination "$large_delivery" --renderer "$hpu_main_build/hpu_render_legacy_program" \
+    --model "$hpu_main_build/hpu_legacy_program_model" --legacy-commit "$producer_commit" \
+    --degree "$degree" --only auto
+done
 # 只切换本次生成目录的链接；既有交付留在其generation目录，便于回查。
 if [[ -e $generated_root/large-data && ! -L $generated_root/large-data ]]; then
   echo 'ERROR: large-data is not a managed generation symlink' >&2
   exit 2
 fi
 ln -sfn "$large_delivery" "$generated_root/large-data"
+python3 "$script_dir/prepare-perf-programs.py" --generated "$generated_root"
 printf '%s\n' "$package_root" > "$generated_root/application-data/PRODUCER_ROOT"
 printf '%s\n' "$hpu_applications_commit" > "$generated_root/application-data/PRODUCER_COMMIT"
 echo '[hputest] legacy primitive/control + main scheme/application import PASS'
