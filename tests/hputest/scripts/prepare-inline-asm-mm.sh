@@ -253,7 +253,7 @@ cmake -S "$test_root/tools/hpu-scheme-cases" -B "$hpu_main_build" \
   -DLEGACY_INLINE_ASM_ROOT="$inline_asm_root" \
   -DHPU_APPLICATION_OUTPUT_ROOT="$package_root"
 main_targets=(hpu_scheme_case_generator hpu_fixture_parameters hpu_cpu_benchmark \
-  hpu_program_model hpu_program_model_test hpu_encode_program hpu_render_program \
+  hpu_validate_package hpu_program_model hpu_program_model_test hpu_encode_program hpu_render_program \
   hpu_render_legacy_program hpu_legacy_program_model \
   inline_asm_codegen inline_asm_encode_outputs hpu_reference_vectors)
 if [[ $build_scope == all || $build_scope == functional ]]; then
@@ -265,6 +265,10 @@ HPU_DELIVERY_COMMIT="$hpu_applications_commit" \
 HPU_DELIVERY_WORKTREE_STATE=clean-at-configure \
   cmake --build "$hpu_main_build" --parallel "$jobs" --target \
     "${main_targets[@]}"
+if [[ ! -x $hpu_main_build/inline-asm/hpu_validate_package ]]; then
+  echo 'ERROR: main package validator was not built' >&2
+  exit 2
+fi
 # 直接使用上游回归：N128/N4096、多层Q与两个accumulator的half-P绑定。
 if [[ $build_scope == all || $build_scope == functional ]]; then
 for native_test in hpu_ckks_multilevel_codegen_test hpu_seal_ckks_application_image_test \
