@@ -12,6 +12,7 @@ struct workload_progress {
     uint32_t phase, status, irq, fault, errors;
     uint32_t first_line, first_word, actual, expected;
     uint64_t wait_cycles;
+    uint64_t cycle_start, cycle_end;
 };
 extern volatile struct workload_progress workload_trace;
 extern const uint32_t initial_image[IMAGE_LINES * LINE_WORDS];

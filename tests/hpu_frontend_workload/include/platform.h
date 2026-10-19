@@ -4,7 +4,9 @@
 #include <stddef.h>
 #include <stdint.h>
 
+#ifndef MEM_BASE
 #define MEM_BASE UINT64_C(0x87000000)
+#endif
 #define LINE_BYTES 256U
 #define LINE_WORDS 64U
 #define CSR_BASE UINT64_C(0x08000000)

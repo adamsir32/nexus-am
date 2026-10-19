@@ -1,0 +1,53 @@
+name: build 1019 experimental HPU operator performance
+
+on:
+  push:
+    branches: [1019-operator-resource-perf]
+    paths:
+      - 'tests/hpu_frontend_workload/**'
+      - '.github/workflows/build-hpu-operator-perf.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  operator-performance:
+    name: 1019 N${{ matrix.degree }} ${{ matrix.profile }} ${{ matrix.scheme }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 90
+    strategy:
+      fail-fast: false
+      max-parallel: 4
+      matrix:
+        degree: [4096, 8192]
+        profile: [baseline, l16]
+        scheme: [ckks, bfv, bgv]
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - name: Initialize only the experimental inline-asm dependency
+        run: git submodule update --init tests/hpu_frontend_workload/third_party/inline-asm
+      - name: Install build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y cmake g++ gcc-riscv64-linux-gnu binutils-riscv64-linux-gnu python3
+      - name: Check isolated receiver and runtime
+        run: make -C tests/hpu_frontend_workload test
+      - name: Build and validate one experimental operator shard
+        run: |
+          df -h /tmp "$GITHUB_WORKSPACE"
+          python3 tests/hpu_frontend_workload/scripts/build_performance.py \
+            --am-home "$GITHUB_WORKSPACE" \
+            --producer "$GITHUB_WORKSPACE/tests/hpu_frontend_workload/third_party/inline-asm" \
+            --output "$GITHUB_WORKSPACE/tests/hpu_frontend_workload/build/operator-perf" \
+            --degree "${{ matrix.degree }}" --profile "${{ matrix.profile }}" \
+            --scheme "${{ matrix.scheme }}" --mode both --jobs 2
+      - name: Upload only the selected experimental package
+        uses: actions/upload-artifact@v7
+        with:
+          name: nexus-am-1019-operator-perf-n${{ matrix.degree }}-${{ matrix.profile }}-${{ matrix.scheme }}
+          path: tests/hpu_frontend_workload/build/operator-perf/hpu-1019-operator-perf-n${{ matrix.degree }}-${{ matrix.profile }}-${{ matrix.scheme }}.zip
+          if-no-files-found: error
+          retention-days: 7

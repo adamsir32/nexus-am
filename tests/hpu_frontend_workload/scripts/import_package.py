@@ -15,6 +15,45 @@ NTT_ABI = {
 }
 
 
+def expected_operations(scheme, operation):
+    return {
+        "keyswitch": ["relinearize"], "hadd": ["add"],
+        "hmul": ["multiply", "relinearize"], "reline": ["relinearize"],
+        "modswitch": ["rescale" if scheme == "ckks" else "mod_switch"],
+        "rotate": ["rotate" if scheme == "ckks" else "rotate_rows"],
+    }[operation]
+
+
+def package_profile(spec):
+    """旧六例保留原合同；07通过清单明确指定算子、RNS数和DDR窗口。"""
+    scheme, degree = spec["scheme"], int(spec["degree"])
+    if "program_stem" not in spec:
+        stem = f"{scheme}_evaluator_application" + (f"_n{degree}" if degree != 128 else "")
+        return stem, 0x87000000, 268435456, False
+    operation, level, variant = spec["operation"], int(spec["level"]), spec["variant"]
+    require(scheme in ("ckks", "bfv", "bgv") and degree in (4096, 8192), "unsupported 07 scheme/degree")
+    require(operation in ("keyswitch", "hadd", "hmul", "reline", "modswitch", "rotate"), "unsupported 07 operator")
+    require(level in ((3, 16) if scheme == "bgv" else (4, 16)), "unsupported 07 level")
+    require(variant in ("optimized", "noopt"), "unsupported resource variant")
+    stem = f"frontend_{scheme}_{operation}_l{level}_n{degree}"
+    require(spec["program_stem"] == stem, "explicit program stem mismatch")
+    base, ram = int(spec["memory_base"], 0), int(spec["minimum_ram_bytes"])
+    require((base, ram) == ((0xc0000000, 2147483648) if level == 16 else (0x90000000, 536870912)),
+            "07 memory contract mismatch")
+    return stem, base, ram, True
+
+
+def validate_capacity(spec, used):
+    stem, base, ram, performance = package_profile(spec)
+    require(type(used) is int and 0 < used < 1 << 32, "invalid actual image line count")
+    size = (used + GUARD_LINES) * 256
+    if performance:
+        require(base + size <= 0x80000000 + ram, "image exceeds explicit 07 RAM contract")
+    else:
+        require(size < 0x07000000, "image exceeds workload memory budget")
+    return stem, base, ram, performance
+
+
 def require(condition, message):
     if not condition:
         raise ValueError(message)
@@ -27,6 +66,19 @@ def read_json(path):
 def read_rows(path):
     with path.open(encoding="utf-8", newline="") as stream:
         return list(csv.DictReader(stream))
+
+
+def store_or_verify(path, data, existing):
+    if not existing:
+        path.write_bytes(data)
+        return
+    require(not path.is_symlink() and path.is_file() and path.stat().st_size == len(data),
+            f"cached delivery missing/size mismatch: {path.name}")
+    view = memoryview(data)
+    with path.open("rb") as stream:
+        for offset in range(0, len(data), 1024 * 1024):
+            require(stream.read(1024 * 1024) == view[offset:offset + 1024 * 1024],
+                    f"cached delivery content differs: {path.name}")
 
 
 def safe_file(root, relative):
@@ -81,10 +133,10 @@ def validate_host(report):
             "host package must not claim hardware execution")
 
 
-def import_package(source, destination, spec, commit):
+def import_package(source, destination, spec, commit, verify_existing=False):
     package = read_json(source / "package.json")
     scheme, degree = spec["scheme"], int(spec["degree"])
-    stem = f"{scheme}_evaluator_application" + (f"_n{degree}" if degree != 128 else "")
+    stem, memory_base, minimum_ram, performance = package_profile(spec)
     require(package.get("schema") == "hpu-application-package" and package.get("schema_version") == 1 and
             package.get("scheme") == scheme and package.get("case_name") == stem and
             [package.get(k) for k in ("word_bits", "line_words", "line_bytes", "byte_order")] ==
@@ -105,10 +157,15 @@ def import_package(source, destination, spec, commit):
     require(type(used) is int and 0 < used == config["capacity_lines"] < 1 << 32,
             "image must be trimmed to actual lines")
     # ELF镜像从0x80000000加载，DDR从0x87000000起；构建后另做实际ELF段重叠检查。
-    require((used + GUARD_LINES) * 256 < 0x07000000, "image exceeds workload memory budget")
+    validate_capacity(spec, used)
     image = bytearray(files["image"].read_bytes())
     require(len(image) == used * 256, "image length mismatch")
     operations = read_json(files["operation_graph"])["operations"]
+    if performance:
+        require([row["kind"] for row in operations] == expected_operations(scheme, spec["operation"]),
+                "07 operation graph differs from the requested operator")
+        require(len(parameters["levels"][0]["moduli"]) == int(spec["level"]),
+                "07 input Q-RNS count differs from level")
     allocations = read_rows(files["line_map"])
     fields = ("allocation_id", "kind", "read_only", "line_offset", "line_count",
               "payload_words", "padded_words", "initialization")
@@ -164,30 +221,43 @@ def import_package(source, destination, spec, commit):
     require(order == expected_order and len(order) == report["verified_limb_count"], "incomplete golden coverage")
     # 只毒化写先输出；scratch、输入、twiddle和密钥保持原样，无旧BFV/CKKS重排补丁。
     image += struct.pack("<I", 0xa5a55a5a) * (64 * GUARD_LINES)
-    require(not destination.exists(), "refusing to overwrite imported delivery")
-    destination.mkdir(parents=True)
-    (destination / "image.u32.bin").write_bytes(image)
-    (destination / "golden.u32.bin").write_bytes(golden)
-    (destination / "writable.u8.bin").write_bytes(bytes(int(line in writable) for line in range(used + GUARD_LINES)))
+    existing = destination.exists()
+    require(not existing or performance and verify_existing, "refusing to overwrite imported delivery")
+    require(not destination.is_symlink(), "imported delivery cannot be a symlink")
+    if not existing:
+        destination.mkdir(parents=True)
+    store_or_verify(destination / "image.u32.bin", image, existing)
+    store_or_verify(destination / "golden.u32.bin", golden, existing)
+    store_or_verify(destination / "writable.u8.bin", bytes(int(line in writable) for line in range(used + GUARD_LINES)), existing)
     for key, suffix in (("program_source", "c"), ("program_header", "h")):
-        shutil.copy2(files[key], destination / f"{stem}.{suffix}")
-    (destination / "program.h").write_text(f'#include "{stem}.h"\n')
+        if existing:
+            store_or_verify(destination / f"{stem}.{suffix}", files[key].read_bytes(), True)
+        else:
+            shutil.copy2(files[key], destination / f"{stem}.{suffix}")
+    if performance:
+        store_or_verify(destination / f"{stem}.inst32", files["program_inst32"].read_bytes(), existing)
+    store_or_verify(destination / "program.h", f'#include "{stem}.h"\n'.encode(), existing)
     constants = {"DEGREE": degree, "WINDOW_LINES": used, "IMAGE_LINES": used + GUARD_LINES,
                  "GOLDEN_WORDS": len(golden) // 4, "OUTPUT_COUNT": len(outputs),
                  "INSTRUCTION_COUNT": len(words), "DMA_COUNT": len(dma)}
     header = '#ifndef FRONTEND_LAYOUT_H\n#define FRONTEND_LAYOUT_H\n#include <stdint.h>\n'
     header += f'#define CASE_ID "{spec["case_id"]}"\n'
+    if performance:
+        header += f'#define LEVEL {int(spec["level"])}U\n#define SCHEDULE_PROFILE "{spec["variant"]}"\n'
     header += "\n".join(f"#define {name} {value}U" for name, value in constants.items())
     header += '\nstruct output_span { unsigned line, words, golden_word, modulus, step, component, modulus_id; };\n'
     header += 'extern const struct output_span outputs[OUTPUT_COUNT];\n#endif\n'
-    (destination / "layout.h").write_text(header)
+    store_or_verify(destination / "layout.h", header.encode(), existing)
     table = '#include "layout.h"\nconst struct output_span outputs[OUTPUT_COUNT] = {\n'
     table += "\n".join("    { " + ", ".join(f"{value}U" for value in row) + " }," for row in outputs)
-    (destination / "layout.c").write_text(table + "\n};\n")
+    store_or_verify(destination / "layout.c", (table + "\n};\n").encode(), existing)
     metadata = {**spec, **constants, "program_stem": stem, "producer_commit": commit,
                 "ntt_table_abi": NTT_ABI, "hardware_verified": False,
                 "status": "BUILD_READY_NOT_IT_PASS", "layout_adaptation": "none",
                 "compiler_resources": {key: value for key, value in report["compiler_resources"].items()
                                        if key != "logical_buffers"}}
-    (destination / "delivery.json").write_text(json.dumps(metadata, indent=2) + "\n")
+    if performance:
+        metadata.update(memory_base=hex(memory_base), minimum_ram_bytes=minimum_ram,
+                        level=int(spec["level"]), node_operations=[row["kind"] for row in operations])
+    store_or_verify(destination / "delivery.json", (json.dumps(metadata, indent=2) + "\n").encode(), existing)
     return metadata

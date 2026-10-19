@@ -20,7 +20,20 @@ DST_DIR := $(CASE_OBJ_DIR)
 BINARY := $(CASE_BINARY)
 SRCS := $(CASE_SOURCE) $(ROOT)/runtime/fixture.S \
         $(ROOT)/runtime/image.c $(ROOT)/runtime/wait.c $(ROOT)/runtime/check.c \
-        $(DATA_DIR)/layout.c $(DATA_DIR)/$(PROGRAM_STEM).c
+        $(DATA_DIR)/layout.c
+ifeq ($(PERFORMANCE),1)
+ifndef CASE_MEM_BASE
+$(error CASE_MEM_BASE is required for a performance testcase)
+endif
+ifneq ($(filter $(LOG_LEVEL),0 1),$(LOG_LEVEL))
+$(error performance testcases require LOG_LEVEL=0 or 1)
+endif
+SRCS += $(DATA_DIR)/$(PROGRAM_STEM)_perf.c \
+        $(BASELINE)/runtime/it_perf.c $(ROOT)/runtime/performance.c
+CFLAGS += -DMEM_BASE=$(CASE_MEM_BASE)ULL
+else
+SRCS += $(DATA_DIR)/$(PROGRAM_STEM).c
+endif
 INC_DIR += $(ROOT)/include $(DATA_DIR) $(BASELINE)/include
 ASFLAGS += -Wa,-I$(DATA_DIR)
 CFLAGS += -Wall -Wextra -Werror -ffunction-sections -fdata-sections \
@@ -40,5 +53,8 @@ include $(AM_HOME)/Makefile.app
 CFLAGS += -g0
 $(DST_DIR)/$(ROOT)/runtime/image.o: $(DATA_DIR)/layout.h
 $(DST_DIR)/$(ROOT)/runtime/check.o: $(DATA_DIR)/layout.h
+ifeq ($(PERFORMANCE),1)
+$(DST_DIR)/$(ROOT)/runtime/performance.o: $(DATA_DIR)/layout.h
+endif
 $(DST_DIR)/$(ROOT)/runtime/fixture.o: $(DATA_DIR)/image.u32.bin \
                                       $(DATA_DIR)/golden.u32.bin $(DATA_DIR)/writable.u8.bin
