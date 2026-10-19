@@ -5,14 +5,15 @@
 
 int main(int argc, char **argv) {
     try {
-        if (argc != 5 && argc != 6) throw std::invalid_argument("usage: generator ckks|bfv|bgv OP DEGREE OUTPUT [CKKS_SCALE_BITS|library|regression]");
+        if (argc < 5 || argc > 7) throw std::invalid_argument("usage: generator ckks|bfv|bgv OP DEGREE OUTPUT [CKKS_SCALE_BITS|library|regression] [Q_RNS_COUNT]");
         const std::string scheme = argv[1];
         if (scheme != "ckks" && scheme != "bfv" && scheme != "bgv")
             throw std::invalid_argument("unknown scheme");
         const std::string operation = argv[2];
         const auto degree = std::stoul(argv[3]);
-        const bool library = argc == 6 && std::string(argv[5]) == "library";
-        const bool regression = argc == 6 && std::string(argv[5]) == "regression";
+        const bool library = argc >= 6 && std::string(argv[5]) == "library";
+        const bool regression = argc >= 6 && std::string(argv[5]) == "regression";
+        const auto q_rns = argc == 7 ? std::stoul(argv[6]) : 0;
         const bool seal_profile = library || regression;
         if (library && ((degree != 128 && degree != 4096 && degree != 8192 &&
                         degree != 16384 && degree != 32768 && degree != 65536) ||
@@ -26,8 +27,8 @@ int main(int argc, char **argv) {
         // 只切换oracle：规范项保留已有CF1/1、半行旋转及其它输入参数；
         // regression profile 保持原CF3/5和步长1。
         Fixture fixture(scheme, operation, degree, argv[4],
-            argc == 6 && !seal_profile ? std::stoi(argv[5]) : 30,
-            library ? static_cast<int>(degree / 4) : 1, !library);
+            argc >= 6 && !seal_profile ? std::stoi(argv[5]) : 30,
+            library ? static_cast<int>(degree / 4) : 1, !library, q_rns);
         if (library) fixture.stem = "seal_" + fixture.stem;
         if (scheme == "ckks") generate_ckks(fixture);
         else if (scheme == "bfv") generate_bfv(fixture);
@@ -46,6 +47,9 @@ int main(int argc, char **argv) {
                    << "  \"producer_commit\": \"" << revision << "\",\n"
                    << "  \"program\": \"" << fixture.stem << "\",\n"
                    << "  \"scheme\": \"" << scheme << "\",\n  \"degree\": " << degree << ",\n"
+                   << "  \"input_Q_rns_count\": " << fixture.q_rns_count << ",\n"
+                   << "  \"output_Q_rns_count\": " << fixture.expected.coeff_modulus_size() << ",\n"
+                   << "  \"P_rns_count\": 1,\n"
                    << "  \"api\": \"seal::Evaluator::" << api << "\",\n"
                    << "  \"rotation_steps\": " << (operation == "rotate" ? fixture.rotation_steps : 0) << ",\n"
                    << "  \"rotation_generator\": 3,\n  \"initial_correction_factors\": ["

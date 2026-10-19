@@ -6,8 +6,11 @@ test_root=$(cd "$script_dir/.." && pwd)
 output_root=${1:-"$test_root/build"}
 case_filter=${2:-}
 case_group=${HPU_CASE_GROUP:-all}
+build_scope=${HPU_BUILD_SCOPE:-all}
 dump_results=${HPU_DUMP_RESULTS:-0}
 log_level=${HPU_LOG_LEVEL:-1}
+hardlink_staging=${HPU_HARDLINK_STAGING:-0}
+provenance_artifact=${HPU_PROVENANCE_ARTIFACT:-}
 jobs=${JOBS:-4}
 arch=${ARCH:-riscv64-xs}
 cross_compile=${CROSS_COMPILE:-riscv64-linux-gnu-}
@@ -29,12 +32,20 @@ if [[ ! $case_group =~ ^(all|core|transform|fhe|diagnostic)$ ]]; then
     "$case_group" >&2
   exit 2
 fi
+if [[ ! $build_scope =~ ^(all|functional)$ ]]; then
+  printf 'ERROR: build.sh HPU_BUILD_SCOPE must be all or functional: %s\n' "$build_scope" >&2
+  exit 2
+fi
 if [[ ! $dump_results =~ ^[01]$ ]]; then
   printf 'ERROR: HPU_DUMP_RESULTS must be 0 or 1: %s\n' "$dump_results" >&2
   exit 2
 fi
 if [[ ! $log_level =~ ^[012]$ ]]; then
   printf 'ERROR: HPU_LOG_LEVEL must be 0, 1, or 2: %s\n' "$log_level" >&2
+  exit 2
+fi
+if [[ ! $hardlink_staging =~ ^[01]$ ]]; then
+  printf 'ERROR: HPU_HARDLINK_STAGING must be 0 or 1: %s\n' "$hardlink_staging" >&2
   exit 2
 fi
 if [[ $dump_results == 1 && $log_level != 2 ]]; then
@@ -115,10 +126,10 @@ while IFS=$'\t' read -r group qualifier case_id source_path; do
   fi
 done < "$roster"
 
-if [[ ${#roster_ids[@]} -ne 228 || ${roster_group_counts[core]} -ne 58 || \
-      ${roster_group_counts[transform]} -ne 20 || \
-      ${roster_group_counts[fhe]} -ne 150 || $roster_migrated -ne 217 || \
-      $roster_migrated_software -ne 210 || $roster_migrated_blocked -ne 7 ]]; then
+if [[ ${#roster_ids[@]} -ne 340 || ${roster_group_counts[core]} -ne 58 || \
+      ${roster_group_counts[transform]} -ne 23 || \
+      ${roster_group_counts[fhe]} -ne 259 || $roster_migrated -ne 329 || \
+      $roster_migrated_software -ne 322 || $roster_migrated_blocked -ne 7 ]]; then
   printf 'ERROR: canonical testcase roster counts changed unexpectedly\n' >&2
   exit 2
 fi
@@ -141,6 +152,15 @@ for source in "${discovered_sources[@]}"; do
   fi
 done
 
+scope_roster=$(python3 "$script_dir/case_catalog.py" --scope "$build_scope" --table cases)
+declare -A scope_ids=()
+declare -A scope_group_counts=([core]=0 [transform]=0 [fhe]=0)
+while IFS=$'\t' read -r group qualifier case_id source; do
+  [[ $case_id == case_id ]] && continue
+  scope_ids[$case_id]=1
+  scope_group_counts[$group]=$((scope_group_counts[$group] + 1))
+done <<< "$scope_roster"
+
 if [[ -n $case_filter ]]; then
   case_filter=${case_filter#src/}
   case_filter=${case_filter%.c}
@@ -156,10 +176,15 @@ if [[ -n $case_filter ]]; then
       "$selected_path" >&2
     exit 2
   fi
+  if [[ -z ${scope_ids[$selected_id]:-} ]]; then
+    printf 'ERROR: testcase is outside build scope %s: %s\n' "$build_scope" "$selected_id" >&2
+    exit 2
+  fi
   case_sources=("$test_root/$selected_path")
 else
   case_sources=()
   for source_case_id in "${roster_ids[@]}"; do
+    [[ -n ${scope_ids[$source_case_id]:-} ]] || continue
     source_group=${roster_group[$source_case_id]}
     if [[ $case_group == diagnostic ]]; then
       # 只发布已接入结果比较的 03 九项和 04 已定资格算子。
@@ -192,10 +217,16 @@ done
 
 artifact_root="$output_root/artifact"
 object_root="$output_root/obj/log-$log_level-dump-$dump_results"
-mkdir -p "$artifact_root" "$object_root"
+mkdir -p "$object_root"
 # An artifact directory is one build invocation's publish set.  Keeping ELF
 # files from an earlier full/filtered build makes case_count validation lie.
-find "$artifact_root" -mindepth 1 -delete
+if [[ $hardlink_staging == 1 ]]; then
+  # 已发布的大文件可能仍与旧artifact共享inode；保留旧目录后再生成新文件。
+  python3 "$script_dir/immutable_staging.py" --fresh-artifact "$artifact_root"
+else
+  mkdir -p "$artifact_root"
+  find "$artifact_root" -mindepth 1 -delete
+fi
 
 case_manifest="$artifact_root/CASE_MANIFEST.tsv"
 not_qualified_manifest="$artifact_root/NOT_QUALIFIED.tsv"
@@ -255,11 +286,19 @@ for source in "${case_sources[@]}"; do
       > "$(basename "$binary").txt.tmp"
     mv -f "$(basename "$binary").txt.tmp" "$(basename "$binary").txt"
   )
+  if [[ $hardlink_staging == 1 ]]; then
+    python3 "$script_dir/immutable_staging.py" --discard-fixture-object "$object_dir" \
+      --test-root "$test_root" --elf "$binary.elf" --bin "$binary.bin"
+  fi
 done
 
 generated_root=${HPU_GENERATED_ROOT:-"$output_root/generated"}
 mm_delivery_source="$generated_root/inline-asm/mm"
 mm_delivery_artifact="$artifact_root/provenance/inline-asm-mm"
+if [[ $hardlink_staging == 1 && $log_level == 0 && -n $provenance_artifact ]]; then
+  python3 "$script_dir/immutable_staging.py" --reuse-provenance "$provenance_artifact" \
+    --artifact "$artifact_root" --revision "$(git -C "$AM_HOME" rev-parse HEAD)" --log-level "$log_level"
+else
 for required in PRODUCER_COMMIT encoder_words.tsv RESOLVED_DMA_SPANS.csv \
                 DELIVERY_SUMMARY.md; do
   if [[ ! -s $mm_delivery_source/$required ]]; then
@@ -297,8 +336,12 @@ while IFS=$'\t' read -r case_id stem scheme degree role source; do
     "$generated_root/application-data/$stem/producer_commit.txt"
   # 只接收当前清单：旧缓存中的Poseidon或已去重交付不能混入默认下载包。
   cp -a "$generated_root/application-data/$stem" "$artifact_root/provenance/application-data/"
-done < <(python3 "$script_dir/case_catalog.py")
-cp -aL "$generated_root/large-data" "$artifact_root/provenance/large-data"
+done < <(python3 "$script_dir/case_catalog.py" --scope "$build_scope")
+mkdir -p "$artifact_root/provenance/large-data"
+while IFS=$'\t' read -r case_id stem source; do
+  [[ $case_id == case_id ]] && continue
+  cp -aL "$generated_root/large-data/$stem" "$artifact_root/provenance/large-data/"
+done < <(python3 "$script_dir/case_catalog.py" --scope "$build_scope" --table large)
 mkdir -p "$artifact_root/provenance/testplan/docs"
 cp "$test_root/docs/V2_COVERAGE.md" "$artifact_root/provenance/testplan/docs/"
 cp "$test_root/docs/RUNTIME_UART_DIAGNOSTICS.md" "$artifact_root/provenance/testplan/docs/"
@@ -314,24 +357,30 @@ cp "$test_root/docs/SEAL_LIBRARY.md" "$artifact_root/provenance/testplan/docs/"
 cp "$test_root/docs/EDGE_SMOKE.md" "$artifact_root/provenance/testplan/docs/"
 cp "$test_root/docs/TEST_ORGANIZATION.md" "$artifact_root/provenance/testplan/docs/"
 cp -a "$test_root/tools/hpu-scheme-cases" "$artifact_root/provenance/testplan/generators"
+cp "$test_root/docs/N65536_PERFORMANCE.md" "$artifact_root/provenance/testplan/docs/"
+cp "$test_root/cases.tsv" "$test_root/blocked.tsv" "$test_root/scheme-cases.tsv" \
+  "$test_root/large-cases.tsv" "$test_root/perf-migration.tsv" "$test_root/archived-cases.tsv" \
+  "$test_root/case-aliases.tsv" "$test_root/case-migration.tsv" "$test_root/case-numbering.tsv" \
+  "$test_root/layer-migration.tsv" "$test_root/edge-cases.tsv" "$artifact_root/provenance/testplan/"
+python3 "$script_dir/case_catalog.py" --scope "$build_scope" --table performance \
+  > "$artifact_root/provenance/testplan/perf-cases.tsv"
+fi
 mkdir -p "$artifact_root/tools"
 cp "$test_root/scripts/parse-uart-results.py" "$artifact_root/tools/"
 cp "$test_root/scripts/parse-perf-results.py" "$artifact_root/tools/"
-cp "$test_root/docs/N65536_PERFORMANCE.md" "$artifact_root/provenance/testplan/docs/"
-cp "$test_root/cases.tsv" "$test_root/blocked.tsv" "$test_root/scheme-cases.tsv" \
-  "$test_root/large-cases.tsv" "$test_root/perf-cases.tsv" "$test_root/archived-cases.tsv" \
-  "$test_root/case-aliases.tsv" "$test_root/case-migration.tsv" "$test_root/case-numbering.tsv" \
-  "$test_root/layer-migration.tsv" "$test_root/edge-cases.tsv" "$artifact_root/provenance/testplan/"
 if [[ -n $case_filter ]]; then
   selection="case:$case_filter"
   expected_cases=1
 else
   selection=$case_group
   case "$case_group" in
-    all) expected_cases=228 ;;
-    core) expected_cases=58 ;;
-    transform) expected_cases=20 ;;
-    fhe) expected_cases=150 ;;
+    all)
+      expected_cases=340
+      if [[ $build_scope == functional ]]; then
+        selection=functional
+        expected_cases=140
+      fi ;;
+    core|transform|fhe) expected_cases=${scope_group_counts[$case_group]} ;;
     diagnostic) expected_cases=35 ;;
   esac
 fi
@@ -346,6 +395,7 @@ fi
   printf 'arch=%s\n' "$arch"
   printf 'toolchain=%s\n' "$("${cross_compile}gcc" --version | sed -n '1p')"
   printf 'selection=%s\n' "$selection"
+  printf 'build_scope=%s\n' "$build_scope"
   printf 'mainargs=%s\n' "${mainargs:-all}"
   printf 'uart_results=%s\n' "$uart_results"
   printf 'hpu_dump_results=%s\n' "$dump_results"

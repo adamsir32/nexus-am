@@ -4,6 +4,29 @@ import re
 import struct
 
 
+def add_dma_trace(code, bindings):
+    """一次扫描插入诊断点，避免大RNS程序按每条DMA重复扫描整份C；不改指令字。"""
+    by_instruction = {int(row["instruction_index"]): row for row in bindings}
+    if len(by_instruction) != len(bindings):
+        raise ValueError("duplicate DMA trace instruction")
+    seen = set()
+
+    def insert(match):
+        index = int(match[1])
+        row = by_instruction.get(index)
+        if row is None:
+            return match[0]
+        if index in seen:
+            raise ValueError("duplicate producer instruction marker")
+        seen.add(index)
+        return match[0] + f"    trace_issue({index}U, {row['dma_index']}U, {row['word_hex']}U);\n"
+
+    result = re.sub(r"^    /\* (\d+): [^\n]+ \*/\n", insert, code, flags=re.M)
+    if seen != set(by_instruction):
+        raise ValueError("missing DMA trace insertion marker")
+    return result
+
+
 def coefficients_to_physical(data, degree):
     values = struct.unpack(f"<{degree}I", data)
     bits = degree.bit_length() - 1

@@ -3,12 +3,16 @@
 
 import csv
 import importlib.util
+import os
 from pathlib import Path, PurePosixPath
 import shutil
 import subprocess
 import sys
 import tempfile
 import unittest
+from unittest.mock import patch
+
+from immutable_staging import LARGE_FILE_BYTES
 
 
 SCRIPT = Path(__file__).with_name("package-unified.py")
@@ -57,7 +61,7 @@ class UnifiedPackageTests(unittest.TestCase):
         return paths
 
     @staticmethod
-    def common_tree(release, subtests=False):
+    def common_tree(release, subtests=False, functional=False):
         provenance = release / "provenance"
         provenance.mkdir()
         (provenance / "PRODUCER_COMMIT").write_text("producer-commit\n", encoding="utf-8")
@@ -69,26 +73,33 @@ class UnifiedPackageTests(unittest.TestCase):
         else:
             shutil.copy2(TEST_ROOT / "scripts/parse-perf-results.py", tools)
             (provenance / "testplan").mkdir()
-            shutil.copy2(TEST_ROOT / "perf-cases.tsv", provenance / "testplan")
+            if functional:
+                (provenance / "testplan/perf-cases.tsv").write_text(
+                    (TEST_ROOT / "perf-cases.tsv").read_text().splitlines()[0] + "\n")
+            else:
+                shutil.copy2(TEST_ROOT / "perf-cases.tsv", provenance / "testplan")
+            shutil.copy2(TEST_ROOT / "perf-migration.tsv", provenance / "testplan")
 
-    def make_workloads(self, name, silent):
+    def make_workloads(self, name, silent, functional=False):
         release = self.root / name / "release"
         release.mkdir(parents=True)
-        self.common_tree(release)
+        self.common_tree(release, functional=functional)
         mode = "silent" if silent else "minimal"
         uart = "none" if silent else "brief"
         level = "0" if silent else "1"
         (release / "MANIFEST.txt").write_text(
             "repository=test/repository\nrevision=am-revision\narch=riscv64-xs\n"
-            "selection=all\nmainargs=all\n"
+            f"selection={'functional' if functional else 'all'}\nmainargs=all\n"
             f"log_level={level}\nlog_mode={mode}\nuart_results={uart}\n"
-            "hpu_dump_results=0\ncase_count=228\nnot_qualified_count=7\n"
+            f"hpu_dump_results=0\ncase_count={140 if functional else 340}\nnot_qualified_count=7\n"
             "inline_asm_commit=producer-commit\n"
             "hpu_seal_commit=hpu-seal-producer-commit\n"
             "hpu_applications_commit=hpu-applications-producer-commit\n"
             "golden_backend=inline-asm/modified-SEAL\n", encoding="utf-8")
         rows = []
         for source in self.rows(TEST_ROOT / "cases.tsv"):
+            if functional and source["source"].startswith("src/07_performance/"):
+                continue
             relative_source = PurePosixPath(source["source"])
             chapter = relative_source.parts[1]
             base = PurePosixPath(*relative_source.parts[1:]).with_suffix("")
@@ -135,14 +146,53 @@ class UnifiedPackageTests(unittest.TestCase):
         self.write_tsv(release / "INDEX.tsv", PACKAGER.SUBTEST_FIELDS, rows)
         return release
 
-    def package(self):
+    def package(self, functional=False):
         return PACKAGER.package(self.workloads, self.silent_workloads,
-                                self.subtests, self.silent_subtests, self.output)
+                                self.subtests, self.silent_subtests, self.output, functional=functional)
+
+    def use_functional_workloads(self):
+        self.workloads = self.make_workloads("functional-workloads", False, functional=True)
+        self.silent_workloads = self.make_workloads("functional-silent-workloads", True, functional=True)
+
+    def test_functional_package_keeps_subtests_and_excludes_07(self):
+        self.use_functional_workloads()
+        package = self.package(functional=True) / "hputest"
+        rows = PACKAGER.read_tsv(package / "INDEX.tsv", PACKAGER.INDEX_FIELDS)
+        self.assertEqual(len(rows), 329)
+        self.assertEqual(sum(bool(row["elf"]) for row in rows), 322)
+        self.assertEqual(len(list(package.rglob("*.elf"))), 322)
+        self.assertEqual(sum(row["publish_status"] == "BLOCKED_NOT_PUBLISHED" for row in rows), 7)
+        self.assertEqual({row["chapter"][:2] for row in rows}, {f"{number:02d}" for number in range(7)})
+        self.assertFalse((package / "07_performance").exists())
+        self.assertEqual(sum(row["kind"] == "subtest" for row in rows), 74)
+        self.assertFalse(any(row["test_id"] in PACKAGER.INSTRUCTION_IDS for row in rows))
+        self.assertEqual(self.rows(package / "provenance/testplan/perf-cases.tsv"), [])
+        metadata = PACKAGER.read_manifest(package)
+        self.assertEqual(metadata["selection"], "functional")
+        self.assertEqual(metadata["published_test_identities"], "161")
+        self.assertEqual(metadata["published_variant_sets"], "322")
+        readme = (package / "README.md").read_text()
+        self.assertIn("0x90000000，RAM至少512MiB", readme)
+        self.assertNotIn("RAM至少2GiB", readme)
+
+    def test_functional_mode_rejects_full_workload_selection(self):
+        with self.assertRaisesRegex(ValueError, "wrong build mode"):
+            self.package(functional=True)
+
+    def test_functional_mode_rejects_an_injected_07_row(self):
+        self.use_functional_workloads()
+        rows = self.rows(self.workloads / "INDEX.tsv")
+        injected = next(row for row in self.rows(self.root / "workloads/release/INDEX.tsv")
+                        if row["chapter"] == "07_performance")
+        rows[0] = injected
+        self.write_tsv(self.workloads / "INDEX.tsv", PACKAGER.WORKLOAD_FIELDS, rows)
+        with self.assertRaisesRegex(ValueError, "must not contain chapter 07"):
+            self.package(functional=True)
 
     def test_one_tree_contains_normal_and_silent_and_replaces_03_parents(self):
         release = self.package()
         package = release / "hputest"
-        self.assertEqual(len(list(package.rglob("*.elf"))), 498)
+        self.assertEqual(len(list(package.rglob("*.elf"))), 722)
         normal = package / "01_configuration_and_data_paths/01_mmio_and_window/01_01_mmio_rw.elf"
         silent = normal.with_name("01_01_mmio_rw_silent.elf")
         self.assertTrue(normal.is_file())
@@ -153,19 +203,33 @@ class UnifiedPackageTests(unittest.TestCase):
         self.assertTrue((package / "03_compute_instructions" / f"{subtest}.elf").is_file())
         self.assertTrue((package / "03_compute_instructions" / f"{subtest}_silent.elf").is_file())
         rows = PACKAGER.read_tsv(package / "INDEX.tsv", PACKAGER.INDEX_FIELDS)
-        self.assertEqual(len(rows), 505)
-        self.assertEqual(sum(bool(row["elf"]) for row in rows), 498)
+        self.assertEqual(len(rows), 729)
+        self.assertEqual(sum(bool(row["elf"]) for row in rows), 722)
         self.assertEqual(sum(row["publish_status"] == "BLOCKED_NOT_PUBLISHED" for row in rows), 7)
         perf_rows = [row for row in rows if row["chapter"] == "07_performance"]
-        for degree in (8192, 16384, 32768, 65536):
+        perf_catalog = {row["case_id"]: row
+                        for row in self.rows(package / "provenance/testplan/perf-cases.tsv")}
+        for degree in (4096, 8192, 16384, 32768, 65536):
             for variant in ("normal", "silent"):
                 selected = [row for row in perf_rows
-                            if row["test_id"].endswith(f"_n{degree}") and row["variant"] == variant]
-                self.assertEqual(len(selected), 22)
+                            if perf_catalog[row["test_id"]]["degree"] == str(degree)
+                            and row["variant"] == variant]
+                self.assertEqual(len(selected), 40)
                 self.assertTrue(all(row["elf"] for row in selected))
         metadata = PACKAGER.read_manifest(package)
-        self.assertEqual(metadata["published_test_identities"], "249")
-        self.assertEqual(metadata["published_variant_sets"], "498")
+        self.assertEqual(metadata["published_test_identities"], "361")
+        self.assertEqual(metadata["published_variant_sets"], "722")
+        self.assertEqual((package / "provenance/testplan/perf-migration.tsv").read_bytes(),
+                         (TEST_ROOT / "perf-migration.tsv").read_bytes())
+        three_digit_rows = [row for row in perf_rows
+                            if int(row["test_id"].split("_")[1]) >= 100]
+        self.assertEqual(len(three_digit_rows), 202)
+        n4096_numbers = [int(row["test_id"].split("_")[1]) for row in perf_rows
+                        if perf_catalog[row["test_id"]]["degree"] == "4096" and row["variant"] == "normal"]
+        self.assertEqual(n4096_numbers, list(range(1, 41)))
+        perf_numbers = [int(row["test_id"].split("_")[1]) for row in perf_rows
+                        if row["variant"] == "normal"]
+        self.assertEqual(perf_numbers, list(range(1, 201)))
         watchdog = package / "02_boundaries_and_cpu_interaction/05_faults_and_watchdog/02_17_watchdog_failstop.elf"
         self.assertTrue(watchdog.is_file())
         self.assertTrue(watchdog.with_name(watchdog.stem + "_silent.elf").is_file())
@@ -179,12 +243,12 @@ class UnifiedPackageTests(unittest.TestCase):
         self.assertEqual((len(normal_cases), len(silent_cases)), (37, 37))
         self.assertTrue(all(name.endswith("_silent.elf") for _case_id, name, _path in silent_cases))
 
-    def test_downloaded_performance_parser_supports_all_four_scales(self):
+    def test_downloaded_performance_parser_supports_all_five_scales(self):
         package = self.package() / "hputest"
         catalog = self.rows(package / "provenance/testplan/perf-cases.tsv")
         log = self.root / "uart.log"
         log.write_text("\n".join(
-            f"[HPU][PERF] case={row['case_id']} N={row['degree']} "
+            f"[HPU][PERF] case={row['case_id']} N={row['degree']} level={row['level']} "
             "metric=issue_to_done_v2 start=10 end=210 cycles=200 verified=1"
             for row in catalog) + "\n", encoding="utf-8")
         output = self.root / "performance-results"
@@ -192,12 +256,31 @@ class UnifiedPackageTests(unittest.TestCase):
             [sys.executable, str(package / "tools/parse-perf-results.py"), str(log),
              "--output", str(output), "--revision", "test-only", "--cpu-hz", "100"],
             cwd=self.root, text=True, capture_output=True, check=True)
-        self.assertIn("88 verified samples, 88 cases", result.stdout)
+        self.assertIn("200 verified samples, 200 cases", result.stdout)
         with (output / "summary.csv").open(newline="", encoding="utf-8") as stream:
             summaries = list(csv.DictReader(stream))
-        self.assertEqual(len(summaries), 88)
-        self.assertEqual({row["degree"] for row in summaries}, {"8192", "16384", "32768", "65536"})
+        self.assertEqual(len(summaries), 200)
+        self.assertEqual({row["degree"] for row in summaries}, {"4096", "8192", "16384", "32768", "65536"})
+        self.assertEqual({(row["case_id"], row["degree"], row["level"]) for row in summaries},
+                         {(row["case_id"], row["degree"], row["level"]) for row in catalog})
+        self.assertEqual(sum(row["level"] == "16" for row in summaries), 90)
         self.assertTrue(all(float(row["average_seconds"]) == 2 for row in summaries))
+
+    def test_optional_hardlinks_share_large_release_and_provenance(self):
+        relative = Path("01_configuration_and_data_paths/01_mmio_and_window/01_01_mmio_rw.elf")
+        original = self.workloads / relative
+        quiet = self.silent_workloads / relative
+        original.write_bytes(b"N" * LARGE_FILE_BYTES)
+        quiet.write_bytes(b"S" * LARGE_FILE_BYTES)
+        for release in (self.workloads, self.silent_workloads):
+            (release / "provenance/image.bin").write_bytes(b"I" * LARGE_FILE_BYTES)
+        with patch.dict(os.environ, {"HPU_HARDLINK_STAGING": "1"}):
+            package = self.package() / "hputest"
+        self.assertTrue(original.samefile(package / relative))
+        self.assertTrue(quiet.samefile(package / relative.with_name("01_01_mmio_rw_silent.elf")))
+        self.assertTrue((self.workloads / "provenance/image.bin").samefile(package / "provenance/image.bin"))
+        self.assertFalse((self.workloads / "MANIFEST.txt").samefile(
+            package / "provenance/build-manifests/workloads.txt"))
 
     def test_wrong_input_mode_is_rejected(self):
         manifest = self.silent_workloads / "MANIFEST.txt"

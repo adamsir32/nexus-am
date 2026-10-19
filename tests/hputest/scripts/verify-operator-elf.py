@@ -13,7 +13,7 @@ from case_catalog import application_specs, rows
 SCHEME_PROGRAMS = set(application_specs())
 with (Path(__file__).resolve().parents[1] / "large-cases.tsv").open() as stream:
     LARGE_PROGRAMS = {row["program_stem"] for row in csv.DictReader(stream, delimiter="\t")}
-PERF_PROGRAMS = {row["program_stem"] for row in rows("perf-cases.tsv")}
+PERF_CASES = {row["case_id"]: row for row in rows("perf-cases.tsv")}
 LARGE_PROGRAMS.update(row["program_stem"] for row in rows("perf-cases.tsv") if row["delivery"] == "large-data")
 
 
@@ -112,12 +112,15 @@ def verify(delivery, elf, disassembly, operator):
         listing = subprocess.check_output(
             [os.environ.get("CROSS_COMPILE", "riscv64-linux-gnu-") + "nm", str(elf)], text=True)
         end = re.search(r"^([0-9a-fA-F]+)\s+\w\s+_end$", listing, re.M)
-        large = operator.endswith("_n65536") or operator in PERF_PROGRAMS
-        memory_base = 0x90000000 if large else 0x87000000
+        # N4096生产者包同时供05功能组和07性能组使用，运行时窗口由用例决定。
+        perf_case = PERF_CASES.get(elf.stem.removesuffix("_silent"))
+        large = operator.endswith("_n65536") or perf_case is not None
+        memory_base = int(perf_case["memory_base"], 0) if perf_case else 0x90000000 if large else 0x87000000
+        ram_end = 0x80000000 + (int(perf_case["minimum_ram_bytes"]) if perf_case else 536870912)
         if not end or int(end[1], 16) >= memory_base:
             raise ValueError("application ELF/heap start overlaps the HPU DDR window")
-        if large and memory_base + (delivery / "application_window.u32.bin").stat().st_size > 0xA0000000:
-            raise ValueError("large/performance window and guard exceed the 512MiB RAM contract")
+        if large and memory_base + (delivery / "application_window.u32.bin").stat().st_size > ram_end:
+            raise ValueError("large/performance window and guard exceed the case RAM contract")
     for symbol, filename in fixtures:
         if symbol_bytes(elf, symbol) != (delivery / filename).read_bytes():
             raise ValueError(f"{operator}: linked {symbol} differs from validated delivery")

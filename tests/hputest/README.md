@@ -3,11 +3,15 @@
 当前分组为：00冒烟→01配置/连接/数据通路→02边界/RISC-V交叉→03指令→04算子→05算法库→06应用→07性能。
 完整命名规则、分组边界和历史路径对照见[用例整理说明](docs/TEST_ORGANIZATION.md)。
 源码、case_id和ELF/BIN/TXT统一使用`组号_用例号_行为[_必要参数]`，例如`01_06_dma_loopback`、`02_11_cmd_burst_8`、`05_07_ckks_hmul_reline_n4096`。
-组号、用例号均为两位；03独立子项再加两位子项号，如`03_01_01_padd_dst_p2.elf`，可直接称呼“03组01用例的01子项”。
+组号为两位，用例号至少两位，超过99后自然扩为三位（如`07_100`）；03独立子项再加两位子项号，如`03_01_01_padd_dst_p2.elf`，可直接称呼“03组01用例的01子项”。
 数字开头是合法文件名；C函数、变量和上游producer接口名不因此改成数字开头。
 
 04只保留基本/组合算子；05统一放算法库接口，包含45项modified-SEAL规范用例（N128/N4096/N65536）、7项不同参数回归和2项未接入记录。
-07按性能规模组织：N65536、N8192、N16384、N32768各22项，共88项；每个规模包含7项基本/组合算子和15项三算法库操作。
+07按性能规模从小到大组织：N4096、N8192、N16384、N32768、N65536各40项，共200项。
+每个规模先列原参数的22项（7项基本/组合算子和15项三算法库操作），再列输入level=16的18项（三算法KeySwitch及各5项算法库操作）。
+07用例名带`_l1/_l3/_l4/_l16_nN`，其中level为输入Q的RNS分量数，不包含特殊模数P；如`07_05_ckks_hmul_reline_l4_n4096`。
+07的level=16用例统一使用`0xc0000000`窗口、至少2GiB模拟RAM；原level=1/3/4用例使用`0x90000000`窗口、至少512MiB模拟RAM。
+性能日志同时记录`N`和`level`，CPU对比需使用相同的实际Q/P和输入level。
 05的54项包含不同规模、特殊参数回归和未接入记录，因此与原来只有一个规模的07（22项）不能直接比较数量。
 05/07的完整分工、编号、计时口径、内存要求及CPU复现方法见[功能与多规模性能交付](docs/N65536_PERFORMANCE.md)。
 原02数据通路和原08连接测试已按验收目标分到01/02，不再保留独立08组。
@@ -16,12 +20,12 @@ Poseidon独立保存在`experiments/poseidon/`，不进入默认构建或下载�
 [SEAL_LIBRARY.md](docs/SEAL_LIBRARY.md)。
 
 `hputest` is the canonical Nexus-AM source tree for HPU bring-up and IT
-testcases.  It contains the eleven bring-up/return probes plus the 217 subsequent
+testcases.  It contains the eleven bring-up/return probes plus the 329 subsequent
 IT cases.  Generated ELF, BIN, TXT, object files, and archives are never
 committed.  GitHub Actions builds them as short-lived downloadable artifacts.
 
 2026-10-04 main v1更新、三算法差异、CMB004/CMB012修复及精度测量见
-[SCHEME_DELIVERY_V1.md](docs/SCHEME_DELIVERY_V1.md)。当前228项中218项软件自检、
+[SCHEME_DELIVERY_V1.md](docs/SCHEME_DELIVERY_V1.md)。当前340项中330项软件自检、
 7项未接入、1项波形hold及2项终止探针；下载包保留普通/静默版本。
 `scheme-cases.tsv`明确算法/操作/规模；`case-aliases.tsv`把旧名称直接映射到新名称，
 `case-migration.tsv`保留本次115个父用例和37个子项的原始路径、资格与新路径。
@@ -31,8 +35,8 @@ committed.  GitHub Actions builds them as short-lived downloadable artifacts.
 [V2_COVERAGE.md](docs/V2_COVERAGE.md)。该文档记录原规模覆盖，新增大规模功能和多规模性能用例见上方独立说明；
 软件自检不等于整个测试点或IT验证已通过。00冒烟流程和数据不变，日志使用统一编译开关。
 
-**当前默认是少打印版**，不再打印成功系数、每轮阶段和DMA计划；同一个
-`nexus-am-hpu-tests`下载包还包含文件名带`_silent`的真正静默版本。
+**当前默认是少打印版**，不再打印成功系数、每轮阶段和DMA计划；各下载包同时提供普通版和文件名带`_silent`的真正静默版。
+CI的00～06组仍在`nexus-am-hpu-tests`中，07性能用例按N、level及必要的算法子集分为21个独立产物。
 两种模式的差异和构建方法见 [日志模式说明](docs/LOG_MODES.md)。
 
 03/04运行过久或结果失败时，先看 [运行时间与UART诊断](docs/RUNTIME_UART_DIAGNOSTICS.md)：
@@ -72,11 +76,12 @@ src/03_compute_instructions/   # 9 original parents + 9 N65536 single-program ca
 src/04_composite_instruction_sequences/ # 18 basic/operator-chain cases (17 active, 1 pending)
 src/05_algorithm_library/       # 45 modified-SEAL API + 7 parameter regressions + 2 pending
 src/06_full_application/       # 9 migrated IT cases (8 active, 1 blocked)
-src/07_performance/            # 88 timed, self-checking cases; one program per ELF
-├── 01_n65536/                # 07_01..07_22
-├── 02_n8192/                 # 07_23..07_44
-├── 03_n16384/                # 07_45..07_66
-└── 04_n32768/                # 07_67..07_88
+src/07_performance/            # 200 timed, self-checking cases; one program per ELF
+├── 01_n4096/                 # 07_01..07_40
+├── 02_n8192/                 # 07_41..07_80
+├── 03_n16384/                # 07_81..07_120
+├── 04_n32768/                # 07_121..07_160
+└── 05_n65536/                # 07_161..07_200
 
 include/hpu/steps.h            # short, one-step public testcase API
 include/hpu/result.h           # UART START/PASS/FAIL reporting helpers
@@ -347,7 +352,7 @@ of informal testcase numbers is not authoritative.
 
 03的PNTT/PINTT已补齐；04包含BConv、整体NTT/INTT、
 LEGACY Auto与三算法KeySwitch；05包含HADD/HMUL/Reline/降层/旋转，06包含八个完整应用。
-07覆盖四种规模的22项操作；先完成参数预检查，再统计发令到完成的`issue_to_done_v2`，逐word自检后打印cycle。
+07在五种规模下分别包含原参数的22项及输入level=16的18项；先完成参数预检查，再统计发令到完成的`issue_to_done_v2`，逐word自检后打印cycle。
 计时程序保留producer的原始HPU指令字，但计时区间不再执行参数检查和逐DMA trace写入；03/04/05继续使用原检查入口。
 原PERF002/003等6个旧性能入口归档于`archive/performance_before_n65536/`，不计入当前07。
 实际算法、参数和程序对应见`scheme-cases.tsv`、`perf-cases.tsv`。当前7项未接入，原因逐项记录于
@@ -401,15 +406,19 @@ make -C tests/hputest group GROUP=fhe
 ```
 
 Local output is ignored under `tests/hputest/build/`.  A full build produces
-221 ELF/BIN/TXT sets from 228 canonical entries, partitioned below `artifact/core/`,
+333 ELF/BIN/TXT sets from 340 canonical entries, partitioned below `artifact/core/`,
 `artifact/transform/`, and `artifact/fhe/`.  It also produces
 `MANIFEST.txt`, `CASE_MANIFEST.tsv`, `NOT_QUALIFIED.tsv`, and a compact
 `provenance/inline-asm-mm/` directory containing the selected producer
 program, data, tables, producer commit, and resolved DMA spans.
 
-本地生成统一下载包：
+本地默认`HPU_BUILD_SCOPE=all`仍可构建全部340项，并合并为361个测试身份、722套ELF/BIN/TXT及729条索引记录。
+完整构建需足够磁盘容纳所有生成数据和两种模式的产物；CI使用下述分片，不在单个runner上组装全量包。
+已有完整`all`构建产物后，本地合并命令为：
 
 ```bash
+export HPU_BUILD_SCOPE=all
+python3 tests/hputest/scripts/package-chapters.py tests/hputest/build/artifact --all
 make -C tests/hputest subtests JOBS=4
 make -C tests/hputest silent JOBS=4
 python3 tests/hputest/scripts/package-chapters.py tests/hputest/build/silent/artifact --silent
@@ -417,10 +426,29 @@ make -C tests/hputest silent-subtests JOBS=4
 make -C tests/hputest unified
 ```
 
-GitHub Actions在push/PR/手动运行中上传唯一的HPU产物`nexus-am-hpu-tests`，
-内容来自`build/unified/release/hputest/`。包内按00至07章节组织；03以37个独立subtest
-替换原九个串行整例，新增N65536及其余章节保留单用例入口。每个已发布测试同时提供普通文件和`_silent`文件，
-共249个已发布测试身份、498组ELF/BIN/TXT；7项未就绪只保留索引。`INDEX.tsv`列出模式和真实路径。
+GitHub Actions的功能job显式使用`HPU_BUILD_SCOPE=functional`，产物仍名为`nexus-am-hpu-tests`，
+内容来自`build/unified/release/hputest/`，仅包含00至06组。03以37个独立subtest替换原九个串行整例，
+另保留9个N65536单程序入口；功能包共161个测试身份、322套普通/静默ELF/BIN/TXT，
+7项未就绪只保留索引，`INDEX.tsv`共329条数据记录。
+
+07由独立matrix构建，产物命名为`nexus-am-hpu-perf-nN-profile`，例如`nexus-am-hpu-perf-n8192-l16-ckks`。
+按N4096、N8192、N16384、N32768、N65536阅读：每种N的`baseline`含22项，
+`l16-ckks`、`l16-bfv`、`l16-bgv`各6项；N65536的BFV因中间数据较大再拆为`l16-bfv-a/b`各3项。
+共21个07产物、200个测试身份、400套普通/静默ELF/BIN/TXT。每片只导入、构建和发布所选程序，
+普通与静默复用同一批输入和golden。上游RNS工具额外生成的临时bin在模型导入成功后逐文件压成可恢复的`.gz`。
+分片的`INDEX.tsv`和`PARAMETERS.json`保留完整用例名、N、输入level、
+实际Q/P、内存配置与版本；硬件cycle和耗时仍待实测。
+
+本地可单独构建同样的分片：
+
+```bash
+make -C tests/hputest performance-shard \
+  HPU_BUILD_SCOPE=performance:8192:l16-ckks JOBS=4
+```
+
+默认输出为`build/performance-release/release/hputest/`，normal/silent分别保存。
+构建输出目录`build/performance-release/`需为空；再次构建请通过`OUTPUT_ROOT`指定新的专用目录。
+分片保留producer源码、指令、参数和模型证据；大数据bin已嵌入ELF并逐字节校验，不再复制一份到溯源目录。
 02组三项看门狗用例要求RTL包含`IT-SCPU-RTL/two_core_no_fdi@ff86d9e`的核侧握手超时及故障码，
 详见[边缘快测说明](docs/EDGE_SMOKE.md)；不适用于尚未合入该机制的旧main交付。
 产物保留7天，不提交二进制到Git。

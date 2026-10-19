@@ -84,11 +84,11 @@ while IFS=$'\t' read -r group qualifier case_id source_path; do
   fi
 done < <(tail -n +2 "$roster")
 
-if [[ ${#roster_ids[@]} -ne 228 || ${roster_group_counts[core]} -ne 58 || \
-      ${roster_group_counts[transform]} -ne 20 || \
-      ${roster_group_counts[fhe]} -ne 150 || $roster_migrated -ne 217 || \
-      $roster_migrated_software -ne 210 || $roster_migrated_blocked -ne 7 || \
-      ${roster_qualifier_counts[software-self-check]} -ne 218 || \
+if [[ ${#roster_ids[@]} -ne 340 || ${roster_group_counts[core]} -ne 58 || \
+      ${roster_group_counts[transform]} -ne 23 || \
+      ${roster_group_counts[fhe]} -ne 259 || $roster_migrated -ne 329 || \
+      $roster_migrated_software -ne 322 || $roster_migrated_blocked -ne 7 || \
+      ${roster_qualifier_counts[software-self-check]} -ne 330 || \
       ${roster_qualifier_counts[blocked-not-issued]} -ne 7 || \
       ${roster_qualifier_counts[waveform-hold]} -ne 1 || \
       ${roster_qualifier_counts[termination-probe-pass]} -ne 1 || \
@@ -226,6 +226,20 @@ manifest_hpu_applications=$(manifest_value hpu_applications_commit)
 manifest_golden=$(manifest_value golden_backend)
 [[ $manifest_golden == inline-asm/modified-SEAL ]] || exit 2
 manifest_selection=$(manifest_value selection)
+build_scope=$(sed -n 's/^build_scope=//p' "$manifest")
+if [[ -z $build_scope ]]; then
+  build_scope=all
+  [[ $manifest_selection != functional ]] || build_scope=functional
+fi
+if [[ ! $build_scope =~ ^(all|functional)$ ]]; then
+  printf 'ERROR: invalid MANIFEST build_scope: %s\n' "$build_scope" >&2
+  exit 2
+fi
+if [[ $manifest_selection == functional && $build_scope != functional || \
+      $manifest_selection == all && $build_scope != all ]]; then
+  printf 'ERROR: MANIFEST selection and build_scope disagree\n' >&2
+  exit 2
+fi
 manifest_core=$(manifest_value core_count)
 manifest_transform=$(manifest_value transform_count)
 manifest_fhe=$(manifest_value fhe_count)
@@ -248,14 +262,17 @@ declare -A selected_group_counts=([core]=0 [transform]=0 [fhe]=0)
 selected_case_ids=()
 selected_not_qualified=0
 case "$manifest_selection" in
-  all|core|transform|fhe|diagnostic)
+  all|functional|core|transform|fhe|diagnostic)
     for case_id in "${roster_ids[@]}"; do
       group=${roster_group[$case_id]}
+      if [[ $build_scope == functional && ${roster_source[$case_id]} == src/07_performance/* ]]; then
+        continue
+      fi
       if [[ $manifest_selection == diagnostic ]]; then
         [[ ${roster_source[$case_id]} == src/03_compute_instructions/* || \
            ( ${roster_source[$case_id]} == src/04_composite_instruction_sequences/* && \
              ${roster_qualifier[$case_id]} == software-self-check ) ]] || continue
-      elif [[ $manifest_selection != all && $group != "$manifest_selection" ]]; then
+      elif [[ $manifest_selection != all && $manifest_selection != functional && $group != "$manifest_selection" ]]; then
         continue
       fi
       selected_case_ids+=("$case_id")
@@ -278,6 +295,10 @@ case "$manifest_selection" in
     if [[ -z $selected_case_id ]]; then
       printf 'ERROR: testcase selection is not in canonical roster: %s\n' \
         "$selected_source" >&2
+      exit 2
+    fi
+    if [[ $build_scope == functional && $selected_source == src/07_performance/* ]]; then
+      printf 'ERROR: testcase selection is outside functional build scope: %s\n' "$selected_case_id" >&2
       exit 2
     fi
     selected_case_ids+=("$selected_case_id")
@@ -446,8 +467,8 @@ while IFS=$'\t' read -r case_id stem scheme degree role source; do
     python3 -c 'import json,sys; r=json.load(open(sys.argv[1])); assert r["status"] == "PASS" and r["producer_commit"] == sys.argv[2] and r["comparison"] == "all raw physical words" and r["raw_word_mismatches"] == 0' \
       "$delivery/SEAL_ORACLE.json" "$manifest_hpu_applications"
   fi
-done < <(python3 "$script_dir/case_catalog.py")
-# functional_case_id在新增规模中可为空；先移除此列，避免Bash合并相邻TAB使字段错位。
+done < <(python3 "$script_dir/case_catalog.py" --scope "$build_scope")
+# 仅选取所需非空列，避免Bash合并空TAB或把新增参数列并入末字段。
 while IFS=$'\t' read -r case_id stem delivery degree source metric; do
   [[ $case_id == case_id ]] && continue
   directory="$artifact_root/provenance/$delivery/$stem"
@@ -458,7 +479,7 @@ while IFS=$'\t' read -r case_id stem delivery degree source metric; do
   done
   python3 -c 'import json,sys; r=json.load(open(sys.argv[1])); assert r["schema_version"] == 1 and r["metric"] == "issue_to_done_v2" and r["program_stem"] == sys.argv[2] and r["instruction_words_unchanged"] is True and r["preflight_emits_hpu"] is False and r["timed_parameter_checks"] is False and r["timed_trace_writes"] is False' \
     "$directory/PERF_ADAPTATION.json" "$stem"
-done < <(cut -f1,3- "$test_root/perf-cases.tsv")
+done < <(python3 "$script_dir/case_catalog.py" --scope "$build_scope" --table performance | cut -f1,3,4,5,6,7)
 for required in encoder_words.tsv RESOLVED_DMA_SPANS.csv DELIVERY_SUMMARY.md \
                 mm.c mm.h mm.asm mm.inst32 mm.cmd26 dma_relocation_manifest.csv \
                 opcode_map.csv upstream/mm.c upstream/mm.h upstream/mm.asm \
@@ -954,8 +975,9 @@ for elf in "${elfs[@]}"; do
     */01_configuration_and_data_paths/*.elf|*/02_boundaries_and_cpu_interaction/*.elf|\
     */03_compute_instructions/*.elf|*/04_composite_instruction_sequences/*.elf|\
     */05_algorithm_library/*.elf|*/06_full_application/*.elf|*/07_performance/*.elf)
+      # 各catalog第2列含义不同，perf的functional_case_id允许为空；只按case_id成员身份豁免。
       if [[ $qualifier != blocked-not-issued && \
-            -z $(awk -F '\t' -v id="$name" '$1 == id {print $2}' "$test_root/scheme-cases.tsv" "$test_root/large-cases.tsv" "$test_root/perf-cases.tsv") && \
+            -z $(awk -F '\t' -v id="$name" '$1 == id {print $1}' "$test_root/scheme-cases.tsv" "$test_root/large-cases.tsv" "$test_root/perf-cases.tsv") && \
             $name != 04_01_bconv_q4_to_p3_n4096 && \
             $name != 04_02_ntt_n4096 && \
             $name != 04_03_intt_n4096 && \

@@ -10,12 +10,14 @@ HPU_GENERATED_ROOT ?= $(OUTPUT_ROOT)/generated
 export mainargs
 HPU_DUMP_RESULTS ?= 0
 HPU_LOG_LEVEL ?= 1
+HPU_BUILD_SCOPE ?= all
+export HPU_BUILD_SCOPE
 DIAGNOSTIC_OUTPUT_ROOT ?= $(OUTPUT_ROOT)/diagnostic
 SUBTEST_OUTPUT_ROOT ?= $(OUTPUT_ROOT)/subtests
 SILENT_OUTPUT_ROOT ?= $(OUTPUT_ROOT)/silent
 SILENT_SUBTEST_OUTPUT_ROOT ?= $(OUTPUT_ROOT)/silent-subtests
 
-.PHONY: all group one diagnostic subtests silent silent-subtests unified prepare-inline-asm-mm verify-inline-asm validate clean
+.PHONY: all group one diagnostic subtests silent silent-subtests unified performance-shard prepare-inline-asm-mm verify-inline-asm validate clean
 
 all: verify-inline-asm
 	@AM_HOME="$(AM_HOME)" ARCH="$(ARCH)" \
@@ -64,6 +66,7 @@ silent:
 	  CROSS_COMPILE="$(CROSS_COMPILE)" JOBS="$(JOBS)" \
 	  INLINE_ASM_ROOT="$(INLINE_ASM_ROOT)" \
 	  HPU_GENERATED_ROOT="$(HPU_GENERATED_ROOT)" \
+	  HPU_PROVENANCE_ARTIFACT="$(if $(filter 1,$(HPU_HARDLINK_STAGING)),$(OUTPUT_ROOT)/artifact,)" \
 	  HPU_DUMP_RESULTS=0 HPU_LOG_LEVEL=0 HPU_CASE_GROUP=all \
 	  scripts/build.sh "$(SILENT_OUTPUT_ROOT)"
 
@@ -82,7 +85,7 @@ unified:
 	  --silent-workloads "$(SILENT_OUTPUT_ROOT)/release" \
 	  --subtests "$(SUBTEST_OUTPUT_ROOT)/release" \
 	  --silent-subtests "$(SILENT_SUBTEST_OUTPUT_ROOT)/release" \
-	  --output-root "$(OUTPUT_ROOT)/unified"
+	  --output-root "$(OUTPUT_ROOT)/unified" $(if $(filter functional,$(HPU_BUILD_SCOPE)),--functional,)
 
 silent-subtests:
 	@python3 scripts/build-subtests.py \
@@ -97,12 +100,17 @@ prepare-inline-asm-mm:
 	  "$(HPU_APPLICATIONS_ROOT)"
 
 verify-inline-asm: prepare-inline-asm-mm
+	@python3 scripts/test-build-scopes.py
+	@python3 scripts/test-build-performance-shard.py
+	@python3 scripts/test-compress-temporary-rns.py
 	@python3 scripts/test-layer-separation.py
 	@python3 scripts/test-ckks-input-preservation.py
 	@python3 scripts/test-edge-cases.py
 	@python3 scripts/test-seal-delivery.py --generated "$(HPU_GENERATED_ROOT)/application-data"
-	@python3 scripts/test-large-cases.py --generated "$(HPU_GENERATED_ROOT)"
+	@python3 scripts/test-large-cases.py --generated "$(HPU_GENERATED_ROOT)" --scope "$(HPU_BUILD_SCOPE)"
 	@python3 scripts/test-perf-programs.py
+	@python3 scripts/test-immutable-staging.py
+	@python3 scripts/test-validate-build-fixture.py
 	@HPU_GENERATED_ROOT="$(HPU_GENERATED_ROOT)" \
 	  scripts/verify-inline-asm-encodings.sh "$(INLINE_ASM_ROOT)"
 	@python3 scripts/test-mm-delivery.py "$(HPU_GENERATED_ROOT)/inline-asm/mm/mm.c"
@@ -157,6 +165,15 @@ verify-inline-asm: prepare-inline-asm-mm
 validate:
 	@HPU_GENERATED_ROOT="$(HPU_GENERATED_ROOT)" \
 	  scripts/validate-build.sh "$(OUTPUT_ROOT)/artifact"
+
+# CI按N/level分片准备、校验和构建，避免同一runner同时保存全部大镜像。
+performance-shard: prepare-inline-asm-mm
+	@python3 scripts/test-build-scopes.py
+	@python3 scripts/test-build-performance-shard.py
+	@python3 scripts/test-compress-temporary-rns.py
+	@python3 scripts/test-large-cases.py --generated "$(HPU_GENERATED_ROOT)" --scope "$(HPU_BUILD_SCOPE)"
+	@python3 scripts/build-performance-shard.py --generated "$(HPU_GENERATED_ROOT)" \
+	  --output-root "$(OUTPUT_ROOT)/performance-release" --scope "$(HPU_BUILD_SCOPE)" --jobs "$(JOBS)"
 
 clean:
 	rm -rf -- "$(OUTPUT_ROOT)"

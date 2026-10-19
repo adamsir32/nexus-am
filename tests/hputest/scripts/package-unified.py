@@ -5,11 +5,13 @@ import argparse
 import csv
 import os
 from pathlib import Path, PurePosixPath
+import re
 import shutil
 import stat
 import tempfile
 
 from subtest_support import PARENTS
+from immutable_staging import immutable_copy_function
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -142,15 +144,18 @@ def compare_trees(left, right, label):
             raise ValueError(f"{label} differs: {relative}")
 
 
-def workload_rows(release, mode):
+def workload_rows(release, mode, functional=False):
     rows = read_tsv(release / "INDEX.tsv", WORKLOAD_FIELDS)
-    if len(rows) != 228:
-        raise ValueError(f"{mode} workloads must describe 228 canonical cases")
+    expected_count, expected_published = (140, 133) if functional else (340, 333)
+    if len(rows) != expected_count:
+        raise ValueError(f"{mode} workloads must describe {expected_count} canonical cases")
     seen = set()
     for row in rows:
         identity = row["case_id"]
         if identity in seen or row["chapter"] not in CHAPTERS:
             raise ValueError(f"duplicate/invalid workload row: {identity}")
+        if functional and row["chapter"] == "07_performance":
+            raise ValueError("functional workloads must not contain chapter 07")
         seen.add(identity)
         paths = [row[field] for field, _extension in FILE_FIELDS]
         blocked = row["qualifier"] == "blocked-not-issued"
@@ -163,8 +168,8 @@ def workload_rows(release, mode):
                     raise ValueError(f"wrong {field} extension for workload: {identity}")
     blocked = sum(row["qualifier"] == "blocked-not-issued" for row in rows)
     published = sum(bool(row["elf"]) for row in rows)
-    if (published, blocked) != (221, 7):
-        raise ValueError(f"{mode} workloads require 221 published and 7 blocked cases")
+    if (published, blocked) != (expected_published, 7):
+        raise ValueError(f"{mode} workloads require {expected_published} published and 7 blocked cases")
     instruction = {row["case_id"] for row in rows
                    if row["case_id"] in INSTRUCTION_IDS and row["elf"]}
     if instruction != INSTRUCTION_IDS:
@@ -304,7 +309,13 @@ def write_index(path, rows):
         writer.writerows(rows)
 
 
-def package(workloads, silent_workloads, subtests, silent_subtests, output_root):
+def natural_order(value):
+    # 序号达到三位后，07_100仍应排在07_99之后；不更改交付文件名。
+    return tuple(int(part) if part.isdigit() else part for part in re.split(r"(\d+)", value))
+
+
+def package(workloads, silent_workloads, subtests, silent_subtests, output_root, functional=False):
+    copy_immutable = immutable_copy_function()
     releases = {
         "workloads": resolve_release(workloads),
         "silent-workloads": resolve_release(silent_workloads),
@@ -312,12 +323,13 @@ def package(workloads, silent_workloads, subtests, silent_subtests, output_root)
         "silent-subtests": resolve_release(silent_subtests),
     }
     manifests = {name: read_manifest(release) for name, release in releases.items()}
+    selection = "functional" if functional else "all"
     require_metadata(manifests["workloads"], {
-        "selection": "all", "log_level": "1", "log_mode": "minimal",
+        "selection": selection, "log_level": "1", "log_mode": "minimal",
         "uart_results": "brief", "hpu_dump_results": "0",
     }, "workloads")
     require_metadata(manifests["silent-workloads"], {
-        "selection": "all", "log_level": "0", "log_mode": "silent",
+        "selection": selection, "log_level": "0", "log_mode": "silent",
         "uart_results": "none", "hpu_dump_results": "0",
     }, "silent workloads")
     require_metadata(manifests["subtests"], {
@@ -334,8 +346,8 @@ def package(workloads, silent_workloads, subtests, silent_subtests, output_root)
     compare_trees(releases["subtests"] / "provenance",
                   releases["silent-subtests"] / "provenance", "subtest provenance")
 
-    normal_workloads = workload_rows(releases["workloads"], "normal")
-    quiet_workloads = workload_rows(releases["silent-workloads"], "silent")
+    normal_workloads = workload_rows(releases["workloads"], "normal", functional=functional)
+    quiet_workloads = workload_rows(releases["silent-workloads"], "silent", functional=functional)
     compare_workloads(normal_workloads, quiet_workloads)
     normal_subtests = subtest_rows(releases["subtests"], "normal")
     quiet_subtests = subtest_rows(releases["silent-subtests"], "silent")
@@ -403,22 +415,24 @@ def package(workloads, silent_workloads, subtests, silent_subtests, output_root)
         for source, relative in copies:
             destination = package_root / Path(relative.as_posix())
             destination.parent.mkdir(parents=True, exist_ok=True)
-            shutil.copy2(source, destination)
+            copy_immutable(source, destination)
 
-        shutil.copytree(releases["workloads"] / "provenance", package_root / "provenance")
+        shutil.copytree(releases["workloads"] / "provenance", package_root / "provenance",
+                        copy_function=copy_immutable)
         manifests_root = package_root / "provenance" / "build-manifests"
         manifests_root.mkdir()
         for name, release in releases.items():
             shutil.copy2(release / "MANIFEST.txt", manifests_root / f"{name}.txt")
         (package_root / "provenance" / "testplan").mkdir(exist_ok=True)
-        shutil.copy2(releases["subtests"] / "cases.tsv",
-                     package_root / "provenance" / "testplan" / "SUBTEST_CASES.tsv")
+        copy_immutable(releases["subtests"] / "cases.tsv",
+                       package_root / "provenance" / "testplan" / "SUBTEST_CASES.tsv")
         merge_tools(package_root / "tools", [releases["workloads"] / "tools",
                                                releases["subtests"] / "tools"])
 
-        indexes.sort(key=lambda row: (row["chapter"], row["source"], row["test_id"], row["variant"]))
+        indexes.sort(key=lambda row: (row["chapter"], natural_order(row["source"]),
+                                      natural_order(row["test_id"]), row["variant"]))
         write_index(package_root / "INDEX.tsv", indexes)
-        for chapter in CHAPTERS:
+        for chapter in (CHAPTERS[:-1] if functional else CHAPTERS):
             chapter_rows = [row for row in indexes if row["chapter"] == chapter]
             directory = package_root / chapter
             directory.mkdir(exist_ok=True)
@@ -426,11 +440,13 @@ def package(workloads, silent_workloads, subtests, silent_subtests, output_root)
 
         published = sum(bool(row["elf"]) for row in indexes)
         blocked = sum(row["publish_status"] == "BLOCKED_NOT_PUBLISHED" for row in indexes)
-        if (published, blocked, len(indexes)) != (498, 7, 505):
+        identities, variant_sets, index_count = (161, 322, 329) if functional else (361, 722, 729)
+        if (published, blocked, len(indexes)) != (variant_sets, 7, index_count):
             raise ValueError(f"unexpected unified counts: published={published} blocked={blocked} rows={len(indexes)}")
         metadata = manifests["workloads"]
         (package_root / "MANIFEST.txt").write_text(
             "format=hpu-unified-package-v1\n"
+            + ("selection=functional\n" if functional else "") +
             f"revision={metadata['revision']}\narch={metadata['arch']}\n"
             f"inline_asm_commit={metadata['inline_asm_commit']}\n"
             f"hpu_seal_commit={metadata['hpu_seal_commit']}\n"
@@ -438,13 +454,25 @@ def package(workloads, silent_workloads, subtests, silent_subtests, output_root)
             f"golden_backend={metadata['golden_backend']}\n"
             "variants=normal,silent\nnormal_log_mode=minimal\nsilent_log_mode=silent\n"
             "parent_instruction_cases_replaced=9\nsubtests=37\n"
-            "published_test_identities=249\npublished_variant_sets=498\n"
+            f"published_test_identities={identities}\npublished_variant_sets={variant_sets}\n"
             "blocked_index_only=7\nqualification=BUILD_READY_NOT_IT_PASS\n",
             encoding="utf-8")
-        (package_root / "README.md").write_text(
-            "# HPU 统一测试包\n\n"
+        chapter_overview = (
+            "本功能包只交付00-06：00冒烟、01配置/连接/数据通路、02边界/RISC-V交叉、03指令、"
+            "04算子、05算法库、06应用。07性能矩阵通过独立分片构建。"
+            if functional else
             "本包把workload与03独立subtest合并到同一棵00至07目录："
             "00冒烟、01配置/连接/数据通路、02边界/RISC-V交叉、03指令、04算子、05算法库、06应用、07性能。"
+        )
+        performance_note = "本包N65536功能用例使用HPU窗口0x90000000，RAM至少512MiB。" if functional else (
+            "07按N4096、N8192、N16384、N32768、N65536升序排列，每个规模40项；记录预检查完成后发令至完成的SCPU cycle。"
+            "基线level为1/3/4的性能用例和新增N65536功能用例使用HPU窗口0x90000000，RAM至少512MiB。"
+            "level=16的性能用例使用HPU窗口0xc0000000，RAM至少2GiB；具体参数见`provenance/testplan/perf-cases.tsv`。"
+            "原110项07用例的编号/路径迁移记录见`provenance/testplan/perf-migration.tsv`。"
+        )
+        (package_root / "README.md").write_text(
+            "# HPU 统一测试包\n\n"
+            + chapter_overview +
             "03的原九个父用例替换为37个独立子项，另保留9个N65536单程序用例。\n\n"
             "每个已发布测试有两种文件：普通 minimal UART 版保留原名，真正无 UART 的版本在扩展名前加 "
             "`_silent`，例如 `foo.elf` 与 `foo_silent.elf`。BIN 和反汇编 TXT 使用同一规则。\n\n"
@@ -453,8 +481,7 @@ def package(workloads, silent_workloads, subtests, silent_subtests, output_root)
             "构建成功不代表已经在 IT/VCS 上运行通过。\n\n"
             "`INDEX.tsv` 标明 kind、父用例、subcase、variant 和真实路径。"
             "7个尚未接入的测试只保留索引与原因，不发布占位二进制。"
-            "07覆盖N8192、N16384、N32768、N65536，每个规模22项；记录预检查完成后发令至完成的SCPU cycle。"
-            "这些性能用例和新增N65536功能用例必须配置至少512MiB RAM，HPU窗口0x90000000。"
+            + performance_note +
             "02组三项watchdog用例是预期故障测试，要求RTL包含two_core_no_fdi@ff86d9e的看门狗及故障码，每例独立复位。"
             "并行运行03子项可使用 `tools/run-subtests.py`。\n",
             encoding="utf-8")
@@ -468,7 +495,7 @@ def package(workloads, silent_workloads, subtests, silent_subtests, output_root)
             shutil.rmtree(staging)
         raise
     print(f"Unified HPU package: {output / 'release' / 'hputest'}; "
-          "249 tests x 2 variants, 7 blocked index-only")
+          f"{identities} tests x 2 variants, 7 blocked index-only")
     return output / "release"
 
 
@@ -479,10 +506,11 @@ def main():
     parser.add_argument("--subtests", type=Path, required=True)
     parser.add_argument("--silent-subtests", type=Path, required=True)
     parser.add_argument("--output-root", type=Path, required=True)
+    parser.add_argument("--functional", action="store_true", help="仅合并00-06功能包，不创建07目录")
     args = parser.parse_args()
     try:
         package(args.workloads, args.silent_workloads, args.subtests,
-                args.silent_subtests, args.output_root)
+                args.silent_subtests, args.output_root, functional=args.functional)
     except (OSError, ValueError, csv.Error) as error:
         parser.exit(2, f"package-unified: {error}\n")
 

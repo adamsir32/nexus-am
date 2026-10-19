@@ -3,6 +3,8 @@
 import argparse
 import csv
 import json
+import errno
+import os
 from pathlib import Path
 import re
 import shutil
@@ -10,7 +12,7 @@ import struct
 import subprocess
 import tempfile
 
-from program_adaptation import adapt_bfv_image, preserve_ckks_inputs, coefficients_to_physical
+from program_adaptation import adapt_bfv_image, preserve_ckks_inputs, coefficients_to_physical, add_dma_trace
 from case_catalog import application_specs
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -127,6 +129,10 @@ def validate(source, validator, producer_commit=None):
     n = int(spec["degree"])
     require(parameters.get("scheme") == spec["scheme"] and
             parameters.get("poly_modulus_degree") == n, "scheme/degree mismatch")
+    if spec.get("q_rns_count"):
+        require(len(parameters["levels"][0]["moduli"]) == spec["q_rns_count"] and
+                len(parameters["key_moduli"]) == spec["q_rns_count"] + 1,
+                "requested Q-RNS/P count differs from producer package")
     operations = load_json(files["operation_graph"])["operations"]
     validate_operation_graph(spec, operations)
     config = load_json(files["memory_config"])
@@ -215,7 +221,18 @@ def validate(source, validator, producer_commit=None):
     return commit, config, image, bytes(golden), writable, outputs
 
 
-def import_package(source, destination, validator, producer_commit, encoder, program_model):
+def link_or_copy(source, destination):
+    """仅供已完成生成的不可变upstream包使用；跨文件系统保持复制语义。"""
+    try:
+        os.link(source, destination)
+        return destination
+    except OSError as error:
+        if error.errno not in (errno.EXDEV, errno.EPERM, errno.EOPNOTSUPP):
+            raise
+        return shutil.copy2(source, destination)
+
+
+def import_package(source, destination, validator, producer_commit, encoder, program_model, link_upstream=False):
     commit, config, image, golden, writable, outputs = validate(source, validator, producer_commit)
     package, files = package_files(source)
     stem = package["case_name"]
@@ -247,14 +264,7 @@ def import_package(source, destination, validator, producer_commit, encoder, pro
         code_path = root / f"{stem}.c"
         c_source = code_path.read_text()
         c_source = '#include <hpu/trace.h>\n' + c_source
-        for row in dma:
-            index = int(row["instruction_index"])
-            marker = re.compile(r"(    /\* " + str(index) + r": [^\n]+ \*/\n)")
-            c_source, count = marker.subn(
-                lambda match: match[1] +
-                f"    trace_issue({index}U, {row['dma_index']}U, {row['word_hex']}U);\n",
-                c_source)
-            require(count == 1, "missing DMA trace insertion marker")
+        c_source = add_dma_trace(c_source, dma)
         code_path.write_text(c_source)
         with (root / "dma_relocation_manifest.csv").open("w", newline="") as stream:
             writer = csv.DictWriter(stream, fieldnames=list(dma[0]))
@@ -266,7 +276,7 @@ def import_package(source, destination, validator, producer_commit, encoder, pro
         (root / "application_window.u32.bin").write_bytes(image)
         (root / "application_golden.u32.bin").write_bytes(golden)
         (root / "application_writable.u8.bin").write_bytes(mask)
-        shutil.copytree(source, root / "upstream")
+        shutil.copytree(source, root / "upstream", copy_function=link_or_copy if link_upstream else shutil.copy2)
         (root / "producer_commit.txt").write_text(commit + "\n")
         model_rows = []
         for first, lines, padded, offset, modulus, step, component, modulus_id in outputs:
@@ -329,8 +339,9 @@ if __name__ == "__main__":
     for name in ("source", "destination", "validator", "encoder", "program-model"):
         parser.add_argument("--" + name, required=True, type=Path)
     parser.add_argument("--producer-commit", required=True)
+    parser.add_argument("--link-upstream", action="store_true", help="同盘共享本次已完成生成的不可变upstream，减少大参数包重复占用")
     args = parser.parse_args()
     require(not args.destination.resolve().is_relative_to(args.source.resolve()) and
             not args.source.resolve().is_relative_to(args.destination.resolve()), "overlapping import")
     import_package(args.source, args.destination, args.validator, args.producer_commit,
-                   args.encoder, args.program_model)
+                   args.encoder, args.program_model, args.link_upstream)

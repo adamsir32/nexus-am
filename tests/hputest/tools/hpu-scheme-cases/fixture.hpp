@@ -16,20 +16,31 @@ struct Fixture {
     seal::GaloisKeys galois;
     seal::Ciphertext left, right, input, tensor, expected;
     std::string scheme, operation, stem;
-    std::size_t degree;
+    std::size_t degree, q_rns_count;
     int rotation_steps;
     std::filesystem::path directory;
 
     Fixture(std::string s, std::string op, std::size_t n, std::filesystem::path out,
-            int scale_bits=30, int rotate_steps=1, bool nontrivial_bgv_cf=true)
+            int scale_bits=30, int rotate_steps=1, bool nontrivial_bgv_cf=true,
+            std::size_t requested_q_rns=0)
         : scheme(s), operation(op), degree(n), rotation_steps(rotate_steps), directory(std::move(out)) {
         if (n < 128 || n > 65536 || (n & (n - 1)))
             throw std::invalid_argument("degree must be a power of two in [128,65536]");
+        if (scheme != "ckks" && scheme != "bfv" && scheme != "bgv")
+            throw std::invalid_argument("unknown scheme");
+        if (requested_q_rns != 0 && requested_q_rns != 16)
+            throw std::invalid_argument("Q_RNS_COUNT must be 16; omit it for the original parameters");
+        q_rns_count = requested_q_rns ? requested_q_rns : (scheme == "bgv" ? 3 : 4);
         const auto type = scheme == "ckks" ? seal::scheme_type::ckks :
                           scheme == "bfv" ? seal::scheme_type::bfv : seal::scheme_type::bgv;
         seal::EncryptionParameters parameters(type);
         parameters.set_poly_modulus_degree(n);
-        if (scheme == "bgv")
+        // level按输入Q的RNS分量数计；最后一个特殊P不计入level。
+        // 旧BGV的固定素数和旧CKKS/BFV的随机输入保持不变。
+        if (requested_q_rns)
+            parameters.set_coeff_modulus(seal::CoeffModulus::Create(
+                n, std::vector<int>(q_rns_count + 1, scheme == "bgv" ? 31 : 27)));
+        else if (scheme == "bgv")
             parameters.set_coeff_modulus({seal::Modulus(2013265921U), seal::Modulus(1811939329U),
                 seal::Modulus(469762049U), seal::Modulus(1224736769U)});
         else parameters.set_coeff_modulus(seal::CoeffModulus::Create(n, {27,27,27,27,27}));
@@ -39,6 +50,9 @@ struct Fixture {
         parameters.set_random_generator(std::make_shared<seal::Blake2xbPRNGFactory>(seed));
         context = std::make_shared<seal::SEALContext>(parameters, true, seal::sec_level_type::none);
         if (!context->parameters_set()) throw std::runtime_error(context->parameter_error_message());
+        if (context->first_context_data()->parms().coeff_modulus().size() != q_rns_count ||
+            context->key_context_data()->parms().coeff_modulus().size() != q_rns_count + 1)
+            throw std::runtime_error("fixture must contain the requested Q limbs and exactly one special P");
         keys = std::make_unique<seal::KeyGenerator>(*context);
         if (op == "keyswitch" || op == "reline" || op == "hmul") keys->create_relin_keys(relin);
         if (op == "rotate") keys->create_galois_keys(std::vector<int>{rotation_steps}, galois);
@@ -91,7 +105,9 @@ struct Fixture {
             if (scheme == "ckks") evaluator.rotate_vector(input, rotation_steps, galois, expected);
             else evaluator.rotate_rows(input, rotation_steps, galois, expected);
         } else throw std::invalid_argument("unknown operation");
-        stem = scheme + "_" + op + "_n" + std::to_string(n);
+        stem = scheme + "_" + op;
+        if (requested_q_rns) stem += "_l" + std::to_string(q_rns_count);
+        stem += "_n" + std::to_string(n);
         if (scale_bits != 30) stem += "_scale" + std::to_string(scale_bits);
     }
 };

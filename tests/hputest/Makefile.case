@@ -93,7 +93,11 @@ PERF_STEM := $(shell awk -F '\t' '$$1 == "$(CASE_ID)" {print $$3}' $(TEST_ROOT)/
 ifneq ($(strip $(PERF_STEM)),)
 APPLICATION_STEM := $(PERF_STEM)
 APPLICATION_DELIVERY := $(shell awk -F '\t' '$$1 == "$(CASE_ID)" {print $$4}' $(TEST_ROOT)/perf-cases.tsv)
-CFLAGS += -DHPU_CASE_MEM_BASE=0x90000000ULL
+PERF_MEMORY_BASE := $(shell awk -F '\t' '$$1 == "$(CASE_ID)" {print $$9}' $(TEST_ROOT)/perf-cases.tsv)
+ifeq ($(strip $(PERF_MEMORY_BASE)),)
+$(error missing memory contract for performance case $(CASE_ID))
+endif
+CFLAGS += -DHPU_CASE_MEM_BASE=$(PERF_MEMORY_BASE)ULL
 ifeq ($(HPU_LOG_LEVEL),2)
 $(error performance endpoints exclude UART; use HPU_LOG_LEVEL=0 or 1)
 endif

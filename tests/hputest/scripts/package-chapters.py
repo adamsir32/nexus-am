@@ -11,6 +11,7 @@ import stat
 import tempfile
 
 from subtest_support import PARENTS
+from immutable_staging import immutable_copy_function
 
 
 GROUPS = {"core", "transform", "fhe"}
@@ -97,9 +98,18 @@ def write_index(path, rows):
         writer.writerows(rows)
 
 
-def package(artifact, require_all=False, require_diagnostic=False, require_silent=False):
+def natural_order(value):
+    # 序号达到三位后，07_100仍应排在07_99之后；不更改交付文件名。
+    return tuple(int(part) if part.isdigit() else part for part in re.split(r"(\d+)", value))
+
+
+def package(artifact, require_all=False, require_diagnostic=False, require_silent=False,
+            require_functional=False):
+    copy_immutable = immutable_copy_function()
     if sum((require_all, require_diagnostic, require_silent)) > 1:
         raise ValueError("package modes are mutually exclusive")
+    if require_functional and (require_all or require_diagnostic):
+        raise ValueError("--functional cannot be combined with --all or --diagnostic")
     requested = Path(artifact).absolute()
     if requested.is_symlink() or requested.name != "artifact":
         raise ValueError("input must be a plain directory named artifact")
@@ -121,14 +131,15 @@ def package(artifact, require_all=False, require_diagnostic=False, require_silen
         metadata[key] = value
     if not rows or metadata.get("case_count") != str(len(rows)):
         raise ValueError("MANIFEST case_count does not match CASE_MANIFEST")
-    if (require_all or require_silent) and metadata.get("selection") != "all":
-        raise ValueError("--all/--silent requires a full selection=all build")
+    expected_selection = "functional" if require_functional else "all"
+    if (require_all or require_silent or require_functional) and metadata.get("selection") != expected_selection:
+        raise ValueError(f"package mode requires a full selection={expected_selection} build")
     if (metadata.get("log_level"), metadata.get("log_mode"),
             metadata.get("uart_results"), metadata.get("hpu_dump_results")) not in {
             ("0", "silent", "none", "0"), ("1", "minimal", "brief", "0"),
             ("2", "verbose", "brief", "0"), ("2", "verbose", "full", "1")}:
         raise ValueError("missing/inconsistent UART build mode metadata")
-    if require_all and metadata["log_level"] != "1":
+    if (require_all or require_functional and not require_silent) and metadata["log_level"] != "1":
         raise ValueError("default --all package requires brief UART output at log_level=1")
     if require_silent and metadata["log_level"] != "0":
         raise ValueError("--silent package requires log_level=0")
@@ -197,7 +208,12 @@ def package(artifact, require_all=False, require_diagnostic=False, require_silen
                     else "04_composite_instruction_sequences")
                 for row in indexes):
             raise ValueError("diagnostic package must contain exactly the 35 ready 03/04 cases")
-    if require_all or require_silent:
+    if require_functional:
+        if len(indexes) != 140 or any(row["chapter"] == "07_performance" for row in indexes):
+            raise ValueError("functional package requires 140 cases from chapters 00-06 only")
+        if len(declared_blocked) != 7:
+            raise ValueError("functional package requires seven blocked index-only cases")
+    if require_all or require_silent or require_functional:
         instruction_ids = {
             row["case_id"] for row in indexes
             if row["chapter"] == "03_compute_instructions"
@@ -225,15 +241,15 @@ def package(artifact, require_all=False, require_diagnostic=False, require_silen
     try:
         for name in MANIFESTS:
             shutil.copy2(artifact / name, staging / name)
-        shutil.copytree(provenance, staging / "provenance")
+        shutil.copytree(provenance, staging / "provenance", copy_function=copy_immutable)
         if (artifact / "tools").exists():
             tree_files(artifact / "tools")
             shutil.copytree(artifact / "tools", staging / "tools")
         for source, relative in copies:
             destination = staging / relative
             destination.parent.mkdir(parents=True, exist_ok=True)
-            shutil.copy2(source, destination)
-        indexes.sort(key=lambda row: (row["chapter"], row["source"]))
+            copy_immutable(source, destination)
+        indexes.sort(key=lambda row: (row["chapter"], natural_order(row["source"])))
         write_index(staging / "INDEX.tsv", indexes)
         chapters = sorted({row["chapter"] for row in indexes})
         summary = []
@@ -322,10 +338,12 @@ def main():
     mode.add_argument("--all", action="store_true", help="要求完整摘要构建且 03 包含全部九条指令")
     mode.add_argument("--diagnostic", action="store_true", help="要求03/04十九项全量UART诊断构建")
     mode.add_argument("--silent", action="store_true", help="要求完整静默构建，关闭日志但保留全部检查")
+    parser.add_argument("--functional", action="store_true", help="只发布完整00-06功能构建；可与--silent组合")
     args = parser.parse_args()
     try:
         package(args.artifact, require_all=args.all,
-                require_diagnostic=args.diagnostic, require_silent=args.silent)
+                require_diagnostic=args.diagnostic, require_silent=args.silent,
+                require_functional=args.functional)
     except (OSError, ValueError) as error:
         parser.exit(2, f"package-chapters: {error}\n")
 

@@ -10,6 +10,7 @@ import subprocess
 from pathlib import Path
 import tempfile
 import unittest
+from case_catalog import large_specs, performance_specs
 
 ROOT=Path(__file__).resolve().parents[1]
 def rows(name):
@@ -22,7 +23,7 @@ class LargeCases(unittest.TestCase):
     def test_actual_timing_endpoints_when_supplied(self):
         if ARGS.elf_root is None: self.skipTest('no prebuilt ELF directory supplied')
         for mode in ('normal','silent'):
-            for row in rows('perf-cases.tsv'):
+            for row in performance_specs(ARGS.scope):
                 text=(ARGS.elf_root/mode/'07_performance'/(row['case_id']+'.txt')).read_text()
                 self.assertEqual(len(re.findall(r'jal\s+[^\n]*<perf_cycle_read>',text)),2)
                 self.assertIn('rdcycle',text)
@@ -30,16 +31,19 @@ class LargeCases(unittest.TestCase):
     def test_matrix_and_single_program_timing(self):
         cases={r['case_id']:r for r in rows('cases.tsv')}
         perf=rows('perf-cases.tsv');large=rows('large-cases.tsv')
-        self.assertEqual(len(perf),88);self.assertEqual(len(large),13)
-        self.assertEqual({degree: sum(r['degree']==degree for r in perf) for degree in ('8192','16384','32768','65536')},
-                         {degree: 22 for degree in ('8192','16384','32768','65536')})
+        self.assertEqual(len(perf),200);self.assertEqual(len(large),13)
+        self.assertEqual({degree: sum(r['degree']==degree for r in perf) for degree in ('4096','8192','16384','32768','65536')},
+                         {degree: 40 for degree in ('4096','8192','16384','32768','65536')})
+        self.assertEqual([int(r['degree']) for r in perf],sorted(int(r['degree']) for r in perf))
+        self.assertEqual(sum(r['level']=='16' for r in perf),90)
         for row in perf:
             self.assertEqual(row['metric'],'issue_to_done_v2')
-            if row['degree']=='65536':
+            if row['degree']=='65536' and row['level']!='16':
                 self.assertTrue(row['functional_case_id'].startswith(('04_','05_')))
             else:
                 self.assertEqual(row['functional_case_id'],'')
             self.assertEqual(cases[row['case_id']]['source'],row['source'])
+            self.assertTrue(row['case_id'].endswith('_l'+row['level']+'_n'+row['degree']))
             code=(ROOT/row['source']).read_text()
             validate=code.index('rc = hpu_validate_'+row['program_stem']+'();')
             start=code.index('cycle_start = perf_cycle_read();')
@@ -56,13 +60,12 @@ class LargeCases(unittest.TestCase):
             {c for c in cases if c.startswith(('04_','05_')) and c.endswith('_n65536')})
 
     def test_data_geometry_model_evidence_and_guard(self):
-        programs={r['program_stem']: r for r in rows('large-cases.tsv')}
-        programs.update({r['program_stem']:r for r in rows('perf-cases.tsv') if r['delivery']=='large-data'})
-        self.assertEqual(len(programs),25)
+        programs={r['program_stem']: r for r in large_specs(ARGS.scope)}
+        if ARGS.scope=='all': self.assertEqual(len(programs),29)
         for row in programs.values():
             directory=ARGS.generated/'large-data'/row['program_stem']
             p=json.loads((directory/'PARAMETERS.json').read_text())
-            self.assertEqual(p['degree'],int(row.get('degree',65536)))
+            self.assertEqual(p['degree'],int(row['program_stem'].rsplit('_n',1)[1]))
             self.assertIs(p['model_verified'],True);self.assertIs(p['rtl_verified'],False)
             self.assertIn('mismatched_limbs=0',(directory/'PROGRAM_MODEL.log').read_text())
             words=[int(word,2) for word in (directory/(row['program_stem']+'.inst32')).read_text().split()]
@@ -73,11 +76,12 @@ class LargeCases(unittest.TestCase):
             mask=(directory/'application_writable.u8.bin').read_bytes()
             self.assertEqual(len(mask),p['used_lines']+64)
             self.assertEqual(mask[-64:],bytes(64))
-        auto=json.loads((ARGS.generated/'large-data/auto_n65536/PARAMETERS.json').read_text())
-        self.assertIs(auto['auto_layout']['host_preprocess'],False)
+        if 'auto_n65536' in programs:
+            auto=json.loads((ARGS.generated/'large-data/auto_n65536/PARAMETERS.json').read_text())
+            self.assertIs(auto['auto_layout']['host_preprocess'],False)
 
     def test_all_performance_packages_preserve_native_program_and_oracle(self):
-        for row in rows('perf-cases.tsv'):
+        for row in performance_specs(ARGS.scope):
             stem=row['program_stem']; directory=ARGS.generated/row['delivery']/stem
             report=json.loads((directory/'PERF_ADAPTATION.json').read_text())
             self.assertEqual(report['metric'],'issue_to_done_v2')
@@ -92,12 +96,15 @@ class LargeCases(unittest.TestCase):
                 self.assertEqual(oracle['degree'],int(row['degree']))
                 self.assertEqual(oracle['raw_word_mismatches'],0)
                 self.assertEqual(oracle['status'],'PASS')
+                if row['level']=='16':
+                    self.assertEqual(oracle['input_Q_rns_count'],16)
+                    self.assertEqual(oracle['P_rns_count'],1)
             self.assertIn('mismatched_limbs=0',(directory/'PROGRAM_MODEL.log').read_text())
 
     def test_actual_preflight_accepts_every_bound_package(self):
         with tempfile.TemporaryDirectory(prefix='hpu-perf-valid-') as temporary:
             folder=Path(temporary)
-            for row in rows('perf-cases.tsv'):
+            for row in performance_specs(ARGS.scope):
                 stem=row['program_stem']; directory=ARGS.generated/row['delivery']/stem
                 harness=folder/'check.c'; executable=folder/'check'
                 harness.write_text(f'#include "{stem}_perf.h"\nint main(void) {{ return hpu_validate_{stem}(); }}\n')
@@ -106,21 +113,22 @@ class LargeCases(unittest.TestCase):
                 subprocess.run([str(executable)],check=True)
 
     def test_verified_cycle_records_and_rejection(self):
-        case=rows('perf-cases.tsv')[0]['case_id']
+        first=rows('perf-cases.tsv')[0];case=first['case_id']
         with tempfile.TemporaryDirectory(prefix='perf-record-') as temporary:
             path=Path(temporary)/'synthetic-unit-test.log'
-            valid=f'[HPU][PERF] case={case} N=65536 metric=issue_to_done_v2 start=100 end=350 cycles=250 verified=1'
+            valid=f"[HPU][PERF] case={case} N={first['degree']} level={first['level']} metric=issue_to_done_v2 start=100 end=350 cycles=250 verified=1"
             path.write_text(valid+'\n')
             self.assertEqual(parser.parse([path],{case})[0]['cycles'],250)
-            for invalid in (valid.replace('cycles=250','cycles=249'),valid.replace('verified=1','verified=0'),valid[:-5],valid.replace(case,'unknown'),valid.replace('N=65536','N=8192'),valid.replace('issue_to_done_v2','issue_to_done')):
+            for invalid in (valid.replace('cycles=250','cycles=249'),valid.replace('verified=1','verified=0'),valid[:-5],valid.replace(case,'unknown'),valid.replace('N=4096','N=8192'),valid.replace('level=1','level=16'),valid.replace('issue_to_done_v2','issue_to_done')):
                 path.write_text(invalid+'\n')
                 with self.assertRaises(ValueError): parser.parse([path],{case})
             for row in rows('perf-cases.tsv'):
-                path.write_text(f"[HPU][PERF] case={row['case_id']} N={row['degree']} metric=issue_to_done_v2 start=100 end=350 cycles=250 verified=1\n")
-                self.assertEqual(parser.parse([path],{row['case_id']:row['degree']})[0]['degree'],int(row['degree']))
+                path.write_text(f"[HPU][PERF] case={row['case_id']} N={row['degree']} level={row['level']} metric=issue_to_done_v2 start=100 end=350 cycles=250 verified=1\n")
+                self.assertEqual(parser.parse([path],{row['case_id']:row})[0]['degree'],int(row['degree']))
 
 
 if __name__=='__main__':
     options=argparse.ArgumentParser();options.add_argument('--generated',type=Path,required=True)
     options.add_argument('--elf-root',type=Path)
+    options.add_argument('--scope',default='all')
     ARGS,extra=options.parse_known_args();unittest.main(argv=[__file__,*extra])

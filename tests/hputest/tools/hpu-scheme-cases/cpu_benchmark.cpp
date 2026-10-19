@@ -6,16 +6,17 @@
 /* 188服务器可执行同一Fixture和modified-SEAL；不把主机墙钟冒充SCPU cycle。 */
 int main(int argc, char **argv) {
     try {
-        if (argc != 5)
-            throw std::invalid_argument("usage: hpu_cpu_benchmark ckks|bfv|bgv OP N ROUNDS");
+        if (argc != 5 && argc != 6)
+            throw std::invalid_argument("usage: hpu_cpu_benchmark ckks|bfv|bgv OP N ROUNDS [Q_RNS_COUNT]");
         const std::string scheme=argv[1], operation=argv[2];
         if (scheme!="ckks" && scheme!="bfv" && scheme!="bgv")
             throw std::invalid_argument("unknown scheme");
         const auto n=std::stoul(argv[3]);
         const auto rounds=std::stoul(argv[4]);
         if (rounds==0 || rounds>1000) throw std::invalid_argument("rounds must be 1..1000");
+        const auto q_rns=argc==6 ? std::stoul(argv[5]) : 0;
         Fixture f(scheme,operation,n,"",30,operation=="keyswitch" ? 1 : n/4,
-                  operation=="keyswitch");
+                  operation=="keyswitch",q_rns);
         seal::Evaluator evaluator(*f.context);
         std::uint64_t total=0, minimum=UINT64_MAX, maximum=0;
         for (unsigned round=0;round<rounds;++round) {
@@ -44,6 +45,7 @@ int main(int argc, char **argv) {
             const auto ns=static_cast<std::uint64_t>(elapsed);
             total+=ns; minimum=std::min(minimum,ns); maximum=std::max(maximum,ns);
             std::cout << "CPU_SAMPLE scheme="<<scheme<<" op="<<operation<<" N="<<n
+                      <<" Q_RNS="<<f.q_rns_count<<" P_RNS=1"
                       <<" round="<<round<<" ns="<<ns<<" raw_words_equal=1\n";
         }
         std::cout << "CPU_STATS rounds="<<rounds<<" average_ns="<<total/rounds

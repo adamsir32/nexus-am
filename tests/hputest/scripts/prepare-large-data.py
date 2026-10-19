@@ -10,6 +10,7 @@ import struct
 import subprocess
 
 from hpu_ntt_layout import bit_reverse, stage_reference
+from program_adaptation import add_dma_trace
 
 N = 65536
 POLY_LINES = N // 64
@@ -88,11 +89,7 @@ def emit(root, stem, assembly, image, bindings, outputs, metadata, renderer, mod
     header = destination/f"{stem}.h"
     header.write_text(header.read_text()+f"\nint hpu_run_{stem}(void);\n")
     code = (destination/f"{stem}.c").read_text()
-    for entry in dma:
-        index = int(entry["instruction_index"])
-        marker = re.compile(r"(    /\* "+str(index)+r": [^\n]+ \*/\n)")
-        code, count = marker.subn(lambda m: m[1]+f"    trace_issue({index}U, {entry['dma_index']}U, {entry['word_hex']}U);\n", code)
-        require(count == 1, "missing DMA trace marker")
+    code = add_dma_trace(code, dma)
     spans = ",\n".join(f"    {{UINT32_C({line}), UINT32_C({count})}}" for line, count in bindings)
     code = '#include <hpu/trace.h>\n'+code+f"\nint hpu_run_{stem}(void) {{\n"+f"    static const hpu_dma_span_t spans[] = {{\n{spans}\n    }};\n"+f"    return hpu_program_{stem}(spans, sizeof(spans)/sizeof(spans[0]));\n}}\n"
     (destination/f"{stem}.c").write_text(code)
@@ -251,7 +248,7 @@ if __name__ == "__main__":
     for key in ("source", "destination", "renderer", "model"):
         parser.add_argument("--"+key, type=Path, required=True)
     parser.add_argument("--legacy-commit", required=True)
-    parser.add_argument("--degree", type=int, choices=(8192, 16384, 32768, 65536), default=65536)
+    parser.add_argument("--degree", type=int, choices=(4096, 8192, 16384, 32768, 65536), default=65536)
     parser.add_argument("--only", help="逗号分隔的操作列表；用于独立交付/受影响项重验")
     args = parser.parse_args()
     N = args.degree

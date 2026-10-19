@@ -12,11 +12,23 @@ template<class Container> void array(const Container &values) {
 /* 从真实Fixture/SEAL对象提取，避免文档猜测L、dnum、B/m_sk或scale。 */
 int main(int argc,char **argv) {
     try {
-        if (argc!=5) throw std::invalid_argument("usage: parameters SCHEME OP N library|regression|kernel");
+        if (argc!=5 && argc!=6) throw std::invalid_argument("usage: parameters SCHEME OP N library|regression|kernel [Q_RNS_COUNT]");
         const std::string scheme=argv[1],op=argv[2],profile=argv[4];
+        if (profile!="library" && profile!="regression" && profile!="kernel")
+            throw std::invalid_argument("unknown parameter profile");
         const auto n=std::stoul(argv[3]);
-        Fixture f(scheme,op,n,"",30,profile=="library" ? n/4 : 1,profile!="library");
+        const auto q_rns=argc==6 ? std::stoul(argv[5]) : 0;
+        Fixture f(scheme,op,n,"",30,profile=="library" ? n/4 : 1,profile!="library",q_rns);
         const auto data=f.context->first_context_data();
+        std::vector<std::uint64_t> q_moduli,p_moduli;
+        std::vector<int> q_bits,p_bits;
+        for (const auto &q:data->parms().coeff_modulus()) {
+            q_moduli.push_back(q.value()); q_bits.push_back(q.bit_count());
+        }
+        const auto &key_moduli=f.context->key_context_data()->parms().coeff_modulus();
+        for (std::size_t i=q_moduli.size();i<key_moduli.size();++i) {
+            p_moduli.push_back(key_moduli[i].value()); p_bits.push_back(key_moduli[i].bit_count());
+        }
         std::size_t digits=0;
         if (op=="keyswitch" || op=="reline" || op=="hmul") digits=f.relin.key(2).size();
         if (op=="rotate") for (const auto &key:f.galois.data()) if (!key.empty()) {
@@ -35,7 +47,12 @@ int main(int argc,char **argv) {
                  <<",\"output_components\":"<<f.expected.size()
                  <<",\"output_Q_rns_count\":"<<f.expected.coeff_modulus_size()
                  <<",\"rotation_steps\":"<<(op=="rotate" ? f.rotation_steps : 0)
-                 <<",\"seed\":[\"0x485055534348454d\","<<n<<",1,2,3,4,5,6]";
+                 <<",\"seed\":[\"0x485055534348454d\","<<n<<",1,2,3,4,5,6]"
+                 <<",\"P_rns_count\":"<<p_moduli.size()<<",\"Q\":";
+        array(q_moduli); std::cout<<",\"P\":"; array(p_moduli);
+        std::cout<<",\"Q_bit_sizes\":"; array(q_bits);
+        std::cout<<",\"P_bit_sizes\":"; array(p_bits);
+        std::cout<<",\"plain_modulus\":"<<data->parms().plain_modulus().value();
         if (scheme=="bfv") {
             hpu::seal_adapter::BfvLevelChain chain(*f.context);
             std::cout<<",\"bfv_levels\":[";

@@ -3,9 +3,13 @@
 
 import csv
 import importlib.util
+import os
 from pathlib import Path
 import tempfile
 import unittest
+from unittest.mock import patch
+
+from immutable_staging import LARGE_FILE_BYTES
 
 
 SPEC = importlib.util.spec_from_file_location(
@@ -64,6 +68,38 @@ class ChapterPackageTests(unittest.TestCase):
     def index(self, release):
         return PACKAGER.read_tsv(release / "INDEX.tsv", PACKAGER.INDEX_FIELDS)
 
+    def functional_rows(self):
+        with (Path(__file__).resolve().parents[1] / "cases.tsv").open() as stream:
+            return [row for row in csv.DictReader(stream, delimiter="\t")
+                    if not row["source"].startswith("src/07_performance/")]
+
+    def test_functional_normal_and_silent_publish_only_00_to_06(self):
+        rows = self.functional_rows()
+        self.assertEqual(len(rows), 140)
+        for silent in (False, True):
+            with self.subTest(silent=silent):
+                self.fixture(rows, selection="functional", log_level="0" if silent else "1",
+                             uart_results="none" if silent else "brief")
+                release = PACKAGER.package(self.artifact, require_functional=True, require_silent=silent)
+                index = self.index(release)
+                self.assertEqual(len(index), 140)
+                self.assertEqual(sum(bool(row["elf"]) for row in index), 133)
+                self.assertEqual(sum(row["publish_status"] == "BLOCKED_NOT_PUBLISHED" for row in index), 7)
+                self.assertFalse((release / "07_performance").exists())
+                self.assertEqual({row["chapter"][:2] for row in index}, {f"{number:02d}" for number in range(7)})
+
+    def test_functional_rejects_performance_case(self):
+        rows = self.functional_rows()
+        rows[0] = self.row("07_01_probe_l1_n4096", "transform", chapter="07_performance")
+        self.fixture(rows, selection="functional")
+        with self.assertRaisesRegex(ValueError, "00-06 only"):
+            PACKAGER.package(self.artifact, require_functional=True)
+
+    def test_functional_rejects_full_selection(self):
+        self.fixture(self.functional_rows(), selection="all")
+        with self.assertRaisesRegex(ValueError, "selection=functional"):
+            PACKAGER.package(self.artifact, require_functional=True)
+
     def test_merge_groups_into_one_chapter(self):
         self.fixture([self.row(), self.row("03_05_pntt", "transform"),
                       self.row("04_05_ckks_keyswitch_n4096", "fhe", chapter="04_composite_instruction_sequences")])
@@ -77,6 +113,31 @@ class ChapterPackageTests(unittest.TestCase):
         self.assertEqual(len(self.index(release)), 3)
         for name in PACKAGER.MANIFESTS:
             self.assertEqual((release / name).read_bytes(), (self.artifact / name).read_bytes())
+
+    def test_three_digit_case_numbers_use_numeric_order(self):
+        self.fixture([self.row(f"07_{number}_probe_n4096", "fhe", chapter="07_performance")
+                      for number in (110, 100, 89, 99)])
+        release = PACKAGER.package(self.artifact)
+        expected = [f"07_{number}_probe_n4096" for number in (89, 99, 100, 110)]
+        self.assertEqual([row["case_id"] for row in self.index(release)], expected)
+        chapter_index = PACKAGER.read_tsv(release / "07_performance/INDEX.tsv", PACKAGER.INDEX_FIELDS)
+        self.assertEqual([row["case_id"] for row in chapter_index], expected)
+        self.assertTrue(all((release / "07_performance/01_basic" / (name + ".elf")).is_file()
+                            for name in expected))
+
+    def test_optional_hardlinks_share_large_artifact_and_provenance(self):
+        row = self.row()
+        self.fixture([row])
+        relative = Path(row["source"]).relative_to("src").with_suffix(".elf")
+        source = self.artifact / row["group"] / relative
+        source.write_bytes(b"E" * LARGE_FILE_BYTES)
+        image = self.artifact / "provenance" / "image.bin"
+        image.write_bytes(b"I" * LARGE_FILE_BYTES)
+        with patch.dict(os.environ, {"HPU_HARDLINK_STAGING": "1"}):
+            release = PACKAGER.package(self.artifact)
+        self.assertTrue(source.samefile(release / relative))
+        self.assertTrue(image.samefile(release / "provenance/image.bin"))
+        self.assertFalse((self.artifact / "MANIFEST.txt").samefile(release / "MANIFEST.txt"))
 
     def test_blocked_is_index_only_and_reason_is_preserved(self):
         blocked = self.row("03_06_pintt", "transform", "blocked-not-issued")

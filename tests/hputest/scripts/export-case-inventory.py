@@ -10,7 +10,7 @@ import re
 import struct
 import subprocess
 
-from case_catalog import application_specs
+from case_catalog import application_specs, select_cases
 
 ROOT = Path(__file__).resolve().parents[1]
 REPO = ROOT.parents[1]
@@ -42,6 +42,9 @@ def application(spec, generated, native, cache):
     allocations=table(upstream/pkg["line_map"],",")
     q=params["levels"][0]["moduli"]; p=params["key_moduli"][len(q):]
     n=params["poly_modulus_degree"]
+    requested_q=int(spec.get("q_rns_count") or 0)
+    if requested_q and len(q)!=requested_q:
+        raise ValueError(f"{stem}: delivered Q RNS count differs from application catalog")
     extra={}
     if spec["role"]!="application":
         parameter_file=directory/"FIXTURE_PARAMETERS.json"
@@ -49,7 +52,9 @@ def application(spec, generated, native, cache):
             parameter_file=cache/(stem+".json")
             if not parameter_file.exists():
                 profile="library" if stem.startswith("seal_") else "regression" if "/04_parameter_regression/" in spec["source"] else "kernel"
-                parameter_file.write_bytes(subprocess.check_output([str(native),spec["scheme"],spec["role"],str(n),profile]))
+                command=[str(native),spec["scheme"],spec["role"],str(n),profile]
+                if requested_q: command.append(str(requested_q))
+                parameter_file.write_bytes(subprocess.check_output(command))
         extra=load(parameter_file)
         assert extra["degree"]==n and extra["Q_rns_count"]==len(q)
     digits={int(m[1]) for row in allocations if row["kind"]=="evaluation_key"
@@ -102,6 +107,9 @@ def large_parameters(stem, generated):
     if params['operation']=='pmodld':
         params.update(Q=params['q_moduli'][:1],modulus_table=params['q_moduli'],
                       note='三个串接子操作选择q0/q1/q0；每次仅1个RNS，不是Q2密文。')
+    elif params['operation'] in ('ntt','intt'):
+        params.update(Q=params['q_moduli'][:1],modulus_table=params['q_moduli'],
+                      note='保留完整模表，但变换只计算basis0；活动Q为首个模数，level为1。')
     return params
 
 
@@ -129,10 +137,11 @@ def legacy_parameters(case,generated,legacy):
 
 
 def collect(args):
-    cases=table(ROOT/"cases.tsv"); schemes={r["case_id"]:r for r in table(ROOT/"scheme-cases.tsv")}
+    scope=getattr(args,"scope","all")
+    cases=select_cases(scope); schemes={r["case_id"]:r for r in table(ROOT/"scheme-cases.tsv")}
     large={r["case_id"]:r for r in table(ROOT/"large-cases.tsv")}
     perf={r["case_id"]:r for r in table(ROOT/"perf-cases.tsv")}
-    applications=application_specs()
+    applications=application_specs(scope)
     cache=args.output/"fixture-parameters";cache.mkdir(parents=True,exist_ok=True)
     records=[]; by_id={}
     for row in cases:
@@ -150,8 +159,15 @@ def collect(args):
                 raise ValueError(f"{cid}: unknown performance delivery {spec['delivery']}")
             if params["N"]!=int(spec["degree"]):
                 raise ValueError(f"{cid}: delivered degree differs from performance catalog")
+            if len(params["Q"])!=int(spec["level"]):
+                raise ValueError(f"{cid}: active Q RNS count differs from performance catalog")
+            memory_base=int(spec["memory_base"],0)
+            minimum_ram_bytes=int(spec["minimum_ram_bytes"])
+            if memory_base<0x80000000 or memory_base+params["image_bytes"]>0x80000000+minimum_ram_bytes:
+                raise ValueError(f"{cid}: delivered image exceeds performance RAM contract")
             params.update(functional_case_id=spec["functional_case_id"] or None,
-                          metric=spec["metric"],memory_base="0x90000000",minimum_ram_bytes=536870912)
+                          metric=spec["metric"],memory_base=f"0x{memory_base:x}",
+                          minimum_ram_bytes=minimum_ram_bytes)
         else: params=legacy_parameters(row,args.generated,args.legacy)
         item=dict(row,parameters=params,IT_pass=None,ST_pass=None,measured_seconds=None,
                   tested_AM_revision=None,tested_RTL_revision=None)
@@ -222,7 +238,7 @@ def output(args,records,by_id):
       ["计时不包含","DMA参数/对象容量预检查、trace记录、镜像拷贝/cache clean、CSR初始化、golden比较、guard检查、UART打印。包含CPU发令/反压、DLOAD/DSTORE、HPU计算及完成轮询；不是纯HPU核心cycle。"],
       ["对比","HPU秒=cycles/目标SCPU频率Hz；Speedup=188服务器CPU秒/HPU秒。不能拿不同频率主机cycle直接相除；未实测不填10x。"],
       ["重复测量","07默认不串行塞多轮。建议同一ELF至少独立运行3次，记录每轮再算平均/最小/最大/波动。"],
-      ["内存","07的N8192/N16384/N32768/N65536及新增N65536功能用例均使用窗口0x90000000，RAM至少512MiB；VCS使用+ram_size=536870912。软件轮询budget不等于仿真max-cycle预算。"],
+      ["内存","07五种N的原level用例使用窗口0x90000000、RAM至少512MiB；L16使用窗口0xc0000000、RAM至少2GiB。分别按perf-cases.tsv的minimum_ram_bytes设置+ram_size。软件轮询budget不等于仿真max-cycle预算。"],
       ["安全参数","本交付SEALContext(sec_level_type::none)，security_level_bits=0；仅功能/性能demo，不能用于真实密文安全性声明。"],
       ["ST","System-test仍有未接入producer的占位项。ST页的对应IT编号仅作映射，不能继承IT通过标记或宣称相同执行路径。"],
       ["版本","AM源码版本="+am_revision+"；实测版本另填，不能由当前HEAD反推此前通过版本。"],
@@ -262,12 +278,13 @@ def output(args,records,by_id):
     sheet('03独立子用例',['用例编号','父用例','IT通过','ST通过','mainargs subcase','程序段数','检查点','N','参数说明','源码'],children,(3,4))
     perf=[]
     for row in table(ROOT/'perf-cases.tsv'):
+        if row['case_id'] not in by_id: continue
         p=by_id[row['case_id']]['parameters']
         for run in range(1,4):
             perf.append([row['case_id'],row['functional_case_id'],run,None,p['N'],p.get('scheme'),len(p['Q']),len(p['P']),p.get('dnum'),
                          None,None,None,None,None,None,None,None,None,None])
     ws=sheet('07性能逐轮记录',['用例编号','对应功能用例','独立轮次','功能通过','N','方案','Q-RNS数','P-RNS数','dnum',
-             'cycle_start','cycle_end','cycle_delta','SCPU频率Hz','HPU秒','CPU188秒','Speedup','AM/RTL版本','CPU型号/编译参数','日志位置'],perf,(4,))
+             'cycle_start','cycle_end','cycle_delta','SCPU频率Hz','HPU秒','CPU188秒','Speedup','AM/RTL版本','CPU型号/编译参数','日志位置'],perf,(4,) if perf else ())
     for i in range(2,ws.max_row+1):
         ws.cell(i,12,f'=IF(OR(J{i}="",K{i}=""),"",K{i}-J{i})')
         ws.cell(i,14,f'=IF(OR(L{i}="",M{i}="",M{i}<=0),"",L{i}/M{i})')
@@ -301,6 +318,7 @@ def output(args,records,by_id):
 if __name__=='__main__':
     parser=argparse.ArgumentParser(description=__doc__)
     for key in ('generated','legacy','parameter-tool','output'): parser.add_argument('--'+key,type=Path,required=True)
+    parser.add_argument('--scope',default='all',help='all、functional或performance:N:baseline|l16-ckks|l16-bfv[-a|-b]|l16-bgv；默认all，不读取环境变量')
     parser.add_argument('--st-github',action='store_true',help='仅用已授权GitHub账号读取System-test清单')
     parser.add_argument('--st-snapshot',type=Path,help='复用带commit的ST_INVENTORY.json，不反复读取未变化源')
     parser.add_argument('--gh',default='gh')

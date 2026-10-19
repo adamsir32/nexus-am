@@ -8,6 +8,8 @@ output_root=${2:-"$test_root/build"}
 jobs=${3:-${JOBS:-4}}
 hpu_seal_root=${4:-"$test_root/third_party/hpu-seal"}
 hpu_applications_root=${5:-"$test_root/third_party/hpu-applications"}
+build_scope=${HPU_BUILD_SCOPE:-all}
+compress_temp_rns=${HPU_COMPRESS_TEMP_RNS:-0}
 
 if [[ $inline_asm_root != /* ]]; then
   inline_asm_root=$(cd -- "$test_root" && realpath -m -- "$inline_asm_root")
@@ -23,6 +25,12 @@ if [[ $hpu_applications_root != /* ]]; then
 fi
 if [[ ! $jobs =~ ^[1-9][0-9]*$ ]]; then
   echo "ERROR: JOBS must be a positive integer: $jobs" >&2
+  exit 2
+fi
+# 先验证分片，避免拼错范围后仍生成整套大数据。
+python3 "$script_dir/case_catalog.py" --scope "$build_scope" --table cases >/dev/null
+if [[ ! $compress_temp_rns =~ ^[01]$ ]]; then
+  echo 'ERROR: HPU_COMPRESS_TEMP_RNS must be 0 or 1' >&2
   exit 2
 fi
 if [[ ! -f $inline_asm_root/CMakeLists.txt ]] || \
@@ -244,20 +252,26 @@ cmake -S "$test_root/tools/hpu-scheme-cases" -B "$hpu_main_build" \
   -DINLINE_ASM_ROOT="$hpu_applications_root" -DCMAKE_BUILD_TYPE=Release \
   -DLEGACY_INLINE_ASM_ROOT="$inline_asm_root" \
   -DHPU_APPLICATION_OUTPUT_ROOT="$package_root"
+main_targets=(hpu_scheme_case_generator hpu_fixture_parameters hpu_cpu_benchmark \
+  hpu_program_model hpu_program_model_test hpu_encode_program hpu_render_program \
+  hpu_render_legacy_program hpu_legacy_program_model \
+  inline_asm_codegen inline_asm_encode_outputs hpu_reference_vectors)
+if [[ $build_scope == all || $build_scope == functional ]]; then
+  main_targets+=(hpu_fhe_delivery hpu_ckks_multilevel_codegen_test \
+    hpu_seal_ckks_application_image_test hpu_seal_ckks_multiply_operation_plan_test \
+    hpu_seal_ckks_galois_operation_plan_test)
+fi
 HPU_DELIVERY_COMMIT="$hpu_applications_commit" \
 HPU_DELIVERY_WORKTREE_STATE=clean-at-configure \
   cmake --build "$hpu_main_build" --parallel "$jobs" --target \
-    hpu_fhe_delivery hpu_scheme_case_generator hpu_fixture_parameters hpu_cpu_benchmark \
-    hpu_program_model hpu_program_model_test hpu_encode_program hpu_render_program \
-    hpu_render_legacy_program hpu_legacy_program_model \
-    inline_asm_codegen inline_asm_encode_outputs hpu_reference_vectors \
-    hpu_ckks_multilevel_codegen_test hpu_seal_ckks_application_image_test \
-    hpu_seal_ckks_multiply_operation_plan_test hpu_seal_ckks_galois_operation_plan_test
+    "${main_targets[@]}"
 # 直接使用上游回归：N128/N4096、多层Q与两个accumulator的half-P绑定。
+if [[ $build_scope == all || $build_scope == functional ]]; then
 for native_test in hpu_ckks_multilevel_codegen_test hpu_seal_ckks_application_image_test \
                    hpu_seal_ckks_multiply_operation_plan_test hpu_seal_ckks_galois_operation_plan_test; do
   "$hpu_main_build/inline-asm/$native_test"
 done
+fi
 "$hpu_main_build/hpu_program_model_test"
 while IFS=$'\t' read -r case_id stem scheme degree role source; do
   [[ $case_id == case_id ]] && continue
@@ -269,30 +283,52 @@ while IFS=$'\t' read -r case_id stem scheme degree role source; do
     elif [[ $source == src/05_algorithm_library/04_parameter_regression/* ]]; then
       profile=(regression)
     fi
+    q_rns=()
+    if [[ $stem =~ _l([0-9]+)_n ]]; then
+      q_rns=("${BASH_REMATCH[1]}")
+      if [[ ${#profile[@]} == 0 ]]; then profile=(30); fi
+    fi
     HPU_DELIVERY_COMMIT="$hpu_applications_commit" \
     HPU_DELIVERY_WORKTREE_STATE=clean-at-configure \
       "$generator" "$scheme" "$role" "$degree" \
-        "$package_root/$stem" "${profile[@]}"
+        "$package_root/$stem" "${profile[@]}" "${q_rns[@]}"
   fi
+  upstream_link=()
+  if [[ ${HPU_LINK_UPSTREAM:-0} == 1 ]]; then upstream_link=(--link-upstream); fi
   python3 "$script_dir/import-application-package.py" \
     --source "$package_root/$stem" \
     --destination "$generated_root/application-data/$stem" \
     --validator "$hpu_main_build/inline-asm/hpu_validate_package" \
     --encoder "$hpu_main_build/hpu_encode_program" \
     --program-model "$hpu_main_build/hpu_program_model" \
-    --producer-commit "$hpu_applications_commit"
+    --producer-commit "$hpu_applications_commit" "${upstream_link[@]}"
   if [[ $role != application ]]; then
     parameter_profile=kernel
     if [[ $stem == seal_* ]]; then parameter_profile=library; fi
     if [[ $source == src/05_algorithm_library/04_parameter_regression/* ]]; then parameter_profile=regression; fi
-    "$hpu_main_build/hpu_fixture_parameters" "$scheme" "$role" "$degree" "$parameter_profile" \
+    "$hpu_main_build/hpu_fixture_parameters" "$scheme" "$role" "$degree" "$parameter_profile" "${q_rns[@]}" \
       > "$generated_root/application-data/$stem/FIXTURE_PARAMETERS.json"
   fi
-done < <(python3 "$script_dir/case_catalog.py")
+done < <(python3 "$script_dir/case_catalog.py" --scope "$build_scope")
 # 多规模算子共用main编码器和独立golden；N65536同时保留原03功能交付。
 large_generation=$(mktemp -d "$package_parent/large.XXXXXX")
 large_delivery="$large_generation/delivery"
-for degree in 65536 8192 16384 32768; do
+mkdir -p "$large_delivery"
+large_selection="$large_generation/selection.tsv"
+python3 "$script_dir/case_catalog.py" --scope "$build_scope" --table large > "$large_selection"
+compress_completed_rns() {
+  [[ $compress_temp_rns == 1 ]] || return 0
+  local completed_outputs=$1
+  local raw_file
+  # 原生生成、编码和模型导入均已返回；逐文件压缩本次私有临时输出，可从.gz还原。
+  while IFS= read -r -d '' raw_file; do
+    python3 "$script_dir/compress-temporary-rns.py" --generation-root "$large_generation" "$raw_file"
+  done < <(find "$completed_outputs" -type f -name '*.bin' -size +1M -print0)
+}
+mapfile -t large_degrees < <(awk -F '\t' 'NR > 1 {n=$2; sub(/^.*_n/, "", n); print n}' "$large_selection" | sort -nu)
+for degree in "${large_degrees[@]}"; do
+  operators=$(awk -F '\t' -v suffix="_n$degree" 'NR > 1 && $2 ~ suffix "$" {op=$2; sub(suffix "$", "", op); if (op != "auto") {if (seen++) printf ","; printf "%s", op}}' "$large_selection")
+  if [[ -n $operators ]]; then
   main_generation="$large_generation/n$degree"
   mkdir -p "$main_generation"
   (
@@ -302,12 +338,13 @@ for degree in 65536 8192 16384 32768; do
     "$hpu_main_build/inline-asm/test/reference/hpu_reference_vectors" \
       outputs/ciphertext_multiply/test_data outputs --config "$test_root/config/n$degree.conf"
   )
-  operators=ntt,intt,bconv
-  if [[ $degree == 65536 ]]; then operators=padd,psub,pmul,pmac,pntt,pintt,pmodld,psync,pfree,$operators; fi
   python3 "$script_dir/prepare-large-data.py" --source "$main_generation/outputs" \
     --destination "$large_delivery" --renderer "$hpu_main_build/hpu_render_program" \
     --model "$hpu_main_build/hpu_program_model" --legacy-commit "$hpu_applications_commit" \
     --degree "$degree" --only "$operators"
+  compress_completed_rns "$main_generation/outputs"
+  fi
+  if awk -F '\t' -v stem="auto_n$degree" 'NR > 1 && $2 == stem {found=1} END {exit !found}' "$large_selection"; then
   legacy_large="$large_generation/legacy-n$degree"
   mkdir -p "$legacy_large"
   (
@@ -321,6 +358,8 @@ for degree in 65536 8192 16384 32768; do
     --destination "$large_delivery" --renderer "$hpu_main_build/hpu_render_legacy_program" \
     --model "$hpu_main_build/hpu_legacy_program_model" --legacy-commit "$producer_commit" \
     --degree "$degree" --only auto
+  compress_completed_rns "$legacy_large/outputs"
+  fi
 done
 # 只切换本次生成目录的链接；既有交付留在其generation目录，便于回查。
 if [[ -e $generated_root/large-data && ! -L $generated_root/large-data ]]; then
@@ -328,7 +367,10 @@ if [[ -e $generated_root/large-data && ! -L $generated_root/large-data ]]; then
   exit 2
 fi
 ln -sfn "$large_delivery" "$generated_root/large-data"
-python3 "$script_dir/prepare-perf-programs.py" --generated "$generated_root"
+selected_perf=$(python3 "$script_dir/case_catalog.py" --scope "$build_scope" --table performance | awk -F '\t' 'NR > 1 {if (seen++) printf ","; printf "%s", $3}')
+if [[ -n $selected_perf ]]; then
+  python3 "$script_dir/prepare-perf-programs.py" --generated "$generated_root" --only "$selected_perf"
+fi
 printf '%s\n' "$package_root" > "$generated_root/application-data/PRODUCER_ROOT"
 printf '%s\n' "$hpu_applications_commit" > "$generated_root/application-data/PRODUCER_COMMIT"
 echo '[hputest] legacy primitive/control + main scheme/application import PASS'
