@@ -4,12 +4,14 @@
 
 ## 版本与接口
 
-- 新版依赖：inline-asm的`feature/operator-resource-management@a19197ea976d492ea9ce8e0ef6f065c922170ff9`。
+- 新版依赖：inline-asm的`feature/operator-resource-management@7306d1c69010b3e92576a19f1d90b1c25cf01f8c`；此前1019交付固定为`a19197e`，保留在Git历史中。
 - 旧版参照：AM `9016ef9c`使用inline-asm `03a32c168404f3ad64e6a4d7ad82a081f910314b`。旧版依赖和用例保持不动。
 - 新版直接调用上游`ApplicationBuilder`、`Evaluator`和资源编译器；AM只负责交付接收、配置、发令、同步和检查，不自行实现KeySwitch或取整补丁。
 - 输入准备复用旧版`tools/hpu-scheme-cases/fixture.hpp`。两版modified-SEAL源码树相同；`PERF_FIXTURE.json`记录实际Q/P模数、输入/输出RNS数、scale、correction factor、旋转步长和随机种子。
 
 上游顶层API兼容时，后续调整资源实现可不改C用例，只更新固定依赖并重新生成、验证、编译。依赖仍固定到commit，不在构建时无条件追踪远端HEAD；API、参数或交付格式变化时仍需适配。
+
+本次跟进NTT ABI v2：stage对象为在线K=8的128个u32、512字节、2line，N128也不例外；pre/post twist仍是完整多项式长度。接收器同时核对参数与memory ABI，拒绝旧表或错误K/长度。新版库直接生成fixed单asm入口，x11只在DMA长度变化时重载；性能适配器原样保留该入口，只从dynamic入口提取无HPU指令的预检查，不退回旧动态发令代码。本次不部署自动更新机制。
 
 ## 分组和命名
 
@@ -46,7 +48,7 @@ KeySwitch用三分量输入、将c0/c1置零后调用上游relinearize，区别�
 
 `noopt/optimized`周期比才是本组受控的资源优化对照：两者输入、算子图、所有可见输出和验收条件一致。与主线旧包比较只能作为版本参照：新版NTT表ABI不同，且BFV/BGV的HMUL拆为两个可见节点，旧版为单个融合节点，中间结果写回义务可能不同。不能把这些差异全部归因为资源调度加速，也不能在没有测量结果时宣称提升。
 
-资源优化不保证每项指标都下降。例如本次CKKS HMUL、N4096原level的编译报告中，DMA命令从1129降为1075，但分配的DDR行从13570增为14466。这里是编译器的静态报告，不是执行时间；是否加速必须由同配置实测cycle决定。
+资源优化不保证每项指标都下降。例如2026-10-19的`a19197e`基线中，CKKS HMUL、N4096原level的DMA命令从1129降为1075，但分配的DDR行从13570增为14466。这里是旧版编译器的静态报告，不是新版执行时间；是否加速必须由同配置实测cycle决定。
 
 ## 构建与运行
 
@@ -71,7 +73,7 @@ GitHub Actions工作流`build 1019 experimental HPU operator performance`按2个
 ```sh
 python3 tests/hpu_frontend_workload/scripts/parse_performance.py \
   optimized-uart.log noopt-uart.log --output performance-results \
-  --revision 'AM=<commit>; inline-asm=a19197e; RTL=<实际commit>'
+  --revision 'AM=<commit>; inline-asm=7306d1c; RTL=<实际commit>'
 ```
 
 解压后的包也可用`tools/parse_performance.py`，无需安装额外Python库。不同版本、RTL配置或时钟条件应分批保存结果，不能混合求平均。
@@ -82,9 +84,20 @@ python3 tests/hpu_frontend_workload/scripts/parse_performance.py \
 
 **host通过不等于RTL通过。**上游默认`natural_coefficient_boundaries`在host模型的NTT边界做bit-reversal转换，新NTT表ABI是否与实际RTL匹配尚未确认；交付保持`hardware_contract_verified=false`和`BUILD_READY_NOT_IT_PASS`。本组不偷偷修改表或指令去适配旧RTL。`legacy_raw_stage`只能作严格诊断，失败不输出替代可运行包。硬件只有在当前交付的原始word与guard自检通过后，性能结果才有效。
 
-2026-10-19本地验证记录：
+新版上游迁移说明还保留HpuCmdMerge在反压时可能使PNTT越过较早参数DLOAD的风险说明。仅更新在线twiddle格式不能据此证明已消除该风险；需以实际RTL版本验证。本次不加每stage软件等待，也不修改RTL掩盖此问题。
+
+2026-10-19历史基线`a19197e`验证记录（非本次新版结果）：
 
 - 72项Fixture各编译optimized/noopt，两版合计144条程序，严格软件instruction model与raw golden均通过；全矩阵采用`--verify-only`，只保存小型参数和资源报告。
 - `07_03_ckks_hmul_reline_l4_n4096`、`07_45_bfv_hmul_reline_l4_n8192`、`07_68_bgv_hadd_l16_n8192`各构建4个实际RISC-V ELF，共12个；原生包、嵌入数据、指令字、成功路径计时顺序、静默UART门禁通过。
 - CKKS/N4096/Reline的`legacy_raw_stage`严格探针按预期拒绝生成：与oracle的首word不匹配。未据此修改golden或开启跳过校验开关。
 - 未执行VCS/FPGA，未填写实测cycle或加速比。全部72项、288个ELF由本分支独立CI分片构建，其运行结果应以对应Actions记录为准。
+
+2026-10-21更新至`7306d1c`的验证记录：
+
+- 72项Fixture、optimized/noopt合计144条程序，严格instruction model与共享SEAL raw golden均通过。旧输入、golden及计时边界没有为迁移而放宽。
+- 六个API应用（CKKS/BFV/BGV各N128/N4096）全部重新生成并通过host/native包检查；两种UART模式合计12个真实ELF构建、指令字和静默检查通过。
+- 07代表性CKKS/N4096乘法、BFV/N8192乘法、BGV/N8192/16level加法，各四种变体，共12个真实ELF的嵌入数据、字码、计时及静默门禁通过。
+- K=8 NTT、固定DMA入口、指令执行器三项上游原生测试通过；RV32/RV64、O0/O2、寄存器压力组合的8项目标代码生成验证通过。Debian交叉工具检查使用任务专属工具入口，未修改上游或本机配置。
+- 接收器/适配器/构建路径等52项Python测试通过，生成器三项验收通过。未运行含SHA检查的上游Python验收wrapper。
+- 未执行真实RTL/VCS/FPGA回归；软件/构建通过不记为IT或ST通过，不填写实测cycle。自动依赖更新按用户要求延期，现有固定pin和手动回退能力保留。

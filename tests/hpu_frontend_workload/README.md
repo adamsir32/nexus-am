@@ -2,7 +2,9 @@
 
 本目录单独验证inline-asm重构后的ApplicationBuilder/Evaluator和资源管理。**不替换hputest的00～07分组或其已通过的运算基线**。
 
-依赖固定为`feature/operator-resource-management@a19197e`，不是旧workload的main/legacy-main。完整commit见[producer.json](producer.json)。API和应用图直接采用该分支的`examples/*_evaluator_application.cpp`，不是用AM重新实现一套算法。
+依赖固定为`feature/operator-resource-management@7306d1c`，不是旧workload的main/legacy-main。完整commit见[producer.json](producer.json)。API和应用图直接采用该分支的`examples/*_evaluator_application.cpp`，不是用AM重新实现一套算法。
+
+2026-10-21跟进NTT ABI v2：每stage使用在线K=8的512字节/2line参数，数据镜像及DMA spans全部由新版库重新生成，不能混用旧完整twiddle表。上游fixed发令入口的单asm和x11长度复用原样保留；接收器分别核对dynamic/fixed两套原生字码，实际ELF检查fixed入口。07专用适配器只提取计时前预检查，不重新生成发令序列。自动跟进机制本次未启用。
 
 本次`1019-operator-resource-perf`分支另增[07组单算子性能实验](PERFORMANCE.md)：N4096/N8192，三种算法，原level/16level，资源优化开启与关闭分别生成独立ELF。下面原有六项应用不混入这次单算子性能比较。
 

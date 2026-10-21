@@ -30,7 +30,9 @@ def prepare_producer(source, build, jobs):
             "producer must be clean")
     run(["cmake", "-S", source, "-B", build, "-DCMAKE_BUILD_TYPE=Release",
          "-DHPU_ENABLE_SEAL_INTEGRATION=ON", "-DHPU_ENABLE_SEAL_DIFFERENTIAL_ORACLE=OFF",
-         "-DHPU_ENABLE_LEGACY_FIXED_PROFILE_TESTS=OFF", "-DHPU_ENABLE_DEPLOYMENT_APPLICATION_TESTS=OFF"])
+         "-DHPU_ENABLE_LEGACY_FIXED_PROFILE_TESTS=OFF", "-DHPU_ENABLE_DEPLOYMENT_APPLICATION_TESTS=OFF",
+         "-DBUILD_TESTING=OFF", "-DSEAL_USE_MSGSL=OFF", "-DSEAL_USE_ZLIB=OFF",
+         "-DSEAL_USE_ZSTD=OFF", "-DSEAL_USE_INTEL_HEXL=OFF"])
     targets = [f"hpu_{scheme}_evaluator_example" for scheme in ("ckks", "bfv", "bgv")]
     run(["cmake", "--build", build, "--target", *targets, "hpu_validate_package", "-j", jobs])
     return pin
@@ -70,15 +72,19 @@ def verify_elf(path, cross, meta):
         if kind == 1 and memsz:
             require(pa + memsz <= 0x87000000, "ELF LOAD segment overlaps workload DDR")
     # GCC会把大函数拆成.part.0或.constprop.0；按实际text符号查找，不能假定原名保留。
-    prefix = "hpu_program_" + meta["program_stem"]
     symbols = output([cross + "nm", "-S", "--defined-only", path]).splitlines()
-    names = [row.split()[-1] for row in symbols if len(row.split()) == 4 and
-             row.split()[-2] in ("T", "t") and
-             (row.split()[-1] == prefix or row.split()[-1].startswith(prefix + "."))]
-    require(bool(names), "missing native program text symbol")
-    disassembly = "\n".join(output([cross + "objdump", "-d", "--disassemble=" + name, path]) for name in names)
-    words = [int(word, 16) for word in re.findall(r"^\s*[0-9a-f]+:\s+([0-9a-f]{8})\s", disassembly, re.M)]
-    return [word for word in words if word & 0x7f in (0x2b, 0x5b)]
+    # 新版实际执行fixed hpu_run；旧版wrapper无HPU字时才检查其dynamic callee。
+    for entry in ("hpu_run_", "hpu_program_"):
+        prefix = entry + meta["program_stem"]
+        names = [row.split()[-1] for row in symbols if len(row.split()) == 4 and
+                 row.split()[-2] in ("T", "t") and
+                 (row.split()[-1] == prefix or row.split()[-1].startswith(prefix + "."))]
+        disassembly = "\n".join(output([cross + "objdump", "-d", "--disassemble=" + name, path]) for name in names)
+        words = [int(word, 16) for word in re.findall(r"^\s*[0-9a-f]+:\s+([0-9a-f]{8})\s", disassembly, re.M)]
+        actual = [word for word in words if word & 0x7f in (0x2b, 0x5b)]
+        if actual:
+            return actual
+    raise ValueError("missing native HPU program text")
 
 
 def build_case(args, spec, data, meta, mode):

@@ -6,10 +6,14 @@ import re
 import shutil
 import struct
 
+from performance_adapter import validate_source
+
 GUARD_LINES = 64
 NTT_ABI = {
-    "version": 1, "coefficient_order": "natural", "pre_twist_order": "natural",
+    "version": 2, "coefficient_order": "natural", "pre_twist_order": "natural",
     "post_factor_order": "natural", "stage_twiddle_order": "reference_loader_batch_lane",
+    "stage_twiddle_format": "hpu-twiddle-k8-v1", "twiddle_chains": 8,
+    "stage_parameter_lines": 2,
     "canonical_ntt_layout": "reference_forward_layout",
     "normalization": "explicit_post_pmul", "twist_fused": False,
 }
@@ -133,6 +137,20 @@ def validate_host(report):
             "host package must not claim hardware execution")
 
 
+def validate_ntt_contract(parameters, memory_abi, allocations, degree):
+    require(parameters.get("ntt_table_abi") == NTT_ABI, "online K=8 NTT table ABI v2 required")
+    require(all(memory_abi.get(key) == NTT_ABI[key] for key in
+                ("stage_twiddle_format", "twiddle_chains", "stage_parameter_lines")),
+            "memory/parameters online twiddle ABI mismatch")
+    for row in allocations:
+        if re.search(r"/(ntt|intt)/stage\d+$", row["allocation_id"]):
+            require(row["kind"] == "twiddle" and row["read_only"] == "true" and
+                    int(row["payload_words"]) == int(row["padded_words"]) == 128 and
+                    int(row["line_count"]) == 2, "stage twiddle must be a readonly two-line K=8 object")
+        elif row["allocation_id"].endswith(("/pre_twist", "/post_untwist_scale")):
+            require(int(row["payload_words"]) == degree, "pre/post twist must retain full polynomial size")
+
+
 def import_package(source, destination, spec, commit, verify_existing=False):
     package = read_json(source / "package.json")
     scheme, degree = spec["scheme"], int(spec["degree"])
@@ -142,15 +160,15 @@ def import_package(source, destination, spec, commit, verify_existing=False):
             [package.get(k) for k in ("word_bits", "line_words", "line_bytes", "byte_order")] ==
             [32, 64, 256, "little-endian"], "frontend package ABI/case mismatch")
     keys = ("parameters", "operation_graph", "program_source", "program_header", "program_inst32",
-            "dma_relocation_manifest", "image", "line_map", "memory_manifest", "memory_config",
+            "dma_relocation_manifest", "image", "line_map", "memory_manifest", "memory_config", "memory_abi",
             "golden_manifest", "oracle_report")
     files = {key: safe_file(source, package[key]) for key in keys}
     provenance = read_json(source / "provenance/build.json")
     require(provenance.get("commit") == commit and
             provenance.get("worktree_state") == "clean-at-configure", "producer revision/cleanliness mismatch")
     parameters, report = read_json(files["parameters"]), read_json(files["oracle_report"])
-    require(parameters.get("scheme") == scheme and parameters.get("poly_modulus_degree") == degree and
-            parameters.get("ntt_table_abi") == NTT_ABI, "new NTT table ABI required")
+    require(parameters.get("scheme") == scheme and parameters.get("poly_modulus_degree") == degree,
+            "frontend parameters scheme/degree mismatch")
     validate_host(report)
     config = read_json(files["memory_config"])
     used = config["used_lines"]
@@ -167,6 +185,7 @@ def import_package(source, destination, spec, commit, verify_existing=False):
         require(len(parameters["levels"][0]["moduli"]) == int(spec["level"]),
                 "07 input Q-RNS count differs from level")
     allocations = read_rows(files["line_map"])
+    validate_ntt_contract(parameters, read_json(files["memory_abi"]), allocations, degree)
     fields = ("allocation_id", "kind", "read_only", "line_offset", "line_count",
               "payload_words", "padded_words", "initialization")
     require([{key: row[key] for key in fields} for row in allocations] ==
@@ -180,15 +199,10 @@ def import_package(source, destination, spec, commit, verify_existing=False):
         end = first + count
     words = [int(word, 2) for word in files["program_inst32"].read_text().split()]
     code = files["program_source"].read_text()
-    require([int(word, 16) for word in re.findall(r'\.word (0x[0-9A-Fa-f]+)', code)] == words,
-            "producer C/INST32 mismatch")
     require(words and words[-1] == 0x7000005b and words.count(0x7000005b) == 1 and
             all(word & 0x7f in (0x2b, 0x5b) for word in words), "opcode/terminal PSYNC mismatch")
     dma = read_rows(files["dma_relocation_manifest"])
-    spans = [(int(a), int(b)) for a, b in re.findall(
-        r'\{ UINT32_C\((\d+)\), UINT32_C\((\d+)\) \}', code)]
-    require(spans == [(int(row["line_offset"]), int(row["line_count"])) for row in dma],
-            "C resolved spans/DMA manifest mismatch")
+    validate_source(code, stem, words, [(int(row["line_offset"]), int(row["line_count"])) for row in dma])
     writable, first_access = validate_dma(words, dma, allocations, operations, used)
     levels = {tuple(level["parms_id"]): level["moduli"] for level in parameters["levels"]}
     by_span = {(int(row["line_offset"]), int(row["line_count"])): row for row in allocations}

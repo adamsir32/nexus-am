@@ -2,7 +2,6 @@
 """独立构建1019新API的一个算子分片；不生成或修改主线hputest基线。"""
 import argparse
 import csv
-import importlib.util
 import io
 import json
 import os
@@ -11,7 +10,6 @@ import re
 import shutil
 import struct
 import subprocess
-import sys
 import tempfile
 import uuid
 import zipfile
@@ -115,15 +113,9 @@ def validate_fixture(path, spec, pin):
 
 
 def perf_adapter():
-    scripts = ROOT.parent / "hputest/scripts"
-    spec = importlib.util.spec_from_file_location("frontend_perf_adapter", scripts / "prepare-perf-programs.py")
-    module = importlib.util.module_from_spec(spec)
-    sys.path.insert(0, str(scripts))
-    try:
-        spec.loader.exec_module(module)
-    finally:
-        sys.path.pop(0)
-    return module
+    # 新版固定入口复用x11，不能再套用主线动态spans的旧C模板。
+    import performance_adapter
+    return performance_adapter
 
 
 def prepare_case(args, spec, pin, generator, validator, request):
@@ -300,7 +292,7 @@ def verify_elf(elf, disassembly, data, meta, cross):
     functions = disassembled_functions(text)
     stem = meta["program_stem"]
     actual = []
-    for prefix in ("hpu_program_" + stem, "hpu_run_" + stem):
+    for prefix in ("hpu_run_" + stem, "hpu_program_" + stem):
         actual = [word for name, body in functions.items() if name == prefix or name.startswith(prefix + ".")
                   for word in hpu_words(body)]
         if actual:
