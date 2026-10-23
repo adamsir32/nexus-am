@@ -2,7 +2,7 @@
 
 当前只交付一个短名`hpu.zip`，按`00/`～`07/`分目录，每个用例保留`.elf`和`.bin`。压缩包不夹带源码、独立golden、反汇编、构建日志或重复的静默/子项版本。
 
-本目录`make`已恢复为新版统一构建入口，转交[新版运行包构建器](../hpu_frontend_workload/scripts/build-runtime.py)，不会调用历史340项流水线。默认依赖是`tests/hpu_frontend_workload/third_party/inline-asm`，固定提交`9686076`；旧8对象ISA生成缓存不能混入当前包。
+本目录`make`已恢复为新版统一构建入口，转交[新版运行包构建器](../hpu_frontend_workload/scripts/build-runtime.py)，不会调用历史340项流水线。默认依赖是`tests/hpu_frontend_workload/third_party/inline-asm`，固定提交`3ab94da`；旧缓存不能混入当前包。原用例的复用范围与新增硬件要求见[兼容性检查](../hpu_frontend_workload/COMPATIBILITY.md)。
 
 ## 分组与状态
 

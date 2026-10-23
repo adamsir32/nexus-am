@@ -20,10 +20,13 @@ namespace delivery = hpu::delivery;
 using Words = std::vector<std::uint32_t>;
 
 namespace {
-constexpr const char *ntt_abi =
-    "{\"version\":2,\"coefficient_order\":\"natural\",\"pre_twist_order\":\"natural\","
+const std::string ntt_abi =
+    std::string("{\"version\":3,\"coefficient_order\":\"natural\",\"pre_twist_order\":\"natural\","
     "\"post_factor_order\":\"natural\",\"stage_twiddle_order\":\"reference_loader_batch_lane\","
     "\"stage_twiddle_format\":\"hpu-twiddle-k8-v1\",\"twiddle_chains\":8,\"stage_parameter_lines\":2,"
+    "\"online_pmul_format\":\"") + hpu::model::kOnlinePmulParameterFormat +
+    "\",\"online_pmul_parameter_lines\":" + std::to_string(hpu::model::kOnlinePmulParameterLines) +
+    ",\"online_pmul_mode\":1,\"online_pmul_parameter_bank_mask\":32,"
     "\"canonical_ntt_layout\":\"reference_forward_layout\",\"normalization\":\"explicit_post_pmul\","
     "\"twist_fused\":false}";
 
@@ -57,7 +60,8 @@ delivery::ApplicationPackageRequest request_base(const std::string &operation,
         ",\"plain_modulus\":0,\"key_moduli\":" + list(all) + ",\"ntt_table_abi\":" + ntt_abi +
         ",\"levels\":[{\"moduli\":" + list(q) + "}]}";
     request.operation_graph_json = "{\"operations\":[{\"id\":\"tested\",\"kind\":\"" + operation +
-        "\",\"operation_index\":0,\"output\":\"output/result\",\"golden_object_id\":\"step_0\"}]}";
+        "\",\"operation_index\":0,\"output\":\"output/result\",\"exported\":true,"
+        "\"golden_object_id\":\"step_0\"}],\"final_output\":\"output/result\"}";
     return request;
 }
 
@@ -70,9 +74,16 @@ void bind_program(delivery::ApplicationPackageRequest &request,
     request.program.ordered_dma_spans = spans;
     const auto relocations = hpu::collect_dma_relocations(request.program.instructions);
     if (relocations.size() != spans.size()) throw std::runtime_error("composite DMA recipe differs from upstream codegen");
-    for (std::size_t i = 0; i < spans.size(); ++i)
-        request.program.resource_dma.push_back({relocations[i].instruction_index,
-            allocation_id(image, spans[i]), spans[i], 0, "tested", i});
+    for (std::size_t i = 0; i < spans.size(); ++i) {
+        hpu::compiler::ResolvedDma binding;
+        binding.instruction_index = relocations[i].instruction_index;
+        binding.allocation_id = allocation_id(image, spans[i]);
+        binding.span = spans[i];
+        binding.operation_index = 0;
+        binding.operation_id = "tested";
+        binding.operation_dma_index = i;
+        request.program.resource_dma.push_back(std::move(binding));
+    }
 }
 
 void verify_and_publish(delivery::ApplicationPackageRequest &request, runtime::HpuMemImage &image,

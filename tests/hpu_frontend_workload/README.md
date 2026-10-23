@@ -4,7 +4,9 @@
 
 迁移前主线完整备份在`backup/master-before-1019-20261023@9016ef9c`。旧源码、历史编号和历史打包方式可从Git回查，不需要为了运行当前00～06切换旧主线。
 
-依赖固定为`feature/operator-resource-management@9686076`，不是旧workload的main/legacy-main。完整commit见[producer.json](producer.json)。API和应用图直接采用该分支的`examples/*_evaluator_application.cpp`，不是用AM重新实现一套算法。
+依赖固定为`feature/operator-resource-management@3ab94da`，不是旧workload的main/legacy-main。完整commit见[producer.json](producer.json)。API和应用图直接采用该分支的`examples/*_evaluator_application.cpp`，不是用AM重新实现一套算法。
+
+本轮从`9686076`跟进SSA/内存IO重构与在线PMUL：原00～07编号、测试职责和顶层图继续使用，但指令、布局和golden必须重新生成。接收器升级NTT ABI v3，stage与pre/post参数均为两行；只核对图中显式导出的结果，不强制把tensor等中间对象写回DDR。所有声明的输出仍逐RNS原始word严格比较，不能用容差或跳过最终结果来通过。新生成的变换序列需要支持PMUL在线模式的新版RTL。详见[兼容性检查](COMPATIBILITY.md)。
 
 2026-10-21跟进NTT ABI v2：每stage使用在线K=8的512字节/2line参数，数据镜像及DMA spans全部由新版库重新生成，不能混用旧完整twiddle表。上游fixed发令入口的单asm和x11长度复用原样保留；接收器分别核对dynamic/fixed两套原生字码，实际ELF检查fixed入口。07专用适配器只提取计时前预检查，不重新生成发令序列。自动跟进机制本次未启用。
 
@@ -45,7 +47,7 @@ python3 tests/hpu_frontend_workload/scripts/build-runtime.py \
 
 输入、密钥、twiddle、节点golden、DMA清单和资源报告留在构建工作目录供开发核查，不作为下载附件。程序需要的初始镜像和自检数据仍嵌入ELF/BIN；删除外置报告不等于取消用例自检。数据、指令和DMA spans必须来自同一次producer交付，不混用旧镜像。
 
-上述六项API样例使用镜像基址`0x87000000`；新07使用`0x90000000`，目标内存至少512MiB，其他组按各自用例配置。运行时按真实window行数配置MMIO，再执行producer程序。末尾仅一次PSYNC；CPU轮询`IRQ=1 && VALID=1 && BUSY=0`，清完成电平，然后逐节点、逐RNS原始word比较golden，同时检查只读数据及窗外guard。无需PLIC或定时器中断。默认完成等待预算2500万模拟cycle，可通过`WAIT_CYCLES=...`调整；IT模拟器自身的cycle limit也必须足够。发令阶段若受RTL反压阻塞，不能靠完成轮询的预算解除阻塞。
+上述六项API样例使用镜像基址`0x87000000`；新07使用`0x90000000`，目标内存至少512MiB，其他组按各自用例配置。运行时按真实window行数配置MMIO，再执行producer程序。末尾仅一次PSYNC；CPU轮询`IRQ=1 && VALID=1 && BUSY=0`，清完成电平，然后对每个声明导出结果逐RNS原始word比较golden，同时检查只读数据及窗外guard。无需PLIC或定时器中断。默认完成等待预算2500万模拟cycle，可通过`WAIT_CYCLES=...`调整；IT模拟器自身的cycle limit也必须足够。发令阶段若受RTL反压阻塞，不能靠完成轮询的预算解除阻塞。
 
 `make minimal`与`make all`采用同一单包默认。`scripts/build.py`保留六项API样例的手动构建能力，`scripts/build_performance.py`保留A/B和静默实验能力，均不自动上传其开发资料包。大构建请把`OUTPUT_ROOT`设到磁盘目录，不放`/tmp`。改变接收器或producer版本时使用新的输出目录，已有交付不会被覆盖。
 

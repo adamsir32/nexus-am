@@ -62,17 +62,18 @@ def source_fixture():
 class OnlineNttAbiTests(unittest.TestCase):
     def setUp(self):
         self.parameters = {"ntt_table_abi": copy.deepcopy(NTT_ABI)}
-        self.memory_abi = {key: NTT_ABI[key] for key in
-                           ("stage_twiddle_format", "twiddle_chains", "stage_parameter_lines")}
+        self.memory_abi = dict(NTT_ABI)
         self.rows = [{"allocation_id": "q0/intt/stage0", "kind": "twiddle", "read_only": "true",
                       "payload_words": "128", "padded_words": "128", "line_count": "2"},
-                     {"allocation_id": "q0/ntt/pre_twist", "payload_words": "4096"},
-                     {"allocation_id": "q0/intt/post_untwist_scale", "payload_words": "4096"}]
+                     {"allocation_id": "q0/ntt/pre_twist", "kind": "twiddle", "read_only": "true",
+                      "payload_words": "128", "padded_words": "128", "line_count": "2"},
+                     {"allocation_id": "q0/intt/post_untwist_scale", "kind": "twiddle", "read_only": "true",
+                      "payload_words": "128", "padded_words": "128", "line_count": "2"}]
 
     def validate(self):
         validate_ntt_contract(self.parameters, self.memory_abi, self.rows, 4096)
 
-    def test_online_stage_and_full_pre_post_twist_are_distinct(self):
+    def test_stage_and_pre_post_are_explicit_online_parameter_contracts(self):
         self.validate()
 
     def test_small_n128_still_requires_two_parameter_lines(self):
@@ -85,7 +86,7 @@ class OnlineNttAbiTests(unittest.TestCase):
 
     def test_old_v1_contract_cannot_silently_load_on_new_producer(self):
         self.parameters["ntt_table_abi"]["version"] = 1
-        with self.assertRaisesRegex(ValueError, "ABI v2"):
+        with self.assertRaisesRegex(ValueError, "ABI v3"):
             self.validate()
 
     def test_unknown_chain_count_and_memory_sidecar_mismatch_are_rejected(self):
@@ -100,9 +101,9 @@ class OnlineNttAbiTests(unittest.TestCase):
                 with self.assertRaisesRegex(ValueError, "two-line"):
                     self.validate()
 
-    def test_pre_twist_must_not_be_compressed_as_stage_parameters(self):
-        self.rows[1]["payload_words"] = "128"
-        with self.assertRaisesRegex(ValueError, "full polynomial"):
+    def test_old_full_pre_twist_is_not_an_online_pmul_parameter_template(self):
+        self.rows[1].update(payload_words="4096", padded_words="4096", line_count="64")
+        with self.assertRaisesRegex(ValueError, "two-line"):
             self.validate()
 
 

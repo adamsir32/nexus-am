@@ -5,7 +5,7 @@
 /*
  * BFV，N=128：x×(RotateRows(x,1)+RotateColumns(x))+7。
  * 应用图使用新ApplicationBuilder/Evaluator API生成，采用新资源管理布局。
- * 每个ELF仅执行本规模的一张应用图；逐节点raw golden全部检查。
+ * 每个ELF仅执行本规模的一张应用图；全部声明导出的raw golden都要检查。
  * 不启用CPU定时器或PLIC：程序末尾唯一PSYNC通过MMIO完成电平同步。
  */
 int main(void) {

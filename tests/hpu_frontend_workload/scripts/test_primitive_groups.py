@@ -4,7 +4,7 @@ import csv
 from pathlib import Path
 import unittest
 
-from import_package import package_profile, primitive_outputs
+from import_package import NTT_ABI, package_profile, primitive_outputs, validate_ntt_contract
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -18,7 +18,8 @@ class PrimitiveGroupTests(unittest.TestCase):
                            "key_moduli": [50061313, 50077697, 50307073, 50552833,
                                           90062849, 90095617, 90218497]}
         self.operations = [{"id": "tested", "kind": "bconv", "operation_index": 0,
-                            "output": "output/result", "golden_object_id": "step_0"}]
+                            "output": "output/result", "exported": True,
+                            "golden_object_id": "step_0"}]
 
     def test_catalog_restores_all_supported_functional_groups(self):
         self.assertEqual(len(self.specs), 54)
@@ -62,6 +63,32 @@ class PrimitiveGroupTests(unittest.TestCase):
             package_profile(spec)
             ops = [{**self.operations[0], "kind": operation}]
             self.assertEqual(primitive_outputs(spec, parameters, ops), ({0: 133881857}, domain))
+
+    def test_ntt_pre_and_post_use_online_pmul_templates_not_full_vectors(self):
+        self.assertEqual(NTT_ABI["version"], 3)
+        parameters = {"ntt_table_abi": dict(NTT_ABI)}
+        allocations = [
+            {"allocation_id": "constants/q0/" + suffix, "kind": "twiddle",
+             "read_only": "true", "payload_words": "128", "padded_words": "128",
+             "line_count": "2"}
+            for suffix in ("pre_twist", "post_untwist_scale", "ntt/stage0", "intt/stage11")
+        ]
+        validate_ntt_contract(parameters, dict(NTT_ABI), allocations, 4096)
+        for index in (0, 1):
+            changed = copy.deepcopy(allocations)
+            changed[index].update(payload_words="4096", padded_words="4096", line_count="64")
+            with self.subTest(parameter=changed[index]["allocation_id"]), self.assertRaises(ValueError):
+                validate_ntt_contract(parameters, dict(NTT_ABI), changed, 4096)
+
+    def test_ntt_rejects_an_old_or_missing_online_pmul_contract(self):
+        parameters = {"ntt_table_abi": dict(NTT_ABI)}
+        for field, value in (("version", 2), ("online_pmul_mode", 0),
+                             ("online_pmul_parameter_lines", 64),
+                             ("online_pmul_format", "hpu-twiddle-k8-v1")):
+            changed = copy.deepcopy(parameters)
+            changed["ntt_table_abi"][field] = value
+            with self.subTest(field=field), self.assertRaises(ValueError):
+                validate_ntt_contract(changed, dict(NTT_ABI), [], 4096)
 
 
 if __name__ == "__main__":

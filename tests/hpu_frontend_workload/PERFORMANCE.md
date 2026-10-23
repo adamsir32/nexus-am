@@ -4,14 +4,14 @@
 
 ## 版本与接口
 
-- 新版依赖：inline-asm的`feature/operator-resource-management@968607698ea850774f952b73e8622697f6cce96a`；此前1019交付的`a19197e`、`7306d1c`保留在Git历史中。
+- 新版依赖：inline-asm的`feature/operator-resource-management@3ab94da16abce89b7e9b74f4e7fcd93604dea495`；此前1019交付的`a19197e`、`7306d1c`、`9686076`保留在Git历史中。
 - 旧版参照：备份中的AM `9016ef9c`使用inline-asm `03a32c168404f3ad64e6a4d7ad82a081f910314b`。旧依赖和历史用例可回查；当前默认构建使用新固定依赖，不启动旧依赖的准备或多包发布流程。
 - 新版直接调用上游`ApplicationBuilder`、`Evaluator`和资源编译器；AM只负责交付接收、配置、发令、同步和检查，不自行实现KeySwitch或取整补丁。
 - 输入准备复用旧版`tools/hpu-scheme-cases/fixture.hpp`。两版modified-SEAL源码树相同；`PERF_FIXTURE.json`记录实际Q/P模数、输入/输出RNS数、scale、correction factor、旋转步长和随机种子。
 
 上游顶层API兼容时，后续调整资源实现可不改C用例，只更新固定依赖并重新生成、验证、编译。依赖仍固定到commit，不在构建时无条件追踪远端HEAD；API、参数或交付格式变化时仍需适配。
 
-NTT ABI v2仍要求stage对象为在线K=8的128个u32、512字节、2line，N128也不例外；pre/post twist仍是完整多项式长度。接收器同时核对参数与memory ABI，拒绝旧表或错误K/长度。新版库直接生成fixed单asm入口，x11只在DMA长度变化时重载；性能适配器原样保留该入口，只从dynamic入口提取无HPU指令的预检查，不退回旧动态发令代码。
+NTT ABI v3要求stage以及pre/post在线PMUL参数均为128个u32、512字节、2line，N128也不例外；在线PMUL模式为1，参数放入Bank5，post模板已含归一化。接收器同时核对参数与memory ABI，拒绝旧表或错误K/长度。新版库直接生成fixed单asm入口，x11只在DMA长度变化时重载；性能适配器原样保留该入口，只从dynamic入口提取无HPU指令的预检查，不退回旧动态发令代码。SSA仅将声明的输出落DDR，未标记中间值不再为了AM检查额外写回；最终结果、guard和只读区检查不变。详见[兼容性检查](COMPATIBILITY.md)。
 
 2026-10-23同步64对象ISA、DMA的MOD/REL/CP字段及twiddle-only LLC分配提示，数据和指令由当前固定版本重新生成。CP是实际DMA指令字段，不能当作trace开关，也不能为静默输出删掉真实DMA。本次不部署自动更新机制。
 
@@ -42,7 +42,7 @@ KeySwitch用三分量输入、将c0/c1置零后调用上游relinearize，区别�
 
 1. 计时前完成镜像拷贝、cache clean、全部参数预检查、MMIO读回与COMMIT生效检查。
 2. 读取cycle起点，运行上游生成的指令程序，轮询MMIO等待完成，再读取cycle终点。
-3. 计时后清完成电平，检查状态、全部节点golden、只读区与guard；全部通过才打印性能行。
+3. 计时后清完成电平，检查状态、全部声明导出结果的golden、只读区与guard；全部通过才打印性能行。
 
 计时区间没有UART打印或逐轮阶段打印；等待循环每64轮检查一次超时并保存诊断，与主线07等待开销对齐。程序末尾只发一次PSYNC，不启用PLIC或定时器中断。`silent`仍记录`workload_trace.cycle_start/cycle_end`，但不输出UART。
 
@@ -86,7 +86,7 @@ make -C tests/hpu_frontend_workload performance \
 ```sh
 python3 tests/hpu_frontend_workload/scripts/parse_performance.py \
   optimized-uart.log noopt-uart.log --output performance-results \
-  --revision 'AM=<commit>; inline-asm=9686076; RTL=<实际commit>'
+  --revision 'AM=<commit>; inline-asm=3ab94da; RTL=<实际commit>'
 ```
 
 日志解析工具保留在仓库，不复制到运行包；无需安装额外Python库。不同版本、RTL配置或时钟条件应分批保存结果，不能混合求平均。

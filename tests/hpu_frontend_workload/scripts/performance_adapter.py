@@ -96,6 +96,8 @@ def preflight_source(original, stem):
         r"^    if \(hpu_obj_len\[(\d+)\] == 0 \|\| spans\[\d+\]\.line_count != hpu_obj_len\[\1\]\) return -5;\n",
         r"^    hpu_obj_len\[\d+\] = (?:0|spans\[\d+\]\.line_count|hpu_obj_len\[\d+\]);\n",
         r"^    if \(hpu_obj_len\[\d+\] == 0(?: \|\| hpu_obj_len\[\d+\] != hpu_obj_len\[\d+\]){0,2}\) return -6;\n",
+        # 在线PMUL的数据长度与两行参数长度不同；精确保留上游的完整前置检查。
+        r"^    if \((hpu_obj_len\[\d+\]) == 0 \|\| \1 < 2 \|\| \1 > 1024 \|\| \(\1 & \(\1 - 1\)\) != 0 \|\| hpu_obj_len\[\d+\] != 2\) return -6;\n",
         r"^    if \((hpu_obj_len\[\d+\]) < 2 \|\| \1 > 1024 \|\| \(\1 & \(\1 - 1\)\) != 0 \|\| hpu_obj_len\[\d+\] != 2 \|\| UINT32_C\(\d+\) >= \1 \* 64\) return -7;\n",
         r"^    if \(UINT32_C\(\d+\) >= hpu_obj_len\[\d+\]\) return -8;\n",
     )

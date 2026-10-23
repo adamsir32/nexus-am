@@ -1,6 +1,6 @@
 # 当前HPU交付入口
 
-默认分支仍名为`master`；当前HPU交付为单个短名`hpu.zip`，按`00/`～`07/`分目录，只放可运行用例的ELF和BIN，不含源码、独立golden、反汇编或四份重复版本。入口为[tests/hputest](tests/hputest/README.md)，新版producer与交付说明见[tests/hpu_frontend_workload](tests/hpu_frontend_workload/README.md)，inline-asm固定为`9686076`。
+默认分支仍名为`master`；当前HPU交付为单个短名`hpu.zip`，按`00/`～`07/`分目录，只放可运行用例的ELF和BIN，不含源码、独立golden、反汇编或四份重复版本。入口为[tests/hputest](tests/hputest/README.md)，新版producer与交付说明见[tests/hpu_frontend_workload](tests/hpu_frontend_workload/README.md)，inline-asm固定为`3ab94da`。本次SSA/在线PMUL升级及原用例兼容范围见[兼容性检查](tests/hpu_frontend_workload/COMPATIBILITY.md)。
 
 - 00～06按原有分组职责交付；00～03已恢复44项，04～06按新版native接口适配，不再只给代码或删去整组。
 - 07恢复N1024、N2048，并与N4096、N8192统一置于07组：每个规模18项，共72项，输入level≤4。性能口径见[性能说明](tests/hpu_frontend_workload/PERFORMANCE.md)。

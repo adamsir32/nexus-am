@@ -10,10 +10,12 @@ from performance_adapter import validate_source
 
 GUARD_LINES = 64
 NTT_ABI = {
-    "version": 2, "coefficient_order": "natural", "pre_twist_order": "natural",
+    "version": 3, "coefficient_order": "natural", "pre_twist_order": "natural",
     "post_factor_order": "natural", "stage_twiddle_order": "reference_loader_batch_lane",
     "stage_twiddle_format": "hpu-twiddle-k8-v1", "twiddle_chains": 8,
     "stage_parameter_lines": 2,
+    "online_pmul_format": "hpu-pmul-online-k8-v1", "online_pmul_parameter_lines": 2,
+    "online_pmul_mode": 1, "online_pmul_parameter_bank_mask": 32,
     "canonical_ntt_layout": "reference_forward_layout",
     "normalization": "explicit_post_pmul", "twist_fused": False,
 }
@@ -184,9 +186,11 @@ def validate_host(report):
 
 
 def validate_ntt_contract(parameters, memory_abi, allocations, degree):
-    require(parameters.get("ntt_table_abi") == NTT_ABI, "online K=8 NTT table ABI v2 required")
+    require(parameters.get("ntt_table_abi") == NTT_ABI, "online K=8 NTT/PMUL table ABI v3 required")
     require(all(memory_abi.get(key) == NTT_ABI[key] for key in
-                ("stage_twiddle_format", "twiddle_chains", "stage_parameter_lines")),
+                ("stage_twiddle_format", "twiddle_chains", "stage_parameter_lines",
+                 "online_pmul_format", "online_pmul_parameter_lines", "online_pmul_mode",
+                 "online_pmul_parameter_bank_mask")),
             "memory/parameters online twiddle ABI mismatch")
     for row in allocations:
         if re.search(r"/(ntt|intt)/stage\d+$", row["allocation_id"]):
@@ -194,7 +198,9 @@ def validate_ntt_contract(parameters, memory_abi, allocations, degree):
                     int(row["payload_words"]) == int(row["padded_words"]) == 128 and
                     int(row["line_count"]) == 2, "stage twiddle must be a readonly two-line K=8 object")
         elif row["allocation_id"].endswith(("/pre_twist", "/post_untwist_scale")):
-            require(int(row["payload_words"]) == degree, "pre/post twist must retain full polynomial size")
+            require(row["kind"] == "twiddle" and row["read_only"] == "true" and
+                    int(row["payload_words"]) == int(row["padded_words"]) == 128 and
+                    int(row["line_count"]) == 2, "pre/post online PMUL must use readonly two-line templates")
 
 
 def primitive_outputs(spec, parameters, operations):
@@ -214,6 +220,31 @@ def primitive_outputs(spec, parameters, operations):
         return {index: moduli[index] for index in (4, 5, 6)}, "coefficient"
     require(len(moduli) == 5, "04 transform requires its complete Q4/P1 modulus table")
     return {0: moduli[0]}, "coefficient" if operation == "intt" else "canonical_ntt_physical"
+
+
+def exported_steps(graph):
+    """SSA中间值可留在片上；所有显式导出结果仍必须完整校验。"""
+    operations = graph.get("operations")
+    require(isinstance(operations, list) and operations and
+            all(type(op.get("exported")) is bool for op in operations),
+            "every operation must declare a boolean exported flag")
+    selected = {index for index, op in enumerate(operations) if op["exported"]}
+    roots = {operations[index].get("output") for index in selected}
+    require(selected and all(isinstance(root, str) and root for root in roots) and
+            graph.get("final_output") in roots, "final output must be exported")
+    for index, operation in enumerate(operations):
+        require((operation.get("golden_object_id") == f"step_{index}") if index in selected
+                else "golden_object_id" not in operation, "export/golden object metadata mismatch")
+    if "marked_outputs" in graph:
+        marked = graph["marked_outputs"]
+        require(isinstance(marked, list) and marked and
+                all(isinstance(row, dict) and isinstance(row.get("id"), str) and row["id"] and
+                    isinstance(row.get("physical_output"), str) for row in marked),
+                "invalid marked outputs")
+        require(len({row["id"] for row in marked}) == len(marked) and
+                {row["physical_output"] for row in marked} == roots,
+                "marked outputs differ from exported operations")
+    return selected
 
 
 def import_package(source, destination, spec, commit, verify_existing=False):
@@ -243,7 +274,9 @@ def import_package(source, destination, spec, commit, verify_existing=False):
     validate_capacity(spec, used)
     image = bytearray(files["image"].read_bytes())
     require(len(image) == used * 256, "image length mismatch")
-    operations = read_json(files["operation_graph"])["operations"]
+    graph = read_json(files["operation_graph"])
+    operations = graph["operations"]
+    selected_steps = exported_steps(graph)
     if spec.get("kind") == "group":
         require(len(parameters["levels"][0]["moduli"]) == int(spec["level"]),
                 "functional input Q-RNS count differs from its catalog")
@@ -289,7 +322,7 @@ def import_package(source, destination, spec, commit, verify_existing=False):
     golden, outputs, order = bytearray(), [], []
     for row in read_rows(files["golden_manifest"]):
         step, component, mod_id = int(row["object_id"].removeprefix("step_")), int(row["component"]), int(row["modulus_id"])
-        require(0 <= step < len(operations), "invalid golden step")
+        require(step in selected_steps, "golden must belong to an exported operation")
         if primitive:
             moduli = primitive_moduli
             require(step == 0 and component == 0 and mod_id in moduli, "invalid primitive golden component/modulus")
@@ -314,7 +347,7 @@ def import_package(source, destination, spec, commit, verify_existing=False):
         golden += data
         image[first * 256:(first + count) * 256] = b"\xff" * (count * 256)
     expected_order = ([(0, 0, mod_id) for mod_id in primitive_moduli] if primitive else
-                      [(step, component, mod_id) for step, op in enumerate(operations)
+                      [(step, component, mod_id) for step, op in enumerate(operations) if step in selected_steps
                        for component in range(op["component_count"])
                        for mod_id in range(len(levels[tuple(op["parms_id"])]))])
     require(order == expected_order and len(order) == report["verified_limb_count"], "incomplete golden coverage")
