@@ -1,11 +1,11 @@
 # 1019：新API的07组正确性与性能实验
 
-本组位于独立的`hpu_frontend_workload`，不覆盖主线`hputest`或原有00～07用例。AM基点为`9016ef9c`，实验分支为`1019-operator-resource-perf`。
+本组位于`hpu_frontend_workload`，现为默认主线`master`的HPU性能交付，来源是`1019-operator-resource-perf@bf3bb7cc`。原`hputest`入口和大矩阵已退役，历史源码与必要公共支持仍保留；迁移前主线完整备份为`backup/master-before-1019-20261023@9016ef9c`。
 
 ## 版本与接口
 
 - 新版依赖：inline-asm的`feature/operator-resource-management@968607698ea850774f952b73e8622697f6cce96a`；此前1019交付的`a19197e`、`7306d1c`保留在Git历史中。
-- 旧版参照：AM `9016ef9c`使用inline-asm `03a32c168404f3ad64e6a4d7ad82a081f910314b`。旧版依赖和用例保持不动。
+- 旧版参照：备份中的AM `9016ef9c`使用inline-asm `03a32c168404f3ad64e6a4d7ad82a081f910314b`。旧依赖和历史用例可回查，但当前主线不再运行其准备、构建或发布入口。
 - 新版直接调用上游`ApplicationBuilder`、`Evaluator`和资源编译器；AM只负责交付接收、配置、发令、同步和检查，不自行实现KeySwitch或取整补丁。
 - 输入准备复用旧版`tools/hpu-scheme-cases/fixture.hpp`。两版modified-SEAL源码树相同；`PERF_FIXTURE.json`记录实际Q/P模数、输入/输出RNS数、scale、correction factor、旋转步长和随机种子。
 
@@ -55,7 +55,7 @@ KeySwitch用三分量输入、将c0/c1置零后调用上游relinearize，区别�
 ## 构建与运行
 
 ```sh
-git switch 1019-operator-resource-perf
+git switch master
 git submodule update --init tests/hpu_frontend_workload/third_party/inline-asm
 
 # 一个分片：6项逻辑算子，各有optimized/noopt及两种UART模式。
@@ -67,7 +67,7 @@ make -C tests/hpu_frontend_workload performance \
 # 只构建一项可加CASE_ID=07_39_ckks_hmul_reline_l4_n8192。
 ```
 
-GitHub Actions工作流`build 1019 experimental HPU operator performance`按2个N×1种level配置（baseline）×3种算法分为6个独立分片，不重跑旧hputest。每个完整分片24套ELF/BIN/TXT，合计144套；包内保留原生交付、参数、指令、golden和资源报告，不包含归档用例。
+GitHub Actions工作流`build 1019 HPU operator performance`按2个N×1种level配置（baseline）×3种算法分为6个独立分片，不重跑旧hputest。每个完整分片24套ELF/BIN/TXT，合计144套；包内保留原生交付、参数、指令、golden和资源报告，不包含归档用例。
 
 当前活动用例使用DDR基址`0x90000000`，目标内存至少512MiB。模拟器内存配置必须匹配。完成等待预算默认2500万cycle，可用`WAIT_CYCLES`调整；模拟器总cycle限制独立设置。它们均不是实测性能。
 

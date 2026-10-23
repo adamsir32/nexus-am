@@ -1,5 +1,9 @@
 # HPU tests for Nexus-AM
 
+> **已退役的历史入口，不是当前交付清单。** 当前HPU交付改用[../hpu_frontend_workload](../hpu_frontend_workload/README.md)，只交付1019批次；本目录顶层`make`（包括`all`、`performance-shard`等）在准备或构建前直接报错，不会重建下文的大用例。下文保留历史正文，数量、下载包及构建说明不代表当前主线。
+>
+> 旧主线备份为`backup/master-before-1019-20261023`（`9016ef9c`），需要完整旧入口时可checkout该备份。本目录仍保留新交付依赖的fixture、runtime、头文件、静默ELF校验器及旧用例映射清单；它们不是旧大包的重新交付入口。
+
 当前分组为：00冒烟→01配置/连接/数据通路→02边界/RISC-V交叉→03指令→04算子→05算法库→06应用→07性能。
 完整命名规则、分组边界和历史路径对照见[用例整理说明](docs/TEST_ORGANIZATION.md)。
 源码、case_id和ELF/BIN/TXT统一使用`组号_用例号_行为[_必要参数]`，例如`01_06_dma_loopback`、`02_11_cmd_burst_8`、`05_07_ckks_hmul_reline_n4096`。

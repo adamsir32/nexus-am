@@ -1,6 +1,8 @@
-# 新API实验workload
+# HPU新API工作负载（当前主线交付）
 
-本目录单独验证inline-asm重构后的ApplicationBuilder/Evaluator和资源管理。**不替换hputest的00～07分组或其已通过的运算基线**。
+当前默认主分支实际名为`master`，HPU交付采用原`1019-operator-resource-perf`的本目录：36项新07性能测试及六个API应用，N≤8192、输入level≤4。旧`hputest`构建入口及大矩阵已退役，目录中的历史源码和公共支持仍保留，不再生成旧HPU包。
+
+迁移前主线完整备份在`backup/master-before-1019-20261023@9016ef9c`。需要旧00～07基线时切换该备份，不要在新主线上恢复旧构建入口。
 
 依赖固定为`feature/operator-resource-management@9686076`，不是旧workload的main/legacy-main。完整commit见[producer.json](producer.json)。API和应用图直接采用该分支的`examples/*_evaluator_application.cpp`，不是用AM重新实现一套算法。
 
@@ -31,7 +33,7 @@ make -C tests/hpu_frontend_workload all
 
 用例路径通过 `CASE_OBJ_DIR`、`CASE_BINARY` 传入，仅在 `Makefile.case` 本层映射为输出目录；不把公共 `DST_DIR`、`BINARY` 作为命令行变量传给递归 AM/klib 构建。`make test` 会执行变量隔离回归，验证实际构建命令不会污染递归构建的默认路径。
 
-产物是`build/hpu-frontend-workload.zip`；GitHubActions另有独立的`build experimental HPU frontend workload`工作流，下载`nexus-am-hpu-frontend-workload`，不会混入旧`nexus-am-hpu-tests`包。
+产物是`build/hpu-frontend-workload.zip`；GitHubActions的`build HPU frontend workload`工作流提供`nexus-am-hpu-frontend-workload`下载包，旧`nexus-am-hpu-tests`不再发布。
 
 压缩包的`minimal/`、`silent/`各包含6套ELF/BIN/TXT。正常包只打印阶段、CSR错误、前4个结果错误及错误总数，不全量打印4096项。静默版关闭用例打印、AM启动UART初始化和字符出口，自检与return码不变；可读取`workload_trace`定位阶段和首错。
 

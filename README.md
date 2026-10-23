@@ -1,3 +1,13 @@
+# 当前HPU交付入口
+
+默认分支仍名为`master`；当前HPU交付源于`1019-operator-resource-perf`，入口为[tests/hpu_frontend_workload](tests/hpu_frontend_workload/README.md)，inline-asm固定为`9686076`。
+
+- 新07只交付N4096/N8192、输入level≤4的36项；默认N8192，CKKS/BFV为level4，BGV为level3。性能CI按两个N、三种算法分为6个分片。
+- 保留六项API应用样例：CKKS/BFV/BGV各有N128和N4096。构建及下载说明见上述入口和[性能说明](tests/hpu_frontend_workload/PERFORMANCE.md)。
+- 旧主线已备份为`backup/master-before-1019-20261023`（`9016ef9c`），可checkout该备份回查旧源码。当前`tests/hputest`仅保留历史源码和新入口需要的共用支持，旧顶层构建入口已停用，不再交付原先的大用例包。
+
+上述交付的状态为`BUILD_READY_NOT_IT_PASS`，不表示真实RTL/ST或硬件已通过。下方原有AM/CPU构建说明保留。
+
 # The Abstract Machine (AM)
 
 ## Get Started for Memory Images (Workloads)

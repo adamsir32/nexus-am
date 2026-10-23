@@ -1,4 +1,4 @@
-name: build experimental HPU frontend workload
+name: build HPU frontend workload
 
 on:
   push:
@@ -36,7 +36,7 @@ jobs:
         run: make -C tests/hpu_frontend_workload test
       - name: Build separate minimal and silent workload
         run: make -C tests/hpu_frontend_workload all JOBS=4
-      - name: Upload independent experimental package
+      - name: Upload independent package
         uses: actions/upload-artifact@v7
         with:
           name: nexus-am-hpu-frontend-workload

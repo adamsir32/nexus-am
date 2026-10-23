@@ -1,3 +1,7 @@
+# 旧构建入口已退役；下方公共运行时和fixture仍供新工作负载复用。
+# 历史准备、构建、打包只允许从备份版本回查，不在当前主线执行。
+$(error RETIRED: tests/hputest is historical/shared support only; use tests/hpu_frontend_workload. Old master: backup/master-before-1019-20261023@9016ef9c)
+
 AM_HOME ?= $(abspath ../..)
 ARCH ?= riscv64-xs
 CROSS_COMPILE ?= riscv64-linux-gnu-
