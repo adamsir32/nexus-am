@@ -1,4 +1,4 @@
-"""主线只发布1019现有HPU交付；不运行生成器或依赖YAML第三方模块。"""
+"""主线只自动发布一个运行包；不构建生成器或依赖YAML第三方模块。"""
 import csv
 import itertools
 from pathlib import Path
@@ -8,7 +8,8 @@ import unittest
 
 ROOT = Path(__file__).resolve().parents[1]
 WORKFLOWS = ROOT.parents[1] / ".github/workflows"
-HPU_WORKFLOWS = ("build-hpu-operator-perf.yml", "build-hpu-frontend.yml")
+RUNTIME_WORKFLOW = "build-hpu.yml"
+MANUAL_ALIASES = ("build-hpu-operator-perf.yml", "build-hpu-frontend.yml")
 
 
 def block(text, key, indent):
@@ -41,62 +42,73 @@ class MainlineWorkflowTests(unittest.TestCase):
             self.assertIn(target, jobs)
         self.assertIn("name: nexus-am-workloads", jobs)
 
-    def test_no_active_workflow_calls_or_uploads_legacy_hpu_delivery(self):
-        for path in WORKFLOWS.glob("*.yml"):
-            with self.subTest(workflow=path.name):
-                text = path.read_text()
-                self.assertNotIn("tests/hputest", text)
-                self.assertNotIn("nexus-am-hpu-tests", text)
-                self.assertNotIn("nexus-am-hpu-perf-n", text)
+    def test_only_one_hpu_workflow_has_automatic_triggers_and_one_job(self):
+        text = (WORKFLOWS / RUNTIME_WORKFLOW).read_text()
+        events = block(text, "on", 0)
+        for event in ("push", "pull_request"):
+            self.assertEqual(inline_list(block(events, event, 2), "branches"), ["master"])
+        self.assertIn("  workflow_dispatch:", events)
+        self.assertIn("  workflow_call:", events)
+        self.assertEqual(re.findall(r"^  ([\w-]+):$", block(text, "jobs", 0), re.M), ["runtime"])
+        self.assertNotIn("matrix:", text)
+        self.assertIn("scripts/build-runtime.py", text)
+        self.assertNotIn("scripts/build_performance.py", text)
+        self.assertNotIn("scripts/build.py", text)
 
-    def test_hpu_triggers_include_mainline_and_1019_but_not_backups(self):
-        for name in HPU_WORKFLOWS:
+    def test_old_hpu_workflows_are_manual_delegates_without_uploads(self):
+        for name in MANUAL_ALIASES:
             with self.subTest(workflow=name):
-                events = block((WORKFLOWS / name).read_text(), "on", 0)
-                self.assertEqual(inline_list(block(events, "push", 2), "branches"),
-                                 ["master", "1019-operator-resource-perf"])
-                self.assertEqual(inline_list(block(events, "pull_request", 2), "branches"),
-                                 ["master"])
-                self.assertIn("  workflow_dispatch:", events)
+                text = (WORKFLOWS / name).read_text()
+                events = block(text, "on", 0)
+                self.assertEqual(re.findall(r"^  ([\w_]+):$", events, re.M), ["workflow_dispatch"])
+                self.assertIn("uses: ./.github/workflows/" + RUNTIME_WORKFLOW, text)
+                self.assertNotIn("upload-artifact", text)
+                self.assertNotIn("matrix:", text)
 
-    def test_hpu_path_filters_cover_only_current_delivery_and_dependencies(self):
-        for name in HPU_WORKFLOWS:
-            events = block((WORKFLOWS / name).read_text(), "on", 0)
-            for event in ("push", "pull_request"):
-                with self.subTest(workflow=name, event=event):
-                    paths = block(block(events, event, 2), "paths", 4)
-                    self.assertEqual(re.findall(r"^      - '([^']+)'$", paths, re.M),
-                                     ["tests/hpu_frontend_workload/**",
-                                      ".github/workflows/" + name, ".gitmodules"])
+    def test_runtime_filters_cover_all_group_sources_and_shared_am_code(self):
+        events = block((WORKFLOWS / RUNTIME_WORKFLOW).read_text(), "on", 0)
+        expected = ["tests/hputest/**", "tests/hpu_frontend_workload/**", "am/**", "libs/klib/**",
+                    "Makefile.app", ".github/workflows/" + RUNTIME_WORKFLOW, ".gitmodules"]
+        for event in ("push", "pull_request"):
+            with self.subTest(event=event):
+                paths = block(block(events, event, 2), "paths", 4)
+                self.assertEqual(re.findall(r"^      - '([^']+)'$", paths, re.M), expected)
 
-    def test_six_operator_shards_cover_exactly_the_current_36_cases(self):
-        text = (WORKFLOWS / HPU_WORKFLOWS[0]).read_text()
-        matrix = block(text, "matrix", 6)
-        self.assertEqual(inline_list(matrix, "degree"), ["4096", "8192"])
-        self.assertEqual(inline_list(matrix, "profile"), ["baseline"])
-        self.assertEqual(inline_list(matrix, "scheme"), ["ckks", "bfv", "bgv"])
-        self.assertNotIn("include:", matrix)
-        self.assertNotIn("exclude:", matrix)
+    def test_runtime_upload_is_one_short_non_nested_elf_and_bin_package(self):
+        upload_workflows = []
+        for path in WORKFLOWS.glob("build-hpu*.yml"):
+            text = path.read_text()
+            if "upload-artifact" in text:
+                upload_workflows.append(path.name)
+            for old_package in ("nexus-am-hpu-tests", "nexus-am-hpu-perf-n", "nexus-am-1019-operator-perf",
+                                "nexus-am-hpu-frontend-workload"):
+                self.assertNotIn(old_package, text)
+        self.assertEqual(upload_workflows, [RUNTIME_WORKFLOW])
+        text = (WORKFLOWS / RUNTIME_WORKFLOW).read_text()
+        self.assertEqual(text.count("uses: actions/upload-artifact@"), 1)
+        self.assertIn("          name: hpu\n", text)
+        self.assertIn("${{ env.HPU_OUTPUT }}/runtime/**/*.elf", text)
+        self.assertIn("${{ env.HPU_OUTPUT }}/runtime/**/*.bin", text)
+        self.assertNotIn("${{ env.HPU_OUTPUT }}/hpu.zip", text)
+        self.assertIn('--root "runtime=$HPU_OUTPUT/runtime" --check-tree --check-only', text)
+        self.assertLess(text.index("--check-tree --check-only"), text.index("uses: actions/upload-artifact@"))
+
+    def test_current_07_has_all_four_degrees_without_retired_levels(self):
         with (ROOT / "performance-cases.tsv").open() as stream:
             cases = list(csv.DictReader(stream, delimiter="\t"))
-        scopes = list(itertools.product(inline_list(matrix, "degree"),
-                                        inline_list(matrix, "scheme")))
-        self.assertEqual(len(scopes), 6)
-        self.assertEqual(len(cases), 36)
-        self.assertEqual(len({row["case_id"] for row in cases}), 36)
-        for degree, scheme in scopes:
+        self.assertEqual(len(cases), 72)
+        self.assertEqual([int(row["case_id"].split("_")[1]) for row in cases], list(range(1, 73)))
+        for degree, scheme in itertools.product(("1024", "2048", "4096", "8192"), ("ckks", "bfv", "bgv")):
             selected = [row for row in cases if (row["degree"], row["scheme"]) == (degree, scheme)]
             self.assertEqual(len(selected), 6)
         self.assertTrue(all(int(row["degree"]) <= 8192 and int(row["level"]) <= 4 for row in cases))
-        self.assertIn('--scheme "${{ matrix.scheme }}" --mode both --jobs 2', text)
-        self.assertIn("name: nexus-am-1019-operator-perf-n${{ matrix.degree }}-${{ matrix.profile }}-${{ matrix.scheme }}", text)
+        with (ROOT / "performance-id-map.tsv").open() as stream:
+            mapping = list(csv.DictReader(stream, delimiter="\t"))
+        self.assertEqual(len(mapping), 36)
+        self.assertEqual({row["case_id"] for row in mapping},
+                         {row["case_id"] for row in cases if row["degree"] in ("4096", "8192")})
 
-    def test_frontend_keeps_the_existing_six_api_cases_and_package(self):
-        text = (WORKFLOWS / HPU_WORKFLOWS[1]).read_text()
-        jobs = block(text, "jobs", 0)
-        self.assertEqual(re.findall(r"^  ([\w-]+):$", jobs, re.M), ["build-frontend"])
-        self.assertIn("make -C tests/hpu_frontend_workload all JOBS=4", jobs)
-        self.assertIn("name: nexus-am-hpu-frontend-workload", jobs)
+    def test_old_six_api_sources_remain_available_without_an_independent_upload(self):
         with (ROOT / "cases.tsv").open() as stream:
             cases = list(csv.DictReader(stream, delimiter="\t"))
         self.assertEqual(len(cases), 6)

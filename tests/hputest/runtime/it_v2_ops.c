@@ -100,19 +100,36 @@ static int stage_error(const char *op, unsigned dst, unsigned src,
 }
 
 int op_ntt(unsigned dst, unsigned src, unsigned twiddle, unsigned stage) {
+#if HPU_INLINE_ASM_ISA_VERSION >= 12
+    /* 新ISA只编码数据与参数两对象，逻辑数据对象原地更新。 */
+    if (dst == P0 && src == P0 && twiddle == P1) {
+        switch (stage) { STAGE_CASES(HPU_INSN_PNTT_P0_P1_STAGE); }
+    } else if (dst == P2 && src == P2 && twiddle == P3) {
+        switch (stage) { STAGE_CASES(HPU_INSN_PNTT_P2_P3_STAGE); }
+    }
+#else
     if (dst == P2 && src == P0 && twiddle == P1) {
         switch (stage) { STAGE_CASES(HPU_INSN_PNTT_P2_P0_P1_STAGE); }
     } else if (dst == P0 && src == P2 && twiddle == P3) {
         switch (stage) { STAGE_CASES(HPU_INSN_PNTT_P0_P2_P3_STAGE); }
     }
+#endif
     return stage_error("pntt", dst, src, twiddle, stage);
 }
 
 int op_intt(unsigned dst, unsigned src, unsigned twiddle, unsigned stage) {
+#if HPU_INLINE_ASM_ISA_VERSION >= 12
+    if (dst == P0 && src == P0 && twiddle == P1) {
+        switch (stage) { STAGE_CASES(HPU_INSN_PINTT_P0_P1_STAGE); }
+    } else if (dst == P2 && src == P2 && twiddle == P3) {
+        switch (stage) { STAGE_CASES(HPU_INSN_PINTT_P2_P3_STAGE); }
+    }
+#else
     if (dst == P2 && src == P0 && twiddle == P1) {
         switch (stage) { STAGE_CASES(HPU_INSN_PINTT_P2_P0_P1_STAGE); }
     } else if (dst == P0 && src == P2 && twiddle == P3) {
         switch (stage) { STAGE_CASES(HPU_INSN_PINTT_P0_P2_P3_STAGE); }
     }
+#endif
     return stage_error("pintt", dst, src, twiddle, stage);
 }

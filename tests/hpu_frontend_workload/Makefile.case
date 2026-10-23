@@ -33,6 +33,7 @@ SRCS += $(DATA_DIR)/$(PROGRAM_STEM)_perf.c \
 CFLAGS += -DMEM_BASE=$(CASE_MEM_BASE)ULL
 else
 SRCS += $(DATA_DIR)/$(PROGRAM_STEM).c
+CFLAGS += -DWORKLOAD_RUN=hpu_run_$(PROGRAM_STEM)
 endif
 INC_DIR += $(ROOT)/include $(DATA_DIR) $(BASELINE)/include
 ASFLAGS += -Wa,-I$(DATA_DIR)

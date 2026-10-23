@@ -16,6 +16,7 @@ struct Options {
     std::size_t degree = 0;
     fs::path output;
     bool verify_only = false;
+    bool optimized_only = false;
     hpu::model::InstructionNttContract contract =
         hpu::model::InstructionNttContract::natural_coefficient_boundaries;
 };
@@ -39,8 +40,9 @@ Options arguments(int argc, char **argv) {
     options.scheme = argv[1]; options.operation = argv[2]; options.profile = argv[4]; options.output = argv[5];
     std::size_t used = 0;
     options.degree = std::stoul(argv[3], &used);
-    if (used != std::string(argv[3]).size() || (options.degree != 4096 && options.degree != 8192))
-        throw std::invalid_argument("operator comparison supports N4096 or N8192");
+    if (used != std::string(argv[3]).size() ||
+        (options.degree != 1024 && options.degree != 2048 && options.degree != 4096 && options.degree != 8192))
+        throw std::invalid_argument("operator comparison supports N1024/N2048/N4096/N8192");
     if (options.scheme != "ckks" && options.scheme != "bfv" && options.scheme != "bgv")
         throw std::invalid_argument("SCHEME must be ckks, bfv or bgv");
     const std::array<std::string, 6> operations{{"keyswitch", "hadd", "hmul", "reline", "modswitch", "rotate"}};
@@ -52,6 +54,7 @@ Options arguments(int argc, char **argv) {
     for (int i = 6; i < argc; ++i) {
         const std::string arg = argv[i];
         if (arg == "--verify-only") options.verify_only = true;
+        else if (arg == "--optimized-only") options.optimized_only = true;
         else if (arg == "--ntt-contract=legacy-raw-stage")
             options.contract = hpu::model::InstructionNttContract::legacy_raw_stage;
         else throw std::invalid_argument("unknown option: " + arg);
@@ -224,7 +227,9 @@ int main(int argc, char **argv) {
         else evaluator.rotate_rows(input, fixture.rotation_steps, fixture.galois, output);
         application.mark_output("result", output);
 
-        const std::array<std::string, 2> variants{{"optimized", "noopt"}};
+        const std::vector<std::string> variants = options.optimized_only
+            ? std::vector<std::string>{"optimized"}
+            : std::vector<std::string>{"optimized", "noopt"};
         std::vector<frontend::CompiledApplication> compiled;
         std::vector<std::string> sidecars;
         // 两个变体全部严格通过后才发布文件，失败不产生可运行的替代包。

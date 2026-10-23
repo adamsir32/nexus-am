@@ -13,7 +13,7 @@ METRIC = "issue_to_done_v2"
 MARKER = "[HPU][NEWAPI-PERF]"
 PATTERN = re.compile(
     r"\[HPU\]\[NEWAPI-PERF\] case=([A-Za-z0-9_]+) variant=(optimized|noopt) "
-    r"N=(4096|8192) level=(\d+) metric=issue_to_done_v2 "
+    r"N=(1024|2048|4096|8192) level=(\d+) metric=issue_to_done_v2 "
     r"start=(\d+) end=(\d+) cycles=(\d+) verified=1$")
 SAMPLE_FIELDS = ["case_id", "variant", "degree", "level", "metric", "start", "end",
                  "cycles", "log", "line", "revision"]
@@ -42,7 +42,7 @@ def load_catalog(path):
             if not name or name in result or row["metric"] != METRIC:
                 raise ValueError(f"duplicate or invalid performance catalog entry: {name}")
             degree, level = int(row["degree"]), int(row["level"])
-            if degree not in (4096, 8192) or level <= 0 or not name.endswith(f"_l{level}_n{degree}"):
+            if degree not in (1024, 2048, 4096, 8192) or not 1 <= level <= 4 or not name.endswith(f"_l{level}_n{degree}"):
                 raise ValueError(f"inconsistent performance catalog parameters: {name}")
             result[name] = dict(degree=degree, level=level)
     if not result:

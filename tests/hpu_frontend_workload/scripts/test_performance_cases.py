@@ -34,11 +34,11 @@ class PerformanceCaseTests(unittest.TestCase):
         cases = catalog()
         with (BASELINE / "perf-cases.tsv").open() as stream:
             baseline = {row["case_id"]: row for row in csv.DictReader(stream, delimiter="\t")}
-        self.assertEqual(len(cases), 36)
-        self.assertEqual([int(row["case_id"].split("_")[1]) for row in cases], list(range(1, 19)) + list(range(37, 55)))
-        self.assertEqual(len({row["baseline_case_id"] for row in cases}), 36)
+        self.assertEqual(len(cases), 72)
+        self.assertEqual([int(row["case_id"].split("_")[1]) for row in cases], list(range(1, 73)))
+        self.assertEqual(len({row["baseline_case_id"] for row in cases if row["baseline_case_id"]}), 36)
         expected = []
-        for degree in (4096, 8192):
+        for degree in (1024, 2048, 4096, 8192):
             for profile in ("baseline",):
                 for scheme in ("ckks", "bfv", "bgv"):
                     for operation in ("keyswitch", "hadd", "hmul", "reline", "modswitch", "rotate"):
@@ -46,9 +46,10 @@ class PerformanceCaseTests(unittest.TestCase):
                         expected.append((str(degree), str(level), scheme, operation))
         self.assertEqual([(r["degree"], r["level"], r["scheme"], r["operation"]) for r in cases], expected)
         for row in cases:
-            original = baseline[row["baseline_case_id"]]
-            for field in ("degree", "level", "memory_base", "minimum_ram_bytes", "metric"):
-                self.assertEqual(row[field], original[field], (row["case_id"], field))
+            if row["baseline_case_id"]:
+                original = baseline[row["baseline_case_id"]]
+                for field in ("degree", "level", "memory_base", "minimum_ram_bytes", "metric"):
+                    self.assertEqual(row[field], original[field], (row["case_id"], field))
             expected_stem = f"frontend_{row['scheme']}_{row['operation']}_l{row['level']}_n{row['degree']}"
             self.assertEqual(row["program_stem"], expected_stem)
             display = "hmul_reline" if row["operation"] == "hmul" else \

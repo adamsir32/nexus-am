@@ -60,3 +60,14 @@ target_compile_definitions(hpu_frontend_operator_generator PRIVATE
     HPU_BASELINE_SEAL_TREE="${baseline_seal_tree}")
 target_link_libraries(hpu_frontend_operator_generator PRIVATE
     hpu_seal_delivery SEAL::seal hpu_filesystem_compat)
+
+# 04/05共享固定版本的前端与原fixture，只导出单份严格验证的运行包。
+add_executable(hpu_group_case_generator ../group_cases/generator.cpp ../group_cases/composite.cpp)
+target_compile_features(hpu_group_case_generator PRIVATE cxx_std_17)
+target_compile_options(hpu_group_case_generator PRIVATE -Wall -Wextra -Werror)
+target_include_directories(hpu_group_case_generator PRIVATE "${HPU_FIXTURE_ROOT}")
+target_compile_definitions(hpu_group_case_generator PRIVATE
+    HPU_FRONTEND_COMMIT="${HPU_FRONTEND_COMMIT}"
+    HPU_FRONTEND_TREE_STATE="${HPU_FRONTEND_TREE_STATE}")
+target_link_libraries(hpu_group_case_generator PRIVATE
+    hpu_seal_delivery SEAL::seal hpu_filesystem_compat)

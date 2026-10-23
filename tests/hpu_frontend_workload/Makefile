@@ -12,10 +12,17 @@ PROFILE ?= baseline
 SCHEME ?= ckks
 MODE ?= both
 
-.PHONY: all minimal silent performance test
-# 独立workload：不运行旧hputest的数据生成，不更新其任何依赖或清单。
-all minimal silent:
-	python3 scripts/build.py --mode $(if $(filter all,$@),both,$@) \
+.PHONY: all minimal silent frontend-six performance test
+# 默认一个按00～07分组的运行包，仅optimized/minimal ELF和BIN。
+all minimal:
+	python3 scripts/build-runtime.py --am-home "$(AM_HOME)" \
+	  --arch "$(ARCH)" --cross "$(CROSS_COMPILE)" \
+	  --output "$(OUTPUT_ROOT)" --producer "$(INLINE_ASM_ROOT)" \
+	  --jobs "$(JOBS)" --wait-cycles "$(WAIT_CYCLES)"
+
+# 六项API演示及静默版保留显式手动入口，不重复进入默认下载。
+frontend-six silent:
+	python3 scripts/build.py --mode $(if $(filter silent,$@),silent,minimal) \
 	  --am-home "$(AM_HOME)" --arch "$(ARCH)" --cross "$(CROSS_COMPILE)" \
 	  --output "$(OUTPUT_ROOT)" --producer "$(INLINE_ASM_ROOT)" \
 	  --producer-build "$(PRODUCER_BUILD)" --packages "$(PACKAGE_ROOT)" \

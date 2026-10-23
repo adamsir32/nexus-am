@@ -77,11 +77,11 @@ class BuildTests(unittest.TestCase):
         self.addCleanup(self.temp.cleanup)
         self.root = Path(self.temp.name)
 
-    def test_six_scopes_cover_36_cases_without_overlap(self):
-        rows = [row for degree in (4096, 8192) for profile in ("baseline",)
+    def test_twelve_scopes_cover_72_cases_without_overlap(self):
+        rows = [row for degree in (1024, 2048, 4096, 8192) for profile in ("baseline",)
                 for scheme in ("ckks", "bfv", "bgv") for row in build.select_specs(degree, profile, scheme)]
-        self.assertEqual(len(rows), 36)
-        self.assertEqual(len({row["case_id"] for row in rows}), 36)
+        self.assertEqual(len(rows), 72)
+        self.assertEqual(len({row["case_id"] for row in rows}), 72)
 
     def test_retired_profiles_and_larger_degrees_are_rejected(self):
         for degree, profile in ((4096, "l16"), (8192, "l16"), (16384, "baseline")):

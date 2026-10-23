@@ -263,6 +263,21 @@ int dload_mod(unsigned line, unsigned lines) {
     return issue_dload(P4, line, lines, 1);
 }
 
+int dload_twiddle(unsigned object, unsigned line) {
+    if (line >= WINDOW_LINES || 2U > WINDOW_LINES - line)
+        return STEP_ERR_ARGUMENT;
+#if HPU_INLINE_ASM_ISA_VERSION >= 12
+    switch (object) {
+    case P1: DMA(HPU_INSN_DLOAD_P1_TWIDDLE, line, 2U); return STEP_OK;
+    case P3: DMA(HPU_INSN_DLOAD_P3_TWIDDLE, line, 2U); return STEP_OK;
+    default: return STEP_ERR_ENCODING_UNAVAILABLE;
+    }
+#else
+    (void)object;
+    return STEP_ERR_ENCODING_UNAVAILABLE;
+#endif
+}
+
 void raw_dload_p0(uintptr_t line, uintptr_t lines) {
     DMA(HPU_INSN_DLOAD_P0_POLY, line, lines);
 }

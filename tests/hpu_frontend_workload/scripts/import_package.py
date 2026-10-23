@@ -48,11 +48,32 @@ def expected_operations(scheme, operation):
 def package_profile(spec):
     """旧六例保留原合同；07通过清单明确指定算子、RNS数和DDR窗口。"""
     scheme, degree = spec["scheme"], int(spec["degree"])
+    if spec.get("profile") == "primitive":
+        primitive_ids = {
+            "bconv": ("04_01_bconv_q4_to_p3_n4096", 4),
+            "ntt": ("04_02_ntt_n4096", 1),
+            "intt": ("04_03_intt_n4096", 1),
+        }
+        operation = spec.get("operation")
+        require(operation in primitive_ids, "unknown primitive operation")
+        case_id, level = primitive_ids[operation]
+        require(spec.get("kind") == "group" and spec["case_id"] == case_id and
+                scheme == "ckks" and degree == 4096 and int(spec["level"]) == level and
+                spec["program_stem"] == f"{operation}_n4096",
+                "primitive identity/parameters must match its explicit 04 catalog")
+    if spec.get("kind") == "group":
+        require(re.fullmatch(r"0[4-6]_\d{2}_[a-z0-9_]+", spec["case_id"]) is not None and
+                scheme in ("ckks", "bfv", "bgv") and 128 <= degree <= 8192 and
+                degree & (degree - 1) == 0 and 1 <= int(spec["level"]) <= 4,
+                "unsupported functional group identity/parameters")
+        stem = spec["program_stem"]
+        require(re.fullmatch(r"[a-z][a-z0-9_]+", stem) is not None, "unsafe functional stem")
+        return stem, 0x87000000, 268435456, False
     if "program_stem" not in spec:
         stem = f"{scheme}_evaluator_application" + (f"_n{degree}" if degree != 128 else "")
         return stem, 0x87000000, 268435456, False
     operation, level, variant = spec["operation"], int(spec["level"]), spec["variant"]
-    require(scheme in ("ckks", "bfv", "bgv") and degree in (4096, 8192), "unsupported 07 scheme/degree")
+    require(scheme in ("ckks", "bfv", "bgv") and degree in (1024, 2048, 4096, 8192), "unsupported 07 scheme/degree")
     require(operation in ("keyswitch", "hadd", "hmul", "reline", "modswitch", "rotate"), "unsupported 07 operator")
     require(level == (3 if scheme == "bgv" else 4), "unsupported 07 level")
     require(variant in ("optimized", "noopt"), "unsupported resource variant")
@@ -176,6 +197,25 @@ def validate_ntt_contract(parameters, memory_abi, allocations, degree):
             require(int(row["payload_words"]) == degree, "pre/post twist must retain full polynomial size")
 
 
+def primitive_outputs(spec, parameters, operations):
+    """原语没有密文parms_id；只接受显式04合同的完整输出集合。"""
+    operation = spec["operation"]
+    require(len(operations) == 1 and operations[0].get("id") == "tested" and
+            operations[0].get("kind") == operation and operations[0].get("operation_index") == 0 and
+            operations[0].get("golden_object_id") == "step_0", "primitive graph mismatch")
+    levels, moduli = parameters["levels"], parameters["key_moduli"]
+    require(len(levels) == 1 and len(moduli) >= int(spec["level"]) and
+            levels[0]["moduli"] == moduli[:int(spec["level"])] and
+            all(type(q) is int and 65537 <= q < 1 << 32 for q in moduli) and
+            len(set(moduli)) == len(moduli), "primitive modulus table/level mismatch")
+    if operation == "bconv":
+        require(moduli == [50061313, 50077697, 50307073, 50552833, 90062849, 90095617, 90218497],
+                "04 BConv requires the original Q4 to P3 bases")
+        return {index: moduli[index] for index in (4, 5, 6)}, "coefficient"
+    require(len(moduli) == 5, "04 transform requires its complete Q4/P1 modulus table")
+    return {0: moduli[0]}, "coefficient" if operation == "intt" else "canonical_ntt_physical"
+
+
 def import_package(source, destination, spec, commit, verify_existing=False):
     package = read_json(source / "package.json")
     scheme, degree = spec["scheme"], int(spec["degree"])
@@ -204,6 +244,12 @@ def import_package(source, destination, spec, commit, verify_existing=False):
     image = bytearray(files["image"].read_bytes())
     require(len(image) == used * 256, "image length mismatch")
     operations = read_json(files["operation_graph"])["operations"]
+    if spec.get("kind") == "group":
+        require(len(parameters["levels"][0]["moduli"]) == int(spec["level"]),
+                "functional input Q-RNS count differs from its catalog")
+        if spec.get("expected_operations"):
+            require([row["kind"] for row in operations] == spec["expected_operations"],
+                    "functional graph differs from its declared coverage")
     if performance:
         require([row["kind"] for row in operations] == expected_operations(scheme, spec["operation"]),
                 "07 operation graph differs from the requested operator")
@@ -232,15 +278,25 @@ def import_package(source, destination, spec, commit, verify_existing=False):
     require(dma and list(dma[0]) == DMA_COLUMNS, "v1.2 resolved DMA manifest requires 15 columns")
     validate_source(code, stem, words, [(int(row["line_offset"]), int(row["line_count"])) for row in dma])
     writable, first_access = validate_dma(words, dma, allocations, operations, used)
-    levels = {tuple(level["parms_id"]): level["moduli"] for level in parameters["levels"]}
+    primitive = spec.get("profile") == "primitive"
+    if primitive:
+        primitive_moduli, output_domain = primitive_outputs(spec, parameters, operations)
+        levels = {}
+    else:
+        levels = {tuple(level["parms_id"]): level["moduli"] for level in parameters["levels"]}
+        output_domain = "coefficient" if scheme == "bfv" else "canonical_ntt_physical"
     by_span = {(int(row["line_offset"]), int(row["line_count"])): row for row in allocations}
     golden, outputs, order = bytearray(), [], []
     for row in read_rows(files["golden_manifest"]):
         step, component, mod_id = int(row["object_id"].removeprefix("step_")), int(row["component"]), int(row["modulus_id"])
         require(0 <= step < len(operations), "invalid golden step")
-        moduli = levels[tuple(operations[step]["parms_id"])]
-        require(0 <= mod_id < len(moduli) and 0 <= component < operations[step]["component_count"],
-                "invalid golden component/modulus")
+        if primitive:
+            moduli = primitive_moduli
+            require(step == 0 and component == 0 and mod_id in moduli, "invalid primitive golden component/modulus")
+        else:
+            moduli = levels[tuple(operations[step]["parms_id"])]
+            require(0 <= mod_id < len(moduli) and 0 <= component < operations[step]["component_count"],
+                    "invalid golden component/modulus")
         first, count, q = int(row["line_offset"]), int(row["line_count"]), moduli[mod_id]
         allocation = by_span.get((first, count))
         require(allocation is not None and allocation["kind"] == "output" and
@@ -248,7 +304,7 @@ def import_package(source, destination, spec, commit, verify_existing=False):
                 "golden must be a write-first pinned output")
         require(int(row["modulus"]) == q and 0 < q < 1 << 32 and
                 int(row["payload_words"]) == int(row["padded_words"]) == count * 64 == degree and
-                row["domain"] == ("coefficient" if scheme == "bfv" else "canonical_ntt_physical"),
+                row["domain"] == output_domain,
                 "golden shape/domain/modulus mismatch")
         data = safe_file(source, row["path"]).read_bytes()
         require(len(data) == degree * 4 and all(value < q for value, in struct.iter_unpack("<I", data)),
@@ -257,14 +313,16 @@ def import_package(source, destination, spec, commit, verify_existing=False):
         order.append((step, component, mod_id))
         golden += data
         image[first * 256:(first + count) * 256] = b"\xff" * (count * 256)
-    expected_order = [(step, component, mod_id) for step, op in enumerate(operations)
-                      for component in range(op["component_count"])
-                      for mod_id in range(len(levels[tuple(op["parms_id"])]))]
+    expected_order = ([(0, 0, mod_id) for mod_id in primitive_moduli] if primitive else
+                      [(step, component, mod_id) for step, op in enumerate(operations)
+                       for component in range(op["component_count"])
+                       for mod_id in range(len(levels[tuple(op["parms_id"])]))])
     require(order == expected_order and len(order) == report["verified_limb_count"], "incomplete golden coverage")
     # 只毒化写先输出；scratch、输入、twiddle和密钥保持原样，无旧BFV/CKKS重排补丁。
     image += struct.pack("<I", 0xa5a55a5a) * (64 * GUARD_LINES)
     existing = destination.exists()
-    require(not existing or performance and verify_existing, "refusing to overwrite imported delivery")
+    require(not existing or (performance or spec.get("kind") == "group") and verify_existing,
+            "refusing to overwrite imported delivery")
     require(not destination.is_symlink(), "imported delivery cannot be a symlink")
     if not existing:
         destination.mkdir(parents=True)

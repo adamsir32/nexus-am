@@ -11,7 +11,7 @@ from parse_performance import find_catalog, load_catalog, parse, summarize
 
 
 ROOT = Path(__file__).resolve().parents[1]
-CASE = "07_02_ckks_hadd_l4_n4096"
+CASE = "07_38_ckks_hadd_l4_n4096"
 REVISION = "unit-fixture-only;not-a-hardware-result"
 
 

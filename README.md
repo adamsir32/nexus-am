@@ -1,10 +1,10 @@
 # 当前HPU交付入口
 
-默认分支仍名为`master`；当前HPU交付源于`1019-operator-resource-perf`，入口为[tests/hpu_frontend_workload](tests/hpu_frontend_workload/README.md)，inline-asm固定为`9686076`。
+默认分支仍名为`master`；当前HPU交付为单个短名`hpu.zip`，按`00/`～`07/`分目录，只放可运行用例的ELF和BIN，不含源码、独立golden、反汇编或四份重复版本。入口为[tests/hputest](tests/hputest/README.md)，新版producer与交付说明见[tests/hpu_frontend_workload](tests/hpu_frontend_workload/README.md)，inline-asm固定为`9686076`。
 
-- 新07只交付N4096/N8192、输入level≤4的36项；默认N8192，CKKS/BFV为level4，BGV为level3。性能CI按两个N、三种算法分为6个分片。
-- 保留六项API应用样例：CKKS/BFV/BGV各有N128和N4096。构建及下载说明见上述入口和[性能说明](tests/hpu_frontend_workload/PERFORMANCE.md)。
-- 旧主线已备份为`backup/master-before-1019-20261023`（`9016ef9c`），可checkout该备份回查旧源码。当前`tests/hputest`仅保留历史源码和新入口需要的共用支持，旧顶层构建入口已停用，不再交付原先的大用例包。
+- 00～06按原有分组职责交付；00～03已恢复44项，04～06按新版native接口适配，不再只给代码或删去整组。
+- 07恢复N1024、N2048，并与N4096、N8192统一置于07组：每个规模18项，共72项，输入level≤4。性能口径见[性能说明](tests/hpu_frontend_workload/PERFORMANCE.md)。
+- 旧主线已备份为`backup/master-before-1019-20261023`（`9016ef9c`），旧源码可回查；旧大矩阵构建入口与说明已归档，不混入当前运行包。
 
 上述交付的状态为`BUILD_READY_NOT_IT_PASS`，不表示真实RTL/ST或硬件已通过。下方原有AM/CPU构建说明保留。
 

@@ -46,6 +46,8 @@ int wait_irq(void);
 /* One visible HPU instruction per call; words come from inline-asm output. */
 int dload(unsigned object, unsigned line, unsigned lines);
 int dload_mod(unsigned line, unsigned lines);
+/* K8参数固定两行，显式进入Bank5小对象区；不带MOD标记。 */
+int dload_twiddle(unsigned object, unsigned line);
 void raw_dload_p0(uintptr_t line, uintptr_t lines);
 int dstore_release(unsigned object, unsigned line, unsigned lines);
 int dstore_keep(unsigned object, unsigned line, unsigned lines);

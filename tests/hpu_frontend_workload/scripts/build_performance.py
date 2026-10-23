@@ -31,10 +31,10 @@ def output(command):
 
 
 def select_specs(degree, profile, scheme, case_id=None):
-    require(degree in (4096, 8192) and profile == "baseline", "1019 requires N<=8192 and level<=4")
+    require(degree in (1024, 2048, 4096, 8192) and profile == "baseline", "1019 requires N<=8192 and level<=4")
     with (ROOT / "performance-cases.tsv").open(newline="") as stream:
         rows = list(csv.DictReader(stream, delimiter="\t"))
-    require(len(rows) == 36 and len({row["case_id"] for row in rows}) == 36, "invalid experimental roster")
+    require(len(rows) == 72 and len({row["case_id"] for row in rows}) == 72, "invalid experimental roster")
     result = []
     for source in rows:
         row = dict(source)
@@ -397,7 +397,7 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     for name in ("am-home", "producer", "output"):
         parser.add_argument("--" + name, required=True, type=lambda value: Path(value).resolve())
-    parser.add_argument("--degree", required=True, type=int, choices=(4096, 8192))
+    parser.add_argument("--degree", required=True, type=int, choices=(1024, 2048, 4096, 8192))
     parser.add_argument("--profile", required=True, choices=("baseline",))
     parser.add_argument("--scheme", required=True, choices=("ckks", "bfv", "bgv"))
     parser.add_argument("--mode", default="both", choices=("both", "minimal", "silent"))

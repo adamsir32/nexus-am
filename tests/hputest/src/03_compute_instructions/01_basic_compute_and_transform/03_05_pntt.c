@@ -10,13 +10,14 @@
  * 测试点：IT-INS-C0-005
  * 目的：PNTT 单 stage 的前向蝶形，不是整体 NTT。
  * stage=0/1/11 分别覆盖连续窗口和双64字交织 loader，以及蝶形后的 P 网络。
- * 基础输入是 producer MM 物理数据，边界输入由 AM 显式派生；源/目的/twiddle 三槽不同。
+ * 基础/边界输入由AM确定性派生；新版数据对象逻辑原地更新，K8参数仅两行。
  * 不添加 pre-twist 或全变换 golden；逐物理字核对本条指令，不混淆逻辑系数顺序。
  */
 int main(void) {
     static uint32_t golden[POLY_WORDS];
     const unsigned stages[] = {0U, 1U, 11U};
     const uint32_t *const tables[] = {ntt_twiddle_0, ntt_twiddle_1, ntt_twiddle_11};
+    const uint32_t *const full_tables[] = {ntt_full_0, ntt_full_1, ntt_full_11};
     case_start(__FILE__);
     if (progress_begin(__FILE__, 6U) != 0)
         return case_fail(__FILE__, __LINE__);
@@ -29,7 +30,7 @@ int main(void) {
             const unsigned stage = stages[selected];
             const unsigned data_obj = profile == 0U ? P0 : P2;
             const unsigned twiddle_obj = profile == 0U ? P1 : P3;
-            const unsigned output_obj = profile == 0U ? P2 : P0;
+            const unsigned output_obj = data_obj;
             const uint32_t *twiddle = tables[selected];
             const uint32_t *input;
             int rc;
@@ -52,7 +53,7 @@ int main(void) {
                 return case_fail(__FILE__, __LINE__);
 
             /* 独立 C：按物理 loader 取相邻蝶形，之后 P 网络把偶/奇 lane 分开。 */
-            if (stage_golden(input, twiddle, golden, POLY_WORDS,
+            if (stage_golden(input, full_tables[selected], golden, POLY_WORDS,
                              STAGE_MODULUS, stage, 0U) != 0)
                 return case_fail(__FILE__, __LINE__);
 
@@ -88,15 +89,13 @@ int main(void) {
                 return case_fail(__FILE__, __LINE__);
             if (dload(data_obj, LINE_A, POLY_LINES) != 0)
                 return case_fail(__FILE__, __LINE__);
-            if (dload(twiddle_obj, LINE_TWIDDLE, STAGE_LINES) != 0)
+            if (dload_twiddle(twiddle_obj, LINE_TWIDDLE) != 0)
                 return case_fail(__FILE__, __LINE__);
             if (op_ntt(output_obj, data_obj, twiddle_obj, stage) != 0)
                 return case_fail(__FILE__, __LINE__);
-            if (pfree(data_obj) != 0)
-                return case_fail(__FILE__, __LINE__);
             if (dstore_release(output_obj, LINE_OUT, POLY_LINES) != 0)
                 return case_fail(__FILE__, __LINE__);
-            /* 新版 STG 要求空闲目的槽；释放源对象，DSTORE 只释放目的对象。 */
+            /* DSTORE已释放原地更新的数据对象，只释放参数和模表。 */
             if (pfree(twiddle_obj) != 0)
                 return case_fail(__FILE__, __LINE__);
             if (pfree(P4) != 0)

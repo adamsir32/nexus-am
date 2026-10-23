@@ -1,0 +1,75 @@
+name: build HPU
+
+on:
+  push:
+    branches: [master]
+    paths:
+      - 'tests/hputest/**'
+      - 'tests/hpu_frontend_workload/**'
+      - 'am/**'
+      - 'libs/klib/**'
+      - 'Makefile.app'
+      - '.github/workflows/build-hpu.yml'
+      - '.gitmodules'
+  pull_request:
+    branches: [master]
+    paths:
+      - 'tests/hputest/**'
+      - 'tests/hpu_frontend_workload/**'
+      - 'am/**'
+      - 'libs/klib/**'
+      - 'Makefile.app'
+      - '.github/workflows/build-hpu.yml'
+      - '.gitmodules'
+  workflow_dispatch:
+  workflow_call:
+
+permissions:
+  contents: read
+
+jobs:
+  runtime:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 180
+    env:
+      HPU_OUTPUT: ${{ github.workspace }}/tests/hpu_frontend_workload/build/runtime-delivery
+      TMPDIR: ${{ github.workspace }}/tests/hpu_frontend_workload/build/runtime-delivery/tmp
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - name: Initialize the pinned HPU API
+        run: git submodule update --init tests/hpu_frontend_workload/third_party/inline-asm
+      - name: Install build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y cmake g++ gcc-riscv64-linux-gnu binutils-riscv64-linux-gnu python3
+      - name: Prepare disk-backed temporary files
+        run: |
+          df -h /tmp "$GITHUB_WORKSPACE"
+          mkdir -p "$TMPDIR"
+      - name: Check the runtime package boundary
+        run: python3 -m unittest discover -s tests/hpu_frontend_workload/scripts -p 'test_package_runtime.py'
+      # One sequential builder reuses the native producer and shared AM libraries.
+      # Its explicit catalog excludes source, golden data, disassembly and extra variants.
+      - name: Build groups 00 to 07 (ELF and BIN)
+        run: |
+          python3 tests/hpu_frontend_workload/scripts/build-runtime.py \
+            --am-home "$GITHUB_WORKSPACE" \
+            --producer "$GITHUB_WORKSPACE/tests/hpu_frontend_workload/third_party/inline-asm" \
+            --output "$HPU_OUTPUT" --jobs 4
+      - name: Check that only catalog runtime files can be uploaded
+        run: |
+          python3 tests/hpu_frontend_workload/scripts/package-runtime.py \
+            --catalog "$HPU_OUTPUT/runtime-cases.tsv" \
+            --root "runtime=$HPU_OUTPUT/runtime" --check-tree --check-only
+      - name: Upload the single runtime package
+        uses: actions/upload-artifact@v7
+        with:
+          name: hpu
+          path: |
+            ${{ env.HPU_OUTPUT }}/runtime/**/*.elf
+            ${{ env.HPU_OUTPUT }}/runtime/**/*.bin
+          if-no-files-found: error
+          compression-level: 6
+          retention-days: 7

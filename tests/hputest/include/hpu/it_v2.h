@@ -48,9 +48,9 @@ int op_mul_imm(unsigned dst, unsigned a, unsigned imm);
 int op_mac_imm(unsigned dst, unsigned a, unsigned imm);
 
 /*
- * 单 stage 为显式三对象 out-of-place 操作：dst/src/twiddle 支持
- * p2/p0/p1 或 p0/p2/p3，stage 为 0..11。调用方保证 dst 空闲、两个源 live；
- * 本接口不隐含释放，源对象由调用方 PFREE，目标在 DSTORE 后释放。
+ * 新版单stage逻辑原地更新：dst必须等于src，支持p0/p0/p1或p2/p2/p3。
+ * 参数为128字K8种子、stage为0..11。硬件内部换bank不改变逻辑对象号；
+ * 本接口不隐含释放，数据对象在DSTORE后释放，参数由调用方PFREE。
  */
 int op_ntt(unsigned dst, unsigned src, unsigned twiddle, unsigned stage);
 int op_intt(unsigned dst, unsigned src, unsigned twiddle, unsigned stage);

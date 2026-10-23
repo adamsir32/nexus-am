@@ -1,8 +1,8 @@
-# HPU新API工作负载（当前主线交付）
+# HPU运行用例（00～07单包交付）
 
-当前默认主分支实际名为`master`，HPU交付采用原`1019-operator-resource-perf`的本目录：36项新07性能测试及六个API应用，N≤8192、输入level≤4。旧`hputest`构建入口及大矩阵已退役，目录中的历史源码和公共支持仍保留，不再生成旧HPU包。
+默认主分支是`master`。快速导出只生成一个短名`hpu.zip`，解压后为`00/`～`07/`各组；每条用例只保留一份正常日志模式的ELF和BIN，不带源码、golden、指令文本、反汇编、资源报告或四份重复版本。完整case_id保留在文件名中。00～03复用`tests/hputest`的可读C用例；04～06通过`src/group.c`执行上游生成程序，保留原用例职责和编号；新07位于本目录。历史源码仍可回查，`hputest`路径恢复为同一运行包构建器的兼容入口，不再默认启动旧大矩阵流水线。
 
-迁移前主线完整备份在`backup/master-before-1019-20261023@9016ef9c`。需要旧00～07基线时切换该备份，不要在新主线上恢复旧构建入口。
+迁移前主线完整备份在`backup/master-before-1019-20261023@9016ef9c`。旧源码、历史编号和历史打包方式可从Git回查，不需要为了运行当前00～06切换旧主线。
 
 依赖固定为`feature/operator-resource-management@9686076`，不是旧workload的main/legacy-main。完整commit见[producer.json](producer.json)。API和应用图直接采用该分支的`examples/*_evaluator_application.cpp`，不是用AM重新实现一套算法。
 
@@ -10,9 +10,9 @@
 
 2026-10-23继续同步上游64对象ISA、DMA的MOD/REL/CP字段及twiddle-only LLC分配提示。交付数据和指令须由同一固定版本重新生成；CP是DMA指令字段，不是trace开关，不能为关闭打印而删除DMA。
 
-本次`1019-operator-resource-perf`分支的[07组单算子性能实验](PERFORMANCE.md)只保留N4096/N8192、输入level≤4的36项活动用例；默认构建N8192，CKKS/BFV使用level4，BGV保留原level3。资源优化开启与关闭分别生成独立ELF。超过上限的36项level16用例保留在[历史归档](archive/20261023-level16/README.md)，不进入活动构建、CI或下载包，原编号不重新排列。下面原有六项应用仍为N128/N4096，不混入这次单算子性能比较，也未新增N8192应用入口。
+[07组单算子](PERFORMANCE.md)包含N1024、N2048、N4096、N8192，每个N为CKKS/BFV/BGV各6项，共72项。按N升序编号为`07_01`～`07_72`；旧N4096/N8192编号对应关系见[performance-id-map.tsv](performance-id-map.tsv)，不能只凭序号对照旧日志。CKKS/BFV输入level4、BGV输入level3。默认只交付`optimized/minimal`；noopt和silent保留手动实验能力，不自动加入下载包。超过上限的大N或level16不进入当前交付，历史源码仍可回查。
 
-## 用例
+## 保留的六项API样例（非默认独立下载包）
 
 | 独立ELF | 应用 |
 | --- | --- |
@@ -22,30 +22,40 @@
 
 每个ELF只跑一个scheme、一个N、一张7节点应用图，不串行跑多个规模或重复轮次。图中的算子依赖仍必须按顺序执行。6个ELF可在用例外部分别并行仿真；不能把同一图的依赖节点任意分拆。
 
-可读的main放在`src/`，CSR操作直接可见；共享数据搬运、同步、自检分别放在`runtime/image.c`、`wait.c`、`check.c`。大型producer生成C和数据仅位于忽略的build目录和下载包，不提交进Git。
+可读的main放在`src/`，CSR操作直接可见；共享数据搬运、同步、自检分别放在`runtime/image.c`、`wait.c`、`check.c`。大型producer生成C和数据仅位于忽略的构建目录，不提交进Git，也不进入默认运行包。
 
 ## 构建与下载
 
 ```sh
 git submodule update --init tests/hpu_frontend_workload/third_party/inline-asm
 make -C tests/hpu_frontend_workload all
+
+# 同一构建器，也可显式选择磁盘输出目录。
+python3 tests/hpu_frontend_workload/scripts/build-runtime.py \
+  --am-home "$PWD" \
+  --producer "$PWD/tests/hpu_frontend_workload/third_party/inline-asm" \
+  --output "$PWD/build/hpu" --jobs 4
 ```
 
 用例路径通过 `CASE_OBJ_DIR`、`CASE_BINARY` 传入，仅在 `Makefile.case` 本层映射为输出目录；不把公共 `DST_DIR`、`BINARY` 作为命令行变量传给递归 AM/klib 构建。`make test` 会执行变量隔离回归，验证实际构建命令不会污染递归构建的默认路径。
 
-产物是`build/hpu-frontend-workload.zip`；GitHubActions的`build HPU frontend workload`工作流提供`nexus-am-hpu-frontend-workload`下载包，旧`nexus-am-hpu-tests`不再发布。
+`make all`在`OUTPUT_ROOT/hpu.zip`生成本地运行包；上面显式命令生成仓库下的`build/hpu/hpu.zip`。GitHubActions的`build HPU`工作流只提供一个`hpu`下载项，下载文件名为`hpu.zip`，一次解压直接得到各组目录，不再按N、算法或UART模式拆包。原两个工作流仅保留手动兼容入口，并委托同一单包工作流。CPU测试的工作流不变。
 
-压缩包的`minimal/`、`silent/`各包含6套ELF/BIN/TXT。正常包只打印阶段、CSR错误、前4个结果错误及错误总数，不全量打印4096项。静默版关闭用例打印、AM启动UART初始化和字符出口，自检与return码不变；可读取`workload_trace`定位阶段和首错。
+默认压缩包仅有`NN/case_id.elf`和`NN/case_id.bin`，没有`minimal/`、`silent/`或`noopt/`重复目录。清单中的每项必须同时有非空ELF和BIN；缺文件、重复case_id或超出活动07上限会停止打包。Actions直接上传运行目录前，额外检查该目录恰好等于显式清单，旧构建残留不能混入。
 
-`delivery/<case>/upstream/`保留输入、密钥、twiddle、全部节点golden、语义解密报告、应用图、DMA清单和资源报告；`target/`保留实际嵌入镜像、输出毒化、只读检查mask及末端guard。数据、指令、x10/x11和DMA spans均来自同一次producer交付，**不手写编码，不套用旧BFV布局/CKKS取整适配**。
+输入、密钥、twiddle、节点golden、DMA清单和资源报告留在构建工作目录供开发核查，不作为下载附件。程序需要的初始镜像和自检数据仍嵌入ELF/BIN；删除外置报告不等于取消用例自检。数据、指令和DMA spans必须来自同一次producer交付，不混用旧镜像。
 
-AM将镜像搬到`0x87000000`，按真实window行数配置MMIO，再执行producer程序。末尾仅一次PSYNC；CPU轮询`IRQ=1 && VALID=1 && BUSY=0`，清完成电平，然后逐节点、逐RNS原始word比较golden，同时检查只读数据及窗外guard。无需PLIC或定时器中断。默认完成等待预算2500万模拟cycle，可通过`WAIT_CYCLES=...`调整；IT模拟器自身的cycle limit也必须足够。发令阶段若受RTL反压阻塞，不能靠完成轮询的预算解除阻塞。
+上述六项API样例使用镜像基址`0x87000000`；新07使用`0x90000000`，目标内存至少512MiB，其他组按各自用例配置。运行时按真实window行数配置MMIO，再执行producer程序。末尾仅一次PSYNC；CPU轮询`IRQ=1 && VALID=1 && BUSY=0`，清完成电平，然后逐节点、逐RNS原始word比较golden，同时检查只读数据及窗外guard。无需PLIC或定时器中断。默认完成等待预算2500万模拟cycle，可通过`WAIT_CYCLES=...`调整；IT模拟器自身的cycle limit也必须足够。发令阶段若受RTL反压阻塞，不能靠完成轮询的预算解除阻塞。
 
-仅构建一种UART模式可用`make minimal`或`make silent`。大构建请把`OUTPUT_ROOT`设到磁盘目录，不放`/tmp`。改变接收器或producer版本时使用新的输出目录，已有交付不会被接收器覆盖。
+`make minimal`与`make all`采用同一单包默认。`scripts/build.py`保留六项API样例的手动构建能力，`scripts/build_performance.py`保留A/B和静默实验能力，均不自动上传其开发资料包。大构建请把`OUTPUT_ROOT`设到磁盘目录，不放`/tmp`。改变接收器或producer版本时使用新的输出目录，已有交付不会被覆盖。
+
+## 特殊用例与结果判断
+
+`00_01_dload_hold`是保留现场供波形观察的hold用例，不能要求它像普通用例一样返回PASS。`00_11_return_1`是验证失败退出路径的预期fail探针，返回失败是其预期行为；`00_10_return_0`验证正常退出。不得将它们与普通自检用例按同一“必须全部成功退出”规则汇总。说明保留在仓库，不额外塞入运行包。
 
 ## 验收边界
 
-构建门禁包括SEAL/软件模型raw golden、优化等价、严格host instruction model、native包验证、DMA子区间/只读限制、全部输出覆盖、ELF真实指令字比对、加载段与DDR不重叠，以及静默ELF无UART路径检查。任何门禁失败都会停止构建。
+算法用例的构建门禁按其类型检查软件模型raw golden、native包、DMA范围、输出覆盖、ELF真实指令字和加载段；手动A/B或silent实验另检查对应等价或静默路径。打包通过只证明显式清单内运行文件齐全，不代表所有功能或实际硬件已经通过。00～03已有44项真实RV64编译检查记录；04～06适配和完整单包验收的结果应以当次构建记录为准，不能用此前36项07或六样例的历史结果替代。
 
 **下载包状态是`BUILD_READY_NOT_IT_PASS`，不是硬件通过。**该分支的host默认采用`natural_coefficient_boundaries`：在首PNTT之前和末PINTT之后做软件模型的bit-reversal边界转换，而不额外发出重排指令；其`hardware_contract_verified=false`。本workload原样保留新的`ntt_table_abi`，不偷偷改数据来适配旧RTL。必须用支持此合同的实际RTL跑VCS并比对，才能宣布IT通过。
 
