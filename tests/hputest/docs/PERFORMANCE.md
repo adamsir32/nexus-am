@@ -2,7 +2,7 @@
 
 07是算法库/KeySwitch代表性性能测试，不替代03～05的N/level功能覆盖。N1024、2048、4096、8192各18项，共72项；每个N包含三方案的KeySwitch、HADD、HMUL+Reline、Reline、Rescale/ModSwitch、Rotate。原参数保持：CKKS/BFV输入Q4，BGV输入Q3，特殊P均不计入输入level。
 
-所有参数来自唯一`../cases.tsv`，源码只有`../src/07_performance/main.c`一份，每个ELF仍固定一个N/level和一个算子程序。不同测试在用例外并行，不在单个ELF串行重复多个参数。
+所有参数来自唯一`../cases.tsv`。每例有独立的`src/07_performance/<N目录>/<case_id>.c`，完整写出配置、具体preflight/发令、两次读cycle、完成等待和自检；同目录的`.asm`/`.noopt.asm`分别保存两种调度的完整序列。每个ELF固定一个N/level和一个算子程序，不同测试在用例外并行，不在单个ELF串行重复多个参数。
 
 ## cycle记录
 
@@ -15,6 +15,8 @@
 底层是`fence rw,rw; rdcycle`，不是循环次数。`mcounteren`开放cycle访问权限，不是打开timer中断。区间包含CPU发令、DMA、计算及完成轮询，不是纯HPU内核cycle，也不包含数据准备、preflight、golden比较或UART。`workload_trace.wait_cycles`只反映等待部分，不能混当完整`cycles=end-start`。
 
 上游固定单asm原样保留，x11只在DMA长度变化时重载。在线PMUL长度检查留在计时前，不在发令路径插桩；真实ELF门禁检查所有成功路径的调用及两次rdcycle顺序。stage和pre/post参数均使用NTT ABI v3的两行模板，必须匹配新版RTL。
+
+失败时回报对应独立C的文件名、行号、阶段及MMIO现场，而不是共享main的一条公共行。拆开错误判断只发生在计时窗口外，不改变成功路径的计时区间。
 
 ## 构建和统计
 

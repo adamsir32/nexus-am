@@ -96,13 +96,21 @@ class RuntimeTests(unittest.TestCase):
         directory = Path(tempfile.mkdtemp(prefix="runtime-", dir=parent))
         binary = directory / "runtime-test"
         try:
-            subprocess.run(["gcc", "-std=gnu11", "-O2", "-Wall", "-Wextra", "-Werror",
-                            "-DWORKLOAD_HOST_TEST", "-DWAIT_CYCLES=512",
-                            "-I" + str(ROOT / "test/host/include"), "-I" + str(ROOT / "include"),
-                            str(ROOT / "test/host/runtime_test.c"),
-                            *(str(ROOT / "runtime/native" / name) for name in ("image.c", "wait.c", "check.c")),
-                            "-o", str(binary)], check=True)
-            subprocess.run([binary], check=True)
+            for error_log in (False, True):
+                with self.subTest(error_log=error_log):
+                    subprocess.run(["gcc", "-std=gnu11", "-O2", "-Wall", "-Wextra", "-Werror",
+                                    "-DWORKLOAD_HOST_TEST", "-DWAIT_CYCLES=512",
+                                    *(["-DWORKLOAD_HOST_ERROR_LOG"] if error_log else []),
+                                    "-I" + str(ROOT / "test/host/include"), "-I" + str(ROOT / "include"),
+                                    str(ROOT / "test/host/runtime_test.c"),
+                                    *(str(ROOT / "runtime/native" / name) for name in ("image.c", "wait.c", "check.c")),
+                                    "-o", str(binary)], check=True)
+                    result = subprocess.run([binary], check=True, text=True, stdout=subprocess.PIPE)
+                    if error_log:
+                        self.assertIn("[FRONTEND][FAIL] host-runtime-test source=src/host-case.c source-line=321 phase=5", result.stdout)
+                        self.assertIn("status=0x5 irq=0x1 fault=0x1", result.stdout)
+                    else:
+                        self.assertEqual(result.stdout, "")
         finally:
             # 只删除本测试明确创建且已运行结束的一个文件，不递归删除目录。
             if binary.exists():

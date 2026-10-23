@@ -33,7 +33,10 @@ def select_specs(degree, profile, scheme, case_id=None):
         for key in ("degree", "level", "minimum_ram_bytes"):
             row[key] = int(row[key])
         relative = Path(row["source"])
-        require(relative == Path("src/07_performance/main.c") and (ROOT / relative).is_file(),
+        degree_directory = {1024: "01_n1024", 2048: "02_n2048", 4096: "03_n4096", 8192: "04_n8192"}
+        require(row["degree"] in degree_directory and
+                relative == Path("src/07_performance") / degree_directory[row["degree"]] / (row["case_id"] + ".c") and
+                (ROOT / relative).is_file(),
                 "invalid case source")
         package_profile({**row, "variant": "optimized"})
         require(row["metric"] == "issue_to_done_v2", "unknown measurement contract")
@@ -115,7 +118,7 @@ def verify_success_timing(main, stem):
 
         def finish(target):
             nonlocal passed
-            if target == "case_fail":
+            if target in ("case_fail", "case_fail_at"):
                 return
             require(target == "case_pass", "unresolved main exit")
             require(events == wanted and not forbidden, "preflight/issue/wait/cycle/check ordering differs on a PASS path")
@@ -123,7 +126,7 @@ def verify_success_timing(main, stem):
 
         if opcode in ("jal", "jalr"):
             require(label is not None, "unresolved indirect main call")
-            if symbol in ("case_pass", "case_fail"):
+            if symbol in ("case_pass", "case_fail", "case_fail_at"):
                 finish(symbol)
                 continue
             if events.count("perf_cycle_read") == 1 and symbol not in (wanted[2], "performance_wait", "perf_cycle_read"):

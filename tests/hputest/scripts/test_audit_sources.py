@@ -27,11 +27,11 @@ class SourceAuditTests(unittest.TestCase):
 
     def row(self, number, degree=128, level=1, profile="library", operation="hadd"):
         return {"group": "05", "case_id": f"05_{number:02}_ckks_{operation}_n{degree}_l{level}",
-                "source": "src/group.c", "scheme": "ckks", "operation": operation,
+                "source": f"src/group_{number}.c", "scheme": "ckks", "operation": operation,
                 "degree": degree, "level": level, "profile": profile,
                 "program_stem": f"ckks_{operation}_n{degree}_l{level}"}
 
-    def test_three_digit_ids_and_shared_wrapper_are_valid(self):
+    def test_three_digit_ids_with_separate_sources_are_valid(self):
         rows = []
         for number in range(1, 101):
             row = self.row(number)
@@ -39,6 +39,11 @@ class SourceAuditTests(unittest.TestCase):
             row["program_stem"] = f"program_{number}"
             rows.append(row)
         self.assertEqual(self.check(rows), [])
+
+    def test_shared_main_is_rejected_even_when_parameters_differ(self):
+        first, second = self.row(1, 128, 1), self.row(2, 128, 2)
+        second["source"] = first["source"]
+        self.assertTrue(any("不能复用" in error for error in self.check([first, second])))
 
     def test_profiles_have_independent_degree_level_order(self):
         self.assertEqual(self.check([self.row(1, 8192, 4), self.row(2, 128, 1, "regression")]), [])

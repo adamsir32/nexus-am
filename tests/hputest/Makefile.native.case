@@ -1,6 +1,9 @@
 ifndef CASE_ID
 $(error CASE_ID is required)
 endif
+ifndef CASE_SOURCE
+$(error CASE_SOURCE is required)
+endif
 ifndef DATA_DIR
 $(error DATA_DIR is required)
 endif
@@ -37,12 +40,9 @@ endif
 SRCS += $(DATA_DIR)/$(PROGRAM_STEM)_perf.c \
         $(BASELINE)/runtime/it_perf.c $(ROOT)/runtime/native/performance.c
 CFLAGS += -DMEM_BASE=$(CASE_MEM_BASE)ULL \
-          -DCASE_DEGREE=$(CASE_DEGREE)U -DCASE_LEVEL=$(CASE_LEVEL)U \
-          -DWORKLOAD_RUN=hpu_run_$(PROGRAM_STEM) \
-          -DWORKLOAD_VALIDATE=hpu_validate_$(PROGRAM_STEM)
+          -DCASE_DEGREE=$(CASE_DEGREE)U -DCASE_LEVEL=$(CASE_LEVEL)U
 else
-SRCS += $(DATA_DIR)/$(PROGRAM_STEM).c $(ROOT)/runtime/native_case.c
-CFLAGS += -DWORKLOAD_RUN=hpu_run_$(PROGRAM_STEM)
+SRCS += $(DATA_DIR)/$(PROGRAM_STEM).c
 endif
 INC_DIR += $(ROOT)/include $(DATA_DIR) $(BASELINE)/include
 ASFLAGS += -Wa,-I$(DATA_DIR)
@@ -63,7 +63,7 @@ include $(AM_HOME)/Makefile.app
 CFLAGS += -g0
 $(DST_DIR)/$(ROOT)/runtime/native/image.o: $(DATA_DIR)/layout.h
 $(DST_DIR)/$(ROOT)/runtime/native/check.o: $(DATA_DIR)/layout.h
-$(DST_DIR)/$(ROOT)/runtime/native_case.o: $(DATA_DIR)/layout.h $(DATA_DIR)/program.h
+$(addprefix $(DST_DIR)/,$(CASE_SOURCE:.c=.o)): $(DATA_DIR)/layout.h $(DATA_DIR)/program.h
 ifeq ($(PERFORMANCE),1)
 $(DST_DIR)/$(ROOT)/runtime/native/performance.o: $(DATA_DIR)/layout.h
 endif

@@ -63,13 +63,21 @@ class UnifiedEntrypointTests(unittest.TestCase):
             f"AM_HOME={ROOT / 'test/build-isolation'}",
             "CASE_ID=RETIREMENT_PROBE", f"DATA_DIR={ROOT / 'test'}",
             "CASE_OBJ_DIR=retirement-probe-objects", "CASE_BINARY=retirement-probe",
-            "CASE_SOURCE=src/06_applications/main.c", "PROGRAM_STEM=probe",
+            "CASE_SOURCE=src/06_applications/06_02_ckks_rotate_conj_mul_add_n128.c", "PROGRAM_STEM=probe",
             "PERFORMANCE=1", "CASE_MEM_BASE=0x90000000", "LOG_LEVEL=0",
             "CASE_DEGREE=4096", "CASE_LEVEL=4",
         ], text=True, env=environment, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertIn("parent_dst=", result.stdout)
         self.assertNotIn("RETIRED:", result.stdout + result.stderr)
+
+    def test_native_makefile_links_the_explicit_main_with_generated_header_dependencies(self):
+        text = (ROOT / "Makefile.native.case").read_text()
+        self.assertIn("SRCS := $(CASE_SOURCE)", text)
+        self.assertIn("$(CASE_SOURCE:.c=.o)): $(DATA_DIR)/layout.h $(DATA_DIR)/program.h", text)
+        self.assertNotIn("runtime/native_case.c", text)
+        self.assertNotIn("WORKLOAD_RUN", text)
+        self.assertNotIn("WORKLOAD_VALIDATE", text)
 
 
 if __name__ == "__main__":

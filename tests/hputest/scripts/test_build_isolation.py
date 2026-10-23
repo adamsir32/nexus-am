@@ -27,7 +27,7 @@ class BuildIsolationTests(unittest.TestCase):
 
         args = SimpleNamespace(output=directory, am_home=ROOT / "test/build-isolation",
                                arch="riscv64-xs", cross="riscv64-linux-gnu-", wait_cycles=1234)
-        spec = {"case_id": "BUILD_PROBE", "source": "src/06_applications/main.c"}
+        spec = {"case_id": "BUILD_PROBE", "source": "src/06_applications/06_02_ckks_rotate_conj_mul_add_n128.c"}
         try:
             # Capture the command emitted by build_case, then pass it through
             # the real Makefile.case so both entry points stay under test.

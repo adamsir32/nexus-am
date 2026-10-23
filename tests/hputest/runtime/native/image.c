@@ -38,16 +38,21 @@ void prepare_image(void) {
     clean_lines(IMAGE_LINES);
 }
 
-int case_fail(unsigned line) {
+int case_fail_at(const char *source, unsigned line) {
     const unsigned failed_phase = workload_trace.phase;
     (void)failed_phase;
     workload_trace.status = csr_read(CSR_STATUS);
     workload_trace.irq = csr_read(CSR_IRQ);
     workload_trace.fault = csr_read(CSR_FAULT);
+    workload_trace.source_line = line;
     workload_trace.phase = PHASE_FAIL;
-    LOG_ERROR("[FRONTEND][FAIL] %s source-line=%u phase=%u status=0x%x irq=0x%x fault=0x%x\n",
-              CASE_ID, line, failed_phase, workload_trace.status, workload_trace.irq, workload_trace.fault);
+    LOG_ERROR("[FRONTEND][FAIL] %s source=%s source-line=%u phase=%u status=0x%x irq=0x%x fault=0x%x\n",
+              CASE_ID, source, line, failed_phase, workload_trace.status, workload_trace.irq, workload_trace.fault);
     return 1;
+}
+
+int case_fail(unsigned line) {
+    return case_fail_at("<legacy>", line);
 }
 
 int case_pass(void) {

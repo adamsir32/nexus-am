@@ -31,18 +31,23 @@ L1不生成Rescale/ModSwitch，BFV HMUL也需要至少两个active Q；20个不�
 ```text
 src/00_smoke/、01_connection/、02_boundary/  定向C场景
 src/03_instructions/directed/              原9项指令定向场景
-src/03_instructions/、04_operators/、05_library/、06_applications/
-                                          各组薄入口，共用native_case_run
-src/07_performance/main.c                  共用计时入口
+src/03_instructions/01_n128/～05_n8192/    每项完整C＋同名ASM
+src/04_operators/、05_library/             同样按N分目录，逐项独立C＋ASM
+src/05_library/06_parameter_regression/    7项特殊参数回归
+src/06_applications/                      每项完整应用C＋ASM
+src/07_performance/01_n1024/～04_n8192/    每项独立计时C＋ASM/noopt ASM
 runtime/native/                           图像准备、MMIO同步、自检
 tools/instruction_cases/                   指令矩阵与独立数学/C oracle
 tools/group_cases/                         算子/库图，直接复用上游API
 tools/common/fixture.hpp                   三算法共享输入、Q/P和golden参数
 scripts/build-runtime.py                   唯一调度器
+scripts/case_program.py                    逐用例ASM与上游包一致性门禁
 third_party/inline-asm/                    唯一活动生产依赖
 ```
 
-一个ELF只处理一个N/level场景，不串行跑不同参数。03内部的别名、立即数、stage及生命周期子场景属于该条指令的必要检查；CPU端不重算大型FHE golden。03～07不再复制数百份仅参数不同的main。
+一个ELF只处理一个N/level场景，不串行跑不同参数。03内部的别名、立即数、stage及生命周期子场景属于该条指令的必要检查；CPU端不重算大型FHE golden。
+
+当前恢复分离式用例：每条清单对应一个与case_id同名的C文件，完整展开配置、具名发令、等待和自检，不转发到共享main。其旁的同名`.asm`是完整HPU指令源码，不只是说明；构建逐字核对它与固定inline-asm原生包一致，失配直接停止。07另有同名`.noopt.asm`用于显式noopt对照。原始机器字C仍由inline-asm生成，不在AM手写或修改编码。
 
 ## 使用
 
@@ -64,7 +69,7 @@ make -C tests/hputest silent OUTPUT_ROOT=/disk/hpu/silent
 
 `VARIANT=noopt`只影响07调度；正常交付默认optimized。可用`WAIT_CYCLES`设置完成等待预算，仿真器自己的cycle上限也须足够。失败任务可在同一源码、清单、参数下使用`RESUME=1`继续；已有成功包不覆盖，旧缓存不能冒充当前版本。
 
-默认只打印简短开始/结束和错误，阶段继续写入RAM中的trace，失败时输出出错阶段及状态。长用途说明通过`make list`查看，不逐系数刷UART。07计时区间无UART、数据准备或golden比较，口径见[性能说明](docs/PERFORMANCE.md)。
+默认只打印简短开始/结束和错误，阶段继续写入RAM中的trace。失败输出包含case_id、实际C源码路径、source-line、阶段及STATUS/IRQ/FAULT；静默版仍在`workload_trace.source_line`保留失败行号，旧trace字段偏移保持。长用途说明通过`make list`查看，不逐系数刷UART。07计时区间无UART、数据准备或golden比较，口径见[性能说明](docs/PERFORMANCE.md)。
 
 ## 检查与交付边界
 

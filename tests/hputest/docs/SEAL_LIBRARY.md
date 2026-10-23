@@ -14,7 +14,7 @@
 | 降level | `rescale_to_next` | `mod_switch_to_next` |
 | ROTATE | `rotate_vector` | `rotate_rows` |
 
-05默认287项：280个有效N/level/算法/操作组合，另7项特殊参数回归。统一入口是`src/05_library/main.c`，每个清单场景独立生成ELF，不把多个N/level串成一轮。唯一清单为`cases.tsv`，不是另维护一套目录或scheme清单。
+05默认287项：280个有效N/level/算法/操作组合，另7项特殊参数回归。每项在`src/05_library/<N目录>/<case_id>.c`有独立完整main，特殊回归在`06_parameter_regression`；同名`.asm`保存完整发令序列并在构建时核对。每场景独立生成ELF，不把多个N/level串成一轮。唯一清单仍为`cases.tsv`，不另维护第二份参数清单。
 
 N取128、1024、2048、4096、8192；level是输入Q基的RNS分量数1～4，既不是SEAL chain_index，也不包含KeySwitch特殊P。降层算子的L1没有下一层；上游BFV HMUL也明确要求至少两个活动Q。这20个组合写在`docs/unsupported-parameters.tsv`，不产生伪可运行用例。
 

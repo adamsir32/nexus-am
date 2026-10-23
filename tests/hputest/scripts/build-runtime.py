@@ -14,6 +14,7 @@ from types import SimpleNamespace
 import build as functional
 import build_performance as performance
 from import_package import import_package, read_json, require
+from case_program import case_program_path, verify_case_program
 
 ROOT = Path(__file__).resolve().parents[1]
 FIELDS = ("group", "case_id", "producer", "elf", "bin", "degree", "level", "qualifier")
@@ -81,11 +82,13 @@ def target_recipe(args, low_specs, groups, perf):
                      "src/common/hpu_mm_fixture.S", "src/common/hpu_irq.c", "src/common/it_stage_twiddle.S"))
         paths.extend((baseline / "runtime").glob("*.c"))
     if groups or perf:
-        paths.extend(ROOT / name for name in ("Makefile.native.case", "scripts/import_package.py", "scripts/performance_adapter.py", "runtime/native_case.c",
+        paths.extend(ROOT / name for name in ("Makefile.native.case", "scripts/import_package.py", "scripts/performance_adapter.py", "scripts/case_program.py",
                      "runtime/native/fixture.S", "runtime/native/image.c", "runtime/native/wait.c", "runtime/native/check.c"))
         paths.extend((ROOT / "include").glob("*.h"))
         for row in groups + perf:
             paths.append(ROOT / row["source"])
+            program_spec = {**row, "variant": getattr(args, "variant", "optimized")} if row["kind"] == "performance" else row
+            paths.append(ROOT / case_program_path(program_spec))
             paths.extend(native_sources(row))
     if groups:
         paths.append(ROOT / "scripts/build.py")
@@ -229,6 +232,7 @@ def reuse_native_case(args, spec, plan):
                                      selected_spec, plan["producer_commit"])
         package /= variant + "/upstream"
     reuse_file(source, (package.relative_to(source) / "package.json").as_posix())
+    verify_case_program(package, selected_spec)
     data = source / "generated" / category / case_id
     reuse_file(source, (data.relative_to(source) / "delivery.json").as_posix())
     # verify_existing只比较既有文件，不改写源交付中的数据、golden或receipt。
@@ -266,6 +270,8 @@ def catalog_specs(validate_sources=True):
         require(not source.is_absolute() and ".." not in source.parts and
                 (not validate_sources or (ROOT / source).is_file()),
                 "清单source缺失或越出项目")
+        require(row["kind"] == "lowlevel" or source.name == row["case_id"] + ".c",
+                "每个原生用例必须使用同名独立C源码")
         require(0 <= row["degree"] <= 8192 and 0 <= row["level"] <= 4,
                 "清单N/L超过当前交付范围")
     return rows
@@ -356,6 +362,7 @@ def build_functional(args, spec, pin, validator):
                    spec["degree"], spec["level"], spec["profile"], source]
     ensure_package(args, spec, pin, command, source)
     run([validator, source], stdout=subprocess.DEVNULL)
+    verify_case_program(source, spec)
     data = args.output / "generated/functional" / spec["case_id"]
     meta = import_package(source, data, spec, pin, verify_existing=True)
     context = SimpleNamespace(**vars(args))
@@ -386,6 +393,7 @@ def build_perf(args, spec, pin, validator):
     source = container / selected_spec["variant"] / "upstream"
     performance.validate_fixture(container / selected_spec["variant"] / "PERF_FIXTURE.json", selected_spec, pin)
     run([validator, source], stdout=subprocess.DEVNULL)
+    verify_case_program(source, selected_spec)
     data = args.output / "generated/performance" / spec["case_id"]
     meta = import_package(source, data, selected_spec, pin, verify_existing=True)
     performance.perf_adapter().prepare(data, spec["program_stem"])

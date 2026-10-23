@@ -14,7 +14,7 @@ OWNED_ROOTS = ("tests/hputest/", "tests/hpu_frontend_workload/")
 EXCLUDED_PARTS = {"third_party", "vendor", "external", "experiments"}
 CASE_ID = re.compile(r"(0[0-7])_(\d{2,3})_([a-z][a-z0-9_]*)\Z")
 CASE_SOURCE = re.compile(r"(?:0[0-7]_\d{2,3}_|HPU_IT_)", re.I)
-SOURCE_SUFFIXES = {".c", ".cpp", ".h", ".hpp", ".S", ".sv", ".py", ".sh", ".mk"}
+SOURCE_SUFFIXES = {".c", ".cpp", ".h", ".hpp", ".S", ".asm", ".sv", ".py", ".sh", ".mk"}
 TEXT_SUFFIXES = SOURCE_SUFFIXES | {".md", ".tsv", ".json", ".txt", ".yml"}
 LEGACY_MODULES = {"case_catalog", "program_adaptation", "program_encoding",
                   "immutable_staging", "hpu_opcode_mapping", "subtest_support"}
@@ -91,9 +91,11 @@ def validate_catalogs(repo, root, catalogs, files):
                     continue
                 if not owned(source) or source not in files:
                     errors.append(f"{where}: source不存在、未纳入索引或非自有源码 {source}")
+                if source in sources:
+                    errors.append(f"{where}: 不同用例不能复用同一个C入口 {source}")
                 sources[source].append(case_id)
-                # 多个参数用例允许共享同一薄wrapper；不能仅用source去重。
-                semantic = (group, source, row.get("program_stem", ""), degree, level,
+                # 参数与程序语义单独去重，不能通过复制另一个C文件伪装新用例。
+                semantic = (group, row.get("program_stem", ""), degree, level,
                             row.get("scheme", ""), row.get("operation", ""),
                             row.get("profile", ""), row.get("subcase", ""),
                             row.get("stage", ""), row.get("component", ""))
@@ -131,7 +133,7 @@ def references(repo, files):
         if path.suffix not in TEXT_SUFFIXES and not path.name.startswith("Makefile"):
             continue
         text = (repo / name).read_text(encoding="utf-8")
-        tokens = re.findall(r"[A-Za-z0-9_./+-]+\.(?:py|sh|cpp|c|hpp|h|S|sv|tsv|json|md|mk|txt)", text)
+        tokens = re.findall(r"[A-Za-z0-9_./+-]+\.(?:py|sh|cpp|c|hpp|h|S|asm|sv|tsv|json|md|mk|txt)", text)
         imports = []
         if path.suffix == ".py":
             try:
@@ -190,6 +192,8 @@ def inventory(repo, root, files, catalogs, sources, edges):
             purpose = "独立主机验证入口；是否默认运行由CI/Makefile决定"
         elif path.suffix == ".md":
             purpose = "说明文档"
+        elif path.suffix == ".asm":
+            purpose = "逐用例完整HPU发令源码；构建时与固定生产者原生包核对"
         elif path.suffix in (".tsv", ".json"):
             purpose = "清单/生产者元数据"
         elif path.name.startswith("Makefile") or path.name == "CMakeLists.txt":

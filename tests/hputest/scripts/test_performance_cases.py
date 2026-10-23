@@ -8,6 +8,8 @@ import unittest
 
 
 ROOT = Path(__file__).resolve().parents[1]
+DEGREE_DIRECTORIES = {"1024": "01_n1024", "2048": "02_n2048",
+                      "4096": "03_n4096", "8192": "04_n8192"}
 
 
 def catalog():
@@ -27,34 +29,47 @@ class PerformanceCaseTests(unittest.TestCase):
         self.assertEqual(actual, expected)
         self.assertEqual(len(cases), len(actual))
         for row in cases:
-            self.assertEqual(row["source"], "src/07_performance/main.c")
+            expected_source = (f"src/07_performance/{DEGREE_DIRECTORIES[row['degree']]}/"
+                               f"{row['case_id']}.c")
+            self.assertEqual(row["source"], expected_source)
             self.assertTrue((ROOT / row["source"]).is_file())
 
-    def test_one_shared_program_keeps_timing_order_without_per_case_source_copies(self):
-        sources = {row["source"] for row in catalog()}
-        self.assertEqual(sources, {"src/07_performance/main.c"})
-        text = (ROOT / next(iter(sources))).read_text()
-        self.assertEqual(text.count("WORKLOAD_VALIDATE()"), 1)
-        self.assertEqual(text.count("WORKLOAD_RUN()"), 1)
-        self.assertEqual(text.count("performance_wait();"), 1)
-        self.assertEqual(text.count("perf_cycle_read();"), 2)
-        self.assertIsNone(re.search(r"\b(for|while)\s*\(", text))
-        self.assertIn("CASE_DEGREE", text)
-        self.assertIn("CASE_LEVEL", text)
-        start = text.index("cycle_start = perf_cycle_read();")
-        end = text.index("cycle_end = perf_cycle_read();")
-        self.assertLess(text.index("WORKLOAD_VALIDATE()"), text.index("csr_write(CSR_COMMIT, COMMIT);"))
-        self.assertLess(text.index("csr_write(CSR_COMMIT, COMMIT);"), start)
-        self.assertLess(start, text.index("WORKLOAD_RUN()"))
-        self.assertLess(text.index("WORKLOAD_RUN()"), text.index("performance_wait();"))
-        self.assertLess(text.index("performance_wait();"), end)
-        timed = text[start:end]
-        for forbidden in ("LOG_", "phase_mark", "WORKLOAD_VALIDATE", "clear_completion", "check_results", "check_memory"):
-            self.assertNotIn(forbidden, timed)
-        self.assertGreater(text.index("workload_trace.cycle_start ="), end)
-        self.assertGreater(text.index("workload_trace.cycle_end ="), end)
-        self.assertGreater(text.index("verified=1"), text.index("if (data_rc != 0 || memory_rc != 0)"))
-        self.assertIn("SCHEDULE_PROFILE", text)
+    def test_each_source_keeps_concrete_timed_entry_and_original_cycle_window(self):
+        cases = catalog()
+        self.assertEqual(len({row["source"] for row in cases}), len(cases))
+        for row in cases:
+            with self.subTest(case=row["case_id"]):
+                text = (ROOT / row["source"]).read_text()
+                validator = "hpu_validate_" + row["program_stem"] + "()"
+                runner = "hpu_run_" + row["program_stem"] + "()"
+                self.assertEqual(text.count(validator), 1)
+                self.assertEqual(text.count(runner), 1)
+                self.assertNotIn("WORKLOAD_RUN", text)
+                self.assertNotIn("WORKLOAD_VALIDATE", text)
+                self.assertNotIn("native_case_run", text)
+                self.assertEqual(text.count("performance_wait();"), 1)
+                self.assertEqual(text.count("perf_cycle_read();"), 2)
+                self.assertIsNone(re.search(r"\b(for|while)\s*\(", text))
+                self.assertIn("_Static_assert(DEGREE == " + row["degree"] + "U", text)
+                self.assertIn("_Static_assert(LEVEL == " + row["level"] + "U", text)
+                self.assertIn(row["case_id"] + ".asm", text)
+                self.assertIn("case_fail_at(__FILE__, __LINE__)", text)
+                start = text.index("cycle_start = perf_cycle_read();")
+                end = text.index("cycle_end = perf_cycle_read();")
+                self.assertLess(text.index(validator), text.index("csr_write(CSR_COMMIT, COMMIT);"))
+                self.assertLess(text.index("csr_write(CSR_COMMIT, COMMIT);"), start)
+                # 精确保持原有计时窗，避免把日志、准备、校验或错误处理移入测量。
+                timed = re.sub(r"\s+", " ", text[start:end]).strip()
+                self.assertEqual(timed, "cycle_start = perf_cycle_read(); rc = " + runner +
+                                 "; if (rc == 0) wait_rc = performance_wait();")
+                for forbidden in ("LOG_", "phase_mark", "validate_", "clear_completion",
+                                  "prepare_image", "check_results", "check_memory"):
+                    self.assertNotIn(forbidden, timed)
+                self.assertGreater(text.index("workload_trace.cycle_start ="), end)
+                self.assertGreater(text.index("workload_trace.cycle_end ="), end)
+                self.assertGreater(text.index("verified=1"), text.index("if (memory_rc != 0)"))
+                self.assertIn("metric=issue_to_done_v2", text)
+                self.assertIn("SCHEDULE_PROFILE", text)
 
     def test_mmio_wait_order_timeout_and_sparse_trace(self):
         parent = ROOT / "build/host-tests"

@@ -30,9 +30,10 @@ class NativeReuseTests(unittest.TestCase):
             log_level=1, reuse_native_from=self.source, resume=False)
         self.spec = dict(case_id="05_001_ckks_hadd_l1_n128", group="05", kind="native", profile="library",
                          scheme="ckks", operation="hadd", degree=128, level=1, program_stem="seal_ckks_hadd_l1_n128",
-                         source="src/05_library/main.c", qualifier="software-self-check",
+                         source="src/05_library/01_n128/05_001_ckks_hadd_l1_n128.c", qualifier="software-self-check",
                          memory_base="0x87000000", minimum_ram_bytes=268435456)
-        self.recipe = {"tests/hputest/runtime/native_case.c": "native unchanged"}
+        self.main_key = "tests/hputest/" + self.spec["source"]
+        self.recipe = {self.main_key: "main unchanged", str(Path(self.main_key).with_suffix(".asm")): "asm unchanged"}
         with patch.object(runtime, "target_recipe", return_value=self.recipe):
             request = runtime.build_request(self.args, [], [self.spec], [])
         request["source_recipe"]["tests/hputest/runtime/it_progress.c"] = "old lowlevel source"
@@ -71,7 +72,7 @@ class NativeReuseTests(unittest.TestCase):
             with self.subTest(field=field), self.assertRaisesRegex(ValueError, "构建参数不同"):
                 self.plan()
         changed = copy.deepcopy(original)
-        changed["source_recipe"]["tests/hputest/runtime/native_case.c"] = "modified native"
+        changed["source_recipe"][self.main_key] = "modified native"
         path.write_text(json.dumps(changed))
         with self.assertRaisesRegex(ValueError, "native组件源码不同"):
             self.plan()
@@ -95,7 +96,7 @@ class NativeReuseTests(unittest.TestCase):
 
     def test_current_checkout_must_match_pin_and_remain_clean(self):
         pin = runtime.read_json(runtime.ROOT / "producer.json")["commit"]
-        recipe = {"tests/hputest/runtime/native_case.c": "native unchanged"}
+        recipe = self.recipe
         for head, status in (("different checkout", ""), (pin, " M encode/src/encoder.cpp")):
             with self.subTest(head=head, status=status), \
                     patch.object(runtime, "target_recipe", return_value=recipe), \
@@ -111,6 +112,17 @@ class NativeReuseTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "依赖集合不同"):
             self.plan()
 
+    def test_old_shared_main_receipt_is_rejected_without_rewriting_it(self):
+        path = self.source / "RUNTIME_BUILD_REQUEST.json"
+        request = json.loads(path.read_text())
+        request["source_recipe"] = {"tests/hputest/runtime/native_case.c": "old shared main"}
+        request["cases"][0]["source"] = "src/05_library/main.c"
+        path.write_text(json.dumps(request))
+        original = path.read_bytes()
+        with self.assertRaisesRegex(ValueError, "依赖集合不同"):
+            self.plan()
+        self.assertEqual(path.read_bytes(), original)
+
     def test_reuse_compares_original_runtime_bytes_before_staging(self):
         identity = self.spec["case_id"]
         paths = {"packages/functional/" + identity + "/package.json": b"{}",
@@ -125,12 +137,14 @@ class NativeReuseTests(unittest.TestCase):
             path.parent.mkdir(parents=True, exist_ok=True)
             path.write_bytes(contents)
         plan = self.plan()
-        with patch.object(runtime, "import_package", return_value={}), \
+        with patch.object(runtime, "verify_case_program") as program, \
+                patch.object(runtime, "import_package", return_value={}), \
                 patch.object(runtime.functional, "verify_elf", return_value=[0x7000005b]) as verify, \
                 patch.object(runtime.performance, "verify_embedded") as embedded, \
                 patch.object(runtime, "stage_runtime", return_value=self.row) as stage:
             self.assertEqual(runtime.reuse_native_case(self.args, self.spec, plan), self.row)
             verify.assert_called_once()
+            program.assert_called_once_with(self.source / "packages/functional" / identity, self.spec)
             embedded.assert_called_once()
             stage.assert_called_once()
             (self.source / "runtime/05" / (identity + ".bin")).write_bytes(b"changed")
@@ -164,6 +178,25 @@ class NativeReuseTests(unittest.TestCase):
         perf.assert_not_called()
         self.assertEqual(run.call_count, 1, "最终仍然只调用一次单包导出")
 
+    def test_reuse_asm_mismatch_stops_before_import_including_noopt(self):
+        self.args.variant = "noopt"
+        spec = {**self.spec, "kind": "performance", "case_id": "07_01_ckks_keyswitch_l4_n1024"}
+        identity = spec["case_id"]
+        for relative in (f"packages/performance/{identity}/noopt/PERF_FIXTURE.json",
+                         f"packages/performance/{identity}/noopt/upstream/package.json"):
+            path = self.source / relative
+            path.parent.mkdir(parents=True, exist_ok=True)
+            path.write_text("{}")
+        with patch.object(runtime.performance, "validate_fixture"), \
+                patch.object(runtime, "verify_case_program", side_effect=ValueError("program asm differs")) as program, \
+                patch.object(runtime, "import_package") as importer, \
+                patch.object(runtime, "stage_runtime") as stage:
+            with self.assertRaisesRegex(ValueError, "program asm differs"):
+                runtime.reuse_native_case(self.args, spec, {"source": self.source, "producer_commit": "pin"})
+            self.assertEqual(program.call_args.args[1]["variant"], "noopt")
+            importer.assert_not_called()
+            stage.assert_not_called()
+
     def test_performance_rechecks_actual_disassembly_bytes_before_the_timing_gate(self):
         spec = {**self.spec, "kind": "performance", "case_id": "07_01_ckks_keyswitch_l4_n1024",
                 "group": "07", "degree": 1024, "level": 4, "operation": "keyswitch"}
@@ -181,12 +214,14 @@ class NativeReuseTests(unittest.TestCase):
             path.parent.mkdir(parents=True, exist_ok=True)
             path.write_bytes(data)
         with patch.object(runtime.performance, "validate_fixture"), \
+                patch.object(runtime, "verify_case_program") as program, \
                 patch.object(runtime, "import_package", return_value={}), \
                 patch.object(runtime.subprocess, "check_output", return_value=b"\nactual disassembly\n") as disassemble, \
                 patch.object(runtime.performance, "verify_elf") as timing, \
                 patch.object(runtime, "stage_runtime") as stage:
             plan = {"source": self.source, "producer_commit": "pin"}
             runtime.reuse_native_case(self.args, spec, plan)
+            self.assertEqual(program.call_args.args[1]["variant"], "optimized")
             timing.assert_called_once()
             stage.assert_called_once()
             disassemble.return_value = b"different actual ELF disassembly"

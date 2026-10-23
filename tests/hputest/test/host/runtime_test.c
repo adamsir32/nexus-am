@@ -1,5 +1,21 @@
 #include <assert.h>
+#include <stddef.h>
 #include <workload.h>
+
+/* RV64调试工具既有trace布局不变；源码行号只能追加到末尾。 */
+_Static_assert(offsetof(struct workload_progress, phase) == 0U, "phase ABI changed");
+_Static_assert(offsetof(struct workload_progress, status) == 4U, "status ABI changed");
+_Static_assert(offsetof(struct workload_progress, irq) == 8U, "irq ABI changed");
+_Static_assert(offsetof(struct workload_progress, fault) == 12U, "fault ABI changed");
+_Static_assert(offsetof(struct workload_progress, errors) == 16U, "errors ABI changed");
+_Static_assert(offsetof(struct workload_progress, first_line) == 20U, "first_line ABI changed");
+_Static_assert(offsetof(struct workload_progress, first_word) == 24U, "first_word ABI changed");
+_Static_assert(offsetof(struct workload_progress, actual) == 28U, "actual ABI changed");
+_Static_assert(offsetof(struct workload_progress, expected) == 32U, "expected ABI changed");
+_Static_assert(offsetof(struct workload_progress, wait_cycles) == 40U, "wait_cycles ABI changed");
+_Static_assert(offsetof(struct workload_progress, cycle_start) == 48U, "cycle_start ABI changed");
+_Static_assert(offsetof(struct workload_progress, cycle_end) == 56U, "cycle_end ABI changed");
+_Static_assert(offsetof(struct workload_progress, source_line) == 64U, "source_line must be appended");
 
 /* 仅验证AM接收端的内存/同步逻辑，不在host上伪装执行HPU。 */
 const uint32_t initial_image[IMAGE_LINES * LINE_WORDS] = {
@@ -65,5 +81,20 @@ int main(void) {
     mode = 4U;
     irq_level = IRQ_LEVEL;
     assert(clear_completion() == 1); /* 清电平也必须有cycle超时。 */
+    mode = 2U;
+    workload_trace.phase = PHASE_COMPARE;
+    workload_trace.first_line = 7U;
+    workload_trace.first_word = 9U;
+    workload_trace.actual = 13U;
+    workload_trace.expected = 17U;
+    workload_trace.cycle_start = 101U;
+    workload_trace.cycle_end = 202U;
+    assert(case_fail_at("src/host-case.c", 321U) == 1);
+    assert(workload_trace.phase == PHASE_FAIL && workload_trace.source_line == 321U);
+    assert(workload_trace.status == (STATUS_VALID | STATUS_FAULT));
+    assert(workload_trace.irq == IRQ_LEVEL && workload_trace.fault == FAULT_VALID);
+    assert(workload_trace.first_line == 7U && workload_trace.first_word == 9U);
+    assert(workload_trace.actual == 13U && workload_trace.expected == 17U);
+    assert(workload_trace.cycle_start == 101U && workload_trace.cycle_end == 202U);
     return 0;
 }

@@ -43,6 +43,7 @@ class RuntimeBuildTests(unittest.TestCase):
         with patch.object(runtime.sys, "argv", command), patch.object(runtime, "build_lowlevel", low), \
                 patch.object(runtime, "build_functional", functional), patch.object(runtime, "build_perf", perf), \
                 patch.object(runtime, "prepare_native", native), patch.object(runtime, "run") as run, \
+                patch.object(runtime, "target_recipe", return_value={}), \
                 contextlib.redirect_stdout(io.StringIO()):
             runtime.main()
         return low, functional, perf, native, run
@@ -177,7 +178,8 @@ class RuntimeBuildTests(unittest.TestCase):
         with patch.object(runtime, "ensure_package") as ensure, \
                 patch.object(runtime.performance, "validate_fixture", side_effect=lambda *args: events.append("fixture")), \
                 patch.object(runtime, "run", side_effect=lambda *args, **kwargs: events.append("validator")), \
-                patch.object(runtime, "import_package", return_value={}), \
+                patch.object(runtime, "verify_case_program", side_effect=lambda *args: events.append("program")) as program, \
+                patch.object(runtime, "import_package", side_effect=lambda *args, **kwargs: events.append("import") or {}), \
                 patch.object(runtime.performance, "perf_adapter"), \
                 patch.object(runtime.performance, "build_case", side_effect=lambda *args: (
                     events.append("validated-elf") or {"elf": "probe.elf", "bin": "probe.bin"})) as build, \
@@ -185,19 +187,57 @@ class RuntimeBuildTests(unittest.TestCase):
             runtime.build_perf(self.args, spec, "pin", self.directory / "validator")
         self.assertIn("--optimized-only", ensure.call_args.args[3])
         self.assertEqual(build.call_args.args[1]["variant"], "optimized")
+        self.assertEqual(program.call_args.args[1]["variant"], "optimized")
         self.assertEqual(build.call_args.args[-1], "minimal")
-        self.assertEqual(events, ["fixture", "validator", "validated-elf", "stage"])
+        self.assertEqual(events, ["fixture", "validator", "program", "import", "validated-elf", "stage"])
 
     def test_functional_staging_happens_after_embedded_verification(self):
         spec = dict(case_id="06_01_probe", profile="application", target="example", degree=128)
         events = []
-        with patch.object(runtime, "ensure_package"), patch.object(runtime, "run"), \
-                patch.object(runtime, "import_package", return_value={}), \
+        with patch.object(runtime, "ensure_package"), \
+                patch.object(runtime, "run", side_effect=lambda *args, **kwargs: events.append("validator")), \
+                patch.object(runtime, "verify_case_program", side_effect=lambda *args: events.append("program")), \
+                patch.object(runtime, "import_package", side_effect=lambda *args, **kwargs: events.append("import") or {}), \
                 patch.object(runtime.functional, "build_case", side_effect=lambda *args: events.append(args[-1])), \
                 patch.object(runtime.performance, "verify_embedded", side_effect=lambda *args: events.append("embedded")), \
                 patch.object(runtime, "stage_runtime", side_effect=lambda *args: events.append("stage")):
             runtime.build_functional(self.args, spec, "pin", self.directory / "validator")
-        self.assertEqual(events, ["minimal", "embedded", "stage"])
+        self.assertEqual(events, ["validator", "program", "import", "minimal", "embedded", "stage"])
+
+    def test_asm_mismatch_stops_functional_and_performance_before_import_or_compilation(self):
+        functional = dict(case_id="06_01_probe", profile="application", target="example", degree=128)
+        perf = dict(case_id="07_01_probe", scheme="ckks", operation="hadd", degree=1024,
+                    level=4, program_stem="probe")
+        for builder, spec in ((runtime.build_functional, functional), (runtime.build_perf, perf)):
+            with self.subTest(builder=builder.__name__), patch.object(runtime, "ensure_package"), \
+                    patch.object(runtime, "run"), patch.object(runtime.performance, "validate_fixture"), \
+                    patch.object(runtime, "verify_case_program", side_effect=ValueError("program asm differs")), \
+                    patch.object(runtime, "import_package") as importer, \
+                    patch.object(runtime.functional, "build_case") as functional_build, \
+                    patch.object(runtime.performance, "build_case") as perf_build, \
+                    patch.object(runtime, "stage_runtime") as stage:
+                with self.assertRaisesRegex(ValueError, "program asm differs"):
+                    builder(self.args, spec, "pin", self.directory / "validator")
+                importer.assert_not_called()
+                functional_build.assert_not_called()
+                perf_build.assert_not_called()
+                stage.assert_not_called()
+
+    def test_case_source_and_variant_asm_are_receiver_inputs_not_native_generator_inputs(self):
+        spec = dict(case_id="07_01_probe", source="src/07_performance/01_n1024/07_01_probe.c", kind="performance")
+        source = runtime.ROOT / spec["source"]
+        for variant, suffix in (("optimized", ".asm"), ("noopt", ".noopt.asm")):
+            self.args.variant = variant
+            with self.subTest(variant=variant), patch.object(runtime, "source_snapshot", return_value={}) as snapshot:
+                runtime.target_recipe(self.args, [], [], [spec])
+                paths = set(snapshot.call_args.args[0])
+                self.assertIn(source, paths)
+                self.assertIn(source.with_suffix(suffix), paths)
+                self.assertIn(runtime.ROOT / "scripts/case_program.py", paths)
+                self.assertNotIn(runtime.ROOT / "runtime/native_case.c", paths)
+        native = runtime.native_sources(spec)
+        self.assertNotIn(source, native)
+        self.assertFalse(any(path.suffix == ".asm" or path.name == "case_program.py" for path in native))
 
 
 if __name__ == "__main__":

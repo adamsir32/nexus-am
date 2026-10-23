@@ -37,6 +37,9 @@ CFG = """00001000 <main>:
 
 
 class TimingTests(unittest.TestCase):
+    def test_explicit_source_failure_entry_keeps_the_same_success_timing_contract(self):
+        build.verify_timing(CFG.replace("<case_fail>", "<case_fail_at>"), STEM)
+
     def test_gcc_copied_failure_stop_does_not_add_a_success_sample(self):
         build.verify_timing(CFG, STEM)
 
