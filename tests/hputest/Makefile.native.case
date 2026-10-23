@@ -1,0 +1,71 @@
+ifndef CASE_ID
+$(error CASE_ID is required)
+endif
+ifndef DATA_DIR
+$(error DATA_DIR is required)
+endif
+ifndef CASE_OBJ_DIR
+$(error CASE_OBJ_DIR is required)
+endif
+ifndef CASE_BINARY
+$(error CASE_BINARY is required)
+endif
+
+ROOT := $(CURDIR)
+BASELINE := $(AM_HOME)/tests/hputest
+NAME := $(CASE_ID)
+# Keep per-case paths local to this make process. Command-line variables are
+# propagated through MAKEFLAGS and would override recursive AM/klib defaults.
+DST_DIR := $(CASE_OBJ_DIR)
+BINARY := $(CASE_BINARY)
+SRCS := $(CASE_SOURCE) $(ROOT)/runtime/native/fixture.S \
+        $(ROOT)/runtime/native/image.c $(ROOT)/runtime/native/wait.c $(ROOT)/runtime/native/check.c \
+        $(DATA_DIR)/layout.c
+ifeq ($(PERFORMANCE),1)
+ifndef CASE_MEM_BASE
+$(error CASE_MEM_BASE is required for a performance testcase)
+endif
+ifndef CASE_DEGREE
+$(error CASE_DEGREE is required for a performance testcase)
+endif
+ifndef CASE_LEVEL
+$(error CASE_LEVEL is required for a performance testcase)
+endif
+ifneq ($(filter $(LOG_LEVEL),0 1),$(LOG_LEVEL))
+$(error performance testcases require LOG_LEVEL=0 or 1)
+endif
+SRCS += $(DATA_DIR)/$(PROGRAM_STEM)_perf.c \
+        $(BASELINE)/runtime/it_perf.c $(ROOT)/runtime/native/performance.c
+CFLAGS += -DMEM_BASE=$(CASE_MEM_BASE)ULL \
+          -DCASE_DEGREE=$(CASE_DEGREE)U -DCASE_LEVEL=$(CASE_LEVEL)U \
+          -DWORKLOAD_RUN=hpu_run_$(PROGRAM_STEM) \
+          -DWORKLOAD_VALIDATE=hpu_validate_$(PROGRAM_STEM)
+else
+SRCS += $(DATA_DIR)/$(PROGRAM_STEM).c $(ROOT)/runtime/native_case.c
+CFLAGS += -DWORKLOAD_RUN=hpu_run_$(PROGRAM_STEM)
+endif
+INC_DIR += $(ROOT)/include $(DATA_DIR) $(BASELINE)/include
+ASFLAGS += -Wa,-I$(DATA_DIR)
+CFLAGS += -Wall -Wextra -Werror -ffunction-sections -fdata-sections \
+          -DLINKNAN_HPU_IT=1 -DHPU_LOG_LEVEL=$(LOG_LEVEL) \
+          -DWAIT_CYCLES=$(WAIT_CYCLES) -include hpu/log.h \
+          -ffile-prefix-map=$(AM_HOME)=nexus-am \
+          -ffile-prefix-map=$(DATA_DIR)=frontend-data/$(CASE_ID)
+ifeq ($(LOG_LEVEL),0)
+# 复用已经验证过的静默出口；不修改AM/klib，也不调用任何UART初始化。
+SRCS += $(BASELINE)/runtime/it_log_silent.c
+WRAPS := printf_ printf atomic_printf_ vprintf_ vprintf puts putchar _putc _putchar \
+         __am_uartlite_putchar __am_16550_putchar __am_init_uartlite __am_init_16550
+LDFLAGS += $(addprefix --wrap=,$(WRAPS))
+endif
+
+include $(AM_HOME)/Makefile.app
+CFLAGS += -g0
+$(DST_DIR)/$(ROOT)/runtime/native/image.o: $(DATA_DIR)/layout.h
+$(DST_DIR)/$(ROOT)/runtime/native/check.o: $(DATA_DIR)/layout.h
+$(DST_DIR)/$(ROOT)/runtime/native_case.o: $(DATA_DIR)/layout.h $(DATA_DIR)/program.h
+ifeq ($(PERFORMANCE),1)
+$(DST_DIR)/$(ROOT)/runtime/native/performance.o: $(DATA_DIR)/layout.h
+endif
+$(DST_DIR)/$(ROOT)/runtime/native/fixture.o: $(DATA_DIR)/image.u32.bin \
+                                      $(DATA_DIR)/golden.u32.bin $(DATA_DIR)/writable.u8.bin

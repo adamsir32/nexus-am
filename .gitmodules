@@ -1,20 +1,8 @@
-[submodule "tests/hputest/third_party/inline-asm"]
-	path = tests/hputest/third_party/inline-asm
-	url = https://github.com/cuihu2/inline-asm.git
-	branch = legacy-main
-[submodule "tests/hputest/third_party/hpu-seal"]
-	path = tests/hputest/third_party/hpu-seal
-	url = https://github.com/cuihu2/inline-asm.git
-	branch = main
-[submodule "tests/hputest/third_party/hpu-applications"]
-	path = tests/hputest/third_party/hpu-applications
-	url = https://github.com/cuihu2/inline-asm.git
-	branch = main
 [submodule "tests/hputest/experiments/poseidon/third_party/poseidon"]
-	path = tests/hputest/experiments/poseidon/third_party/poseidon
+	path = tests/hpu-experiments/poseidon/third_party/poseidon
 	url = https://github.com/luhang-HPU/poseidon.git
 	branch = main
 [submodule "tests/hpu_frontend_workload/third_party/inline-asm"]
-	path = tests/hpu_frontend_workload/third_party/inline-asm
+	path = tests/hputest/third_party/inline-asm
 	url = https://github.com/cuihu2/inline-asm.git
 	branch = feature/operator-resource-management

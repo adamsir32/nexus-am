@@ -2,13 +2,22 @@ ifndef AM_HOME
 $(error AM_HOME must point to this Nexus-AM checkout)
 endif
 ifndef CASE_SOURCE
-$(error CASE_SOURCE must name one HPU testcase source)
+$(error CASE_SOURCE must name one directed HPU testcase source)
 endif
 ifndef CASE_ID
-$(error CASE_ID must name one HPU testcase)
+$(error CASE_ID must name one directed HPU testcase)
 endif
 ifndef HPU_DST_DIR
 $(error HPU_DST_DIR must name the testcase object directory)
+endif
+ifndef CASE_BINARY
+$(error CASE_BINARY must name the testcase ELF/BIN basename)
+endif
+ifeq ($(origin BINARY),command line)
+$(error use CASE_BINARY, not BINARY; recursive AM builds must keep their own paths)
+endif
+ifeq ($(origin DST_DIR),command line)
+$(error use HPU_DST_DIR, not DST_DIR; recursive AM builds must keep their own paths)
 endif
 
 TEST_ROOT := $(CURDIR)
@@ -22,166 +31,94 @@ HPU_PERF_MEASURE_ROUNDS ?= 3
 ifeq ($(filter $(HPU_LOG_LEVEL),0 1 2),)
 $(error HPU_LOG_LEVEL must be 0, 1, or 2)
 endif
-ifneq ($(HPU_DUMP_RESULTS),0)
-ifneq ($(HPU_DUMP_RESULTS),1)
+ifeq ($(filter $(HPU_DUMP_RESULTS),0 1),)
 $(error HPU_DUMP_RESULTS must be 0 or 1)
-endif
 endif
 ifeq ($(HPU_DUMP_RESULTS),1)
 ifneq ($(HPU_LOG_LEVEL),2)
 $(error HPU_DUMP_RESULTS=1 requires HPU_LOG_LEVEL=2)
 endif
 endif
+
+# 此入口只编译原有44项定向测试；参数矩阵统一走Makefile.native.case。
+LOWLEVEL_GROUP := $(firstword $(subst _, ,$(CASE_ID)))
+ifeq ($(LOWLEVEL_GROUP),00)
+EXPECTED_SOURCE := $(TEST_ROOT)/src/00_smoke/$(CASE_ID).c
+else ifeq ($(LOWLEVEL_GROUP),01)
+EXPECTED_SOURCE := $(TEST_ROOT)/src/01_connection/$(CASE_ID).c
+else ifeq ($(LOWLEVEL_GROUP),02)
+EXPECTED_SOURCE := $(TEST_ROOT)/src/02_boundary/$(CASE_ID).c
+else ifneq ($(filter 03_001_padd 03_002_psub 03_003_pmul 03_004_pmac \
+                      03_005_pntt 03_006_pintt 03_007_pmodld \
+                      03_008_psync 03_009_pfree,$(CASE_ID)),)
+EXPECTED_SOURCE := $(TEST_ROOT)/src/03_instructions/directed/$(CASE_ID).c
+else
+$(error CASE_ID is not a supported directed 00/01/02/03 testcase)
+endif
+ifneq ($(abspath $(CASE_SOURCE)),$(EXPECTED_SOURCE))
+$(error CASE_SOURCE must match the canonical directed source for CASE_ID)
+endif
+ifeq ($(wildcard $(EXPECTED_SOURCE)),)
+$(error directed source does not exist: $(EXPECTED_SOURCE))
+endif
+
 INLINE_ASM_MM_ROOT := $(HPU_GENERATED_ROOT)/inline-asm/mm
-# .incbin 只从本次已校验的交付目录取数据，不读取 submodule 遗留输出。
 ASFLAGS += -Wa,-I$(INLINE_ASM_MM_ROOT)/test_data/hardware
 ASFLAGS += -Wa,-I$(HPU_GENERATED_ROOT)/instruction-data
-ASFLAGS += -Wa,-I$(HPU_GENERATED_ROOT)/transform-data
-ASFLAGS += -Wa,-I$(HPU_GENERATED_ROOT)/bconv-data
-ASFLAGS += -Wa,-I$(HPU_GENERATED_ROOT)/keyswitch-data
-ASFLAGS += -Wa,-I$(HPU_GENERATED_ROOT)/auto-data
-ASFLAGS += -Wa,-I$(HPU_GENERATED_ROOT)/hadd-data
-ASFLAGS += -Wa,-I$(HPU_GENERATED_ROOT)/hmul-data
-ASFLAGS += -Wa,-I$(HPU_GENERATED_ROOT)/rotate-data
-INLINE_ASM_DELIVERY_HEADER := \
-  $(HPU_GENERATED_ROOT)/include/hpu/inline_asm_mm_delivery.h
-
-ifeq ($(wildcard $(INLINE_ASM_DELIVERY_HEADER)),)
-$(error missing generated inline-asm delivery; run 'make prepare-inline-asm-mm')
+ifeq ($(wildcard $(HPU_GENERATED_ROOT)/include/hpu/inline_asm_mm_delivery.h),)
+$(error missing generated current-ISA delivery; run scripts/prepare-lowlevel.py)
 endif
 
 NAME := $(CASE_ID)
 SRCS := $(CASE_SOURCE)
-ifneq ($(findstring /src/00_bringup/,$(CASE_SOURCE)),)
-ifneq ($(findstring /001_hpu_smoke/,$(CASE_SOURCE)),)
+ifeq ($(LOWLEVEL_GROUP),00)
+ifneq ($(filter 00_01_% 00_02_% 00_03_% 00_04_% 00_05_% 00_06_% \
+                00_07_% 00_08_% 00_09_%,$(CASE_ID)),)
 SRCS += $(TEST_ROOT)/src/common/hpu_rns_fixture.S
 endif
-ifneq ($(filter %/00_04_psync_irq.c %/00_05_dload_irq.c \
-                %/00_07_loopback_irq.c \
-                %/00_08_compute_irq.c,$(CASE_SOURCE)),)
+ifneq ($(filter 00_04_psync_irq 00_05_dload_irq 00_07_loopback_irq \
+                00_08_compute_irq,$(CASE_ID)),)
 SRCS += $(TEST_ROOT)/src/common/hpu_irq.c
 endif
-ifneq ($(filter %/001_hpu_smoke/00_08_compute_irq.c \
-                %/001_hpu_smoke/00_09_compute_mmio.c,$(CASE_SOURCE)),)
+ifneq ($(filter 00_08_compute_irq 00_09_compute_mmio,$(CASE_ID)),)
 ifeq ($(wildcard $(INLINE_ASM_MM_ROOT)/mm.c),)
-$(error missing complete producer MM program; run 'make prepare-inline-asm-mm')
+$(error missing complete current producer MM program)
 endif
-SRCS += $(TEST_ROOT)/src/common/hpu_mm_fixture.S
-SRCS += $(INLINE_ASM_MM_ROOT)/mm.c
+SRCS += $(TEST_ROOT)/src/common/hpu_mm_fixture.S $(INLINE_ASM_MM_ROOT)/mm.c
 INC_DIR += $(INLINE_ASM_MM_ROOT)
 endif
 else
-# Migrated IT cases keep scenario steps in their own readable main.c and share
-# the small, single-purpose adapters under runtime/.  Runtime files never live
-# below src/, so build.sh cannot mistake one for an executable testcase.
-HPU_IT_RUNTIME_SRCS := $(filter-out $(TEST_ROOT)/runtime/it_log_silent.c,$(sort $(wildcard $(TEST_ROOT)/runtime/*.c)))
+# 只取it_*.c，不把native_case.c混进每个定向ELF；静默出口按选项单独加入。
+HPU_IT_RUNTIME_SRCS := $(filter-out $(TEST_ROOT)/runtime/it_log_silent.c,\
+    $(sort $(wildcard $(TEST_ROOT)/runtime/it_*.c)))
 ifeq ($(strip $(HPU_IT_RUNTIME_SRCS)),)
-$(error missing migrated HPU IT runtime sources under $(TEST_ROOT)/runtime)
+$(error missing directed IT runtime sources)
 endif
-SRCS += $(HPU_IT_RUNTIME_SRCS)
-# Most migrated finite cases consume the producer's two 4096-coefficient RNS
-# inputs. Application-package cases own complete images and must not link that
-# unrelated fixture.
-APPLICATION_STEM := $(shell awk -F '\t' '$$1 == "$(CASE_ID)" {print $$2}' $(TEST_ROOT)/scheme-cases.tsv)
-APPLICATION_DELIVERY := application-data
-LARGE_STEM := $(shell awk -F '\t' '$$1 == "$(CASE_ID)" {print $$2}' $(TEST_ROOT)/large-cases.tsv)
-ifneq ($(strip $(LARGE_STEM)),)
-APPLICATION_STEM := $(LARGE_STEM)
-APPLICATION_DELIVERY := large-data
-endif
-PERF_STEM := $(shell awk -F '\t' '$$1 == "$(CASE_ID)" {print $$3}' $(TEST_ROOT)/perf-cases.tsv)
-ifneq ($(strip $(PERF_STEM)),)
-APPLICATION_STEM := $(PERF_STEM)
-APPLICATION_DELIVERY := $(shell awk -F '\t' '$$1 == "$(CASE_ID)" {print $$4}' $(TEST_ROOT)/perf-cases.tsv)
-PERF_MEMORY_BASE := $(shell awk -F '\t' '$$1 == "$(CASE_ID)" {print $$9}' $(TEST_ROOT)/perf-cases.tsv)
-ifeq ($(strip $(PERF_MEMORY_BASE)),)
-$(error missing memory contract for performance case $(CASE_ID))
-endif
-CFLAGS += -DHPU_CASE_MEM_BASE=$(PERF_MEMORY_BASE)ULL
-ifeq ($(HPU_LOG_LEVEL),2)
-$(error performance endpoints exclude UART; use HPU_LOG_LEVEL=0 or 1)
-endif
-endif
-ifneq ($(filter 03_%_n65536 04_%_n65536 05_%_n65536,$(CASE_ID)),)
-CFLAGS += -DHPU_CASE_MEM_BASE=0x90000000ULL
-endif
-ifeq ($(strip $(APPLICATION_STEM)),)
-SRCS += $(TEST_ROOT)/src/common/hpu_rns_fixture.S
-endif
-ifneq ($(filter %/02_18_watchdog_compute_before_dload.c %/02_19_watchdog_pmodld_before_dload.c,$(CASE_SOURCE)),)
-# 缺依赖负向用例的后排DLOAD指向producer真模表，不合成或读取未初始化数据。
-SRCS += $(TEST_ROOT)/src/common/hpu_mm_fixture.S
-endif
-ifneq ($(filter %/03_05_pntt.c %/03_06_pintt.c,$(CASE_SOURCE)),)
+SRCS += $(HPU_IT_RUNTIME_SRCS) $(TEST_ROOT)/src/common/hpu_rns_fixture.S
+ifneq ($(filter 03_005_pntt 03_006_pintt,$(CASE_ID)),)
 SRCS += $(TEST_ROOT)/src/common/it_stage_twiddle.S
 endif
-ifneq ($(filter %/03_08_psync.c %/03_17_psync_n65536.c,$(CASE_SOURCE)),)
+ifeq ($(CASE_ID),03_008_psync)
 SRCS += $(TEST_ROOT)/src/common/hpu_irq.c
 endif
-ifneq ($(filter %/04_02_ntt_n4096.c %/04_03_intt_n4096.c \
-                %/07_01_ntt_n4096.c %/07_02_intt_n4096.c,$(CASE_SOURCE)),)
-SRCS += $(TEST_ROOT)/src/common/it_transform.c
-SRCS += $(TEST_ROOT)/src/common/it_transform_fixture.S
-INC_DIR += $(HPU_GENERATED_ROOT)/transform-data
 endif
-ifneq ($(filter %/04_02_ntt_n4096.c %/07_01_ntt_n4096.c,$(CASE_SOURCE)),)
-SRCS += $(HPU_GENERATED_ROOT)/transform-data/ntt/ntt.c
-endif
-ifneq ($(filter %/04_03_intt_n4096.c %/07_02_intt_n4096.c,$(CASE_SOURCE)),)
-SRCS += $(HPU_GENERATED_ROOT)/transform-data/intt/intt.c
-endif
-ifneq ($(filter %/04_01_bconv_q4_to_p3_n4096.c,$(CASE_SOURCE)),)
-SRCS += $(TEST_ROOT)/src/common/it_bconv.c
-SRCS += $(TEST_ROOT)/src/common/it_bconv_fixture.S
-SRCS += $(HPU_GENERATED_ROOT)/bconv-data/bconv.c
-INC_DIR += $(HPU_GENERATED_ROOT)/bconv-data
-endif
-ifneq ($(filter %/04_10_legacy_auto_n4096.c,$(CASE_SOURCE)),)
-ifeq ($(wildcard $(HPU_GENERATED_ROOT)/auto-data/auto_delivery.h),)
-$(error missing Auto delivery; run 'make prepare-inline-asm-mm')
-endif
-SRCS += $(TEST_ROOT)/src/common/it_auto.c
-SRCS += $(TEST_ROOT)/src/common/it_auto_fixture.S
-SRCS += $(HPU_GENERATED_ROOT)/auto-data/auto.c
-INC_DIR += $(HPU_GENERATED_ROOT)/auto-data
-endif
-# 所有 scheme 用例沿用原目录；从显式清单选取本例的独立 producer 程序。
-ifneq ($(strip $(APPLICATION_STEM)),)
-APPLICATION_DATA := $(HPU_GENERATED_ROOT)/$(APPLICATION_DELIVERY)/$(APPLICATION_STEM)
-ifeq ($(wildcard $(APPLICATION_DATA)/application_layout.h),)
-$(error missing $(CASE_ID) application delivery; run 'make prepare-inline-asm-mm')
-endif
-SRCS += $(TEST_ROOT)/src/common/it_application.c
-SRCS += $(TEST_ROOT)/src/common/it_application_fixture.S
-ifneq ($(strip $(PERF_STEM)),)
-ifeq ($(wildcard $(APPLICATION_DATA)/$(APPLICATION_STEM)_perf.h),)
-$(error missing preflight/issue adapter; run scripts/prepare-perf-programs.py --generated $(HPU_GENERATED_ROOT))
-endif
-SRCS += $(APPLICATION_DATA)/$(APPLICATION_STEM)_perf.c
-else
-SRCS += $(APPLICATION_DATA)/$(APPLICATION_STEM).c
-endif
-INC_DIR += $(APPLICATION_DATA)
-ASFLAGS += -Wa,-I$(APPLICATION_DATA)
-$(HPU_DST_DIR)/$(TEST_ROOT)/src/common/it_application_fixture.o: \
-  $(addprefix $(APPLICATION_DATA)/,application_window.u32.bin \
-  application_golden.u32.bin application_writable.u8.bin)
-endif
-endif
+
 ifeq ($(HPU_LOG_LEVEL),0)
-# 不改共享 AM/klib。封住初始化和字符出口，启动路径也不能等待 UART。
 SRCS += $(TEST_ROOT)/runtime/it_log_silent.c
 HPU_SILENT_WRAPS := printf_ printf atomic_printf_ vprintf_ vprintf puts putchar _putc _putchar \
   __am_uartlite_putchar __am_16550_putchar __am_init_uartlite __am_init_16550
 LDFLAGS += $(addprefix --wrap=,$(HPU_SILENT_WRAPS))
 endif
+
+# 构建路径只在本层赋值，不随MAKEFLAGS覆盖递归AM/klib的BINARY/DST_DIR。
 DST_DIR := $(HPU_DST_DIR)
+BINARY := $(CASE_BINARY)
+unexport DST_DIR BINARY
 INC_DIR += $(HPU_GENERATED_ROOT)/include $(TEST_ROOT)/include
 CFLAGS += -Wall -Wextra -Werror -ffunction-sections -fdata-sections \
-          -DLINKNAN_HPU_IT=1 \
-          -DHPU_DUMP_RESULTS=$(HPU_DUMP_RESULTS) \
-          -DHPU_LOG_LEVEL=$(HPU_LOG_LEVEL) \
-          -DHPU_APPLICATION_TIMEOUT_CYCLES=$(HPU_APPLICATION_TIMEOUT_CYCLES) -include hpu/log.h \
+          -DLINKNAN_HPU_IT=1 -DHPU_DUMP_RESULTS=$(HPU_DUMP_RESULTS) \
+          -DHPU_LOG_LEVEL=$(HPU_LOG_LEVEL) -include hpu/log.h \
+          -DHPU_APPLICATION_TIMEOUT_CYCLES=$(HPU_APPLICATION_TIMEOUT_CYCLES) \
           -DHPU_PERF_WARMUP_ROUNDS=$(HPU_PERF_WARMUP_ROUNDS) \
           -DHPU_PERF_MEASURE_ROUNDS=$(HPU_PERF_MEASURE_ROUNDS) \
           -ffile-prefix-map=$(TEST_ROOT)=tests/hputest \
@@ -192,8 +129,9 @@ CFLAGS += -Wall -Wextra -Werror -ffunction-sections -fdata-sections \
           -fmacro-prefix-map=$(AM_HOME)=nexus-am
 
 include $(AM_HOME)/Makefile.app
+CFLAGS += -g0
 
-# 即使手工复用 HPU_DST_DIR，切换 UART 模式也必须重编译所有用例对象。
+# 日志模式切换会重新编译本例对象，不修改公共AM库。
 HPU_UART_FLAGS := $(HPU_DST_DIR)/.uart-mode
 .PHONY: hpu-uart-flags-force
 $(HPU_UART_FLAGS): hpu-uart-flags-force
@@ -202,47 +140,14 @@ $(HPU_UART_FLAGS): hpu-uart-flags-force
 	@if cmp -s "$@.new" "$@"; then rm -f "$@.new"; else mv -f "$@.new" "$@"; fi
 $(OBJS): $(HPU_UART_FLAGS)
 
-# .incbin 的二进制依赖不会出现在预处理器生成的 .d 中。
+# 汇编.incbin依赖不在预处理器.d里，显式列出种子与完整C参考表。
 $(HPU_DST_DIR)/$(TEST_ROOT)/src/common/hpu_rns_fixture.o: \
   $(INLINE_ASM_MM_ROOT)/test_data/hardware/images/input_a.u32.bin \
   $(INLINE_ASM_MM_ROOT)/test_data/hardware/images/input_b.u32.bin
 $(HPU_DST_DIR)/$(TEST_ROOT)/src/common/hpu_mm_fixture.o: \
   $(INLINE_ASM_MM_ROOT)/test_data/hardware/images/expected.u32.bin \
   $(INLINE_ASM_MM_ROOT)/test_data/hardware/constants/mod_ctx.u32.bin
-
 $(HPU_DST_DIR)/$(TEST_ROOT)/src/common/it_stage_twiddle.o: \
-  $(addprefix $(HPU_GENERATED_ROOT)/instruction-data/,ntt_stage_00.u32.bin \
-  ntt_stage_01.u32.bin ntt_stage_11.u32.bin intt_stage_00.u32.bin \
-  intt_stage_01.u32.bin intt_stage_11.u32.bin)
-
-$(HPU_DST_DIR)/$(TEST_ROOT)/src/common/it_transform_fixture.o: \
-  $(addprefix $(HPU_GENERATED_ROOT)/transform-data/,ntt/window.u32.bin \
-  ntt/golden.u32.bin intt/window.u32.bin intt/golden.u32.bin)
-
-$(HPU_DST_DIR)/$(TEST_ROOT)/src/common/it_bconv_fixture.o: \
-  $(addprefix $(HPU_GENERATED_ROOT)/bconv-data/,window.u32.bin \
-  golden_p.u32.bin normalized_cpu.u32.bin)
-
-$(HPU_DST_DIR)/$(TEST_ROOT)/src/common/it_keyswitch_fixture.o: \
-  $(addprefix $(HPU_GENERATED_ROOT)/keyswitch-data/,window.u32.bin \
-  golden.u32.bin)
-
-$(HPU_DST_DIR)/$(TEST_ROOT)/src/common/it_auto_fixture.o: \
-  $(addprefix $(HPU_GENERATED_ROOT)/auto-data/,window.u32.bin \
-  golden.u32.bin)
-
-$(HPU_DST_DIR)/$(TEST_ROOT)/src/common/it_hadd_fixture.o: \
-  $(addprefix $(HPU_GENERATED_ROOT)/hadd-data/,window.u32.bin \
-  golden.u32.bin)
-
-$(HPU_DST_DIR)/$(TEST_ROOT)/src/common/it_hmul_fixture.o: \
-  $(addprefix $(HPU_GENERATED_ROOT)/hmul-data/,window.u32.bin \
-  golden.u32.bin writable_lines.u8.bin)
-
-$(HPU_DST_DIR)/$(TEST_ROOT)/src/common/it_rotate_fixture.o: \
-  $(addprefix $(HPU_GENERATED_ROOT)/rotate-data/,window.u32.bin \
-  golden.u32.bin rotate_writable.u8.bin)
-
-# Nexus-AM adds -ggdb in Makefile.compile.  Published smoke ELFs do not need
-# checkout-specific debug paths.
-CFLAGS += -g0
+  $(foreach direction,ntt intt,$(foreach stage,00 01 11,\
+    $(HPU_GENERATED_ROOT)/instruction-data/$(direction)_stage_$(stage).u32.bin \
+    $(HPU_GENERATED_ROOT)/instruction-data/$(direction)_stage_$(stage)_full.u32.bin))

@@ -390,7 +390,7 @@ class CompletionTests(unittest.TestCase):
         case_source = root / "case_test.c"
         case_source.write_text(CASE_HARNESS, encoding="utf-8")
         cls.case_binaries = []
-        smoke = TEST_ROOT / "src" / "00_bringup" / "001_hpu_smoke"
+        smoke = TEST_ROOT / "src" / "00_smoke"
         for name in ("00_09_compute_mmio",):
             binary = root / name
             subprocess.run(

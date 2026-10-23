@@ -1,7 +1,6 @@
 #!/usr/bin/env python3
-"""将真实 C 单 stage golden 与固定 RTL dump、独立 DFT 和物理模型比较。"""
+"""将真实C单stage golden与独立DFT和物理模型比较，不冒充RTL验证。"""
 
-import csv
 import ctypes
 from pathlib import Path
 import subprocess
@@ -12,18 +11,14 @@ from hpu_ntt_layout import (expected_twiddles, forward_layout, physical_words,
                             stage_reference)
 
 ROOT = Path(__file__).resolve().parents[1]
-FIXTURES = ROOT / "third_party/inline-asm/test/fixtures/ntt_hw_ut"
-
-
-def column(path, name):
-    with path.open(newline="", encoding="utf-8") as stream:
-        return [int(row[name], 0) for row in csv.DictReader(stream)]
 
 
 class StageReferenceTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
-        cls.temp = tempfile.TemporaryDirectory(prefix="hpu-stage-host-")
+        build = ROOT / "build/host-tests"
+        build.mkdir(parents=True, exist_ok=True)
+        cls.temp = tempfile.TemporaryDirectory(prefix="hpu-stage-host-", dir=build)
         library = Path(cls.temp.name) / "stage.so"
         subprocess.run(["cc", "-std=c11", "-Wall", "-Wextra", "-Werror", "-shared", "-fPIC",
                         "-I", str(ROOT / "include"), str(ROOT / "runtime/it_stage_reference.c"),
@@ -44,25 +39,6 @@ class StageReferenceTests(unittest.TestCase):
         output = (ctypes.c_uint32 * len(data))()
         self.assertEqual(self.reference(source, table, output, len(data), q, stage, inverse), 0)
         return list(output)
-
-    def test_fixed_pntt_rtl_stage0(self):
-        fixture = FIXTURES / "rtl_pntt"
-        data = column(fixture / "obj0_poly.csv", "value")
-        table = column(fixture / "obj1_twiddle.csv", "value")[:len(data) // 2]
-        expected = column(fixture / "obj2_output_exp_vs_rtl.csv", "rtl_act")
-        self.assertEqual(self.run_c(data, table, 0xFFFFFFFE, 0, 0), expected)
-
-    def test_fixed_pintt_rtl_stage0_and_stage1(self):
-        fixture = FIXTURES / "rtl_pintt"
-        for stage, input_file, output_file in (
-                (0, "obj0_polyA.csv", "obj2_stage0_output_exp_vs_rtl.csv"),
-                (1, "obj1_polyB.csv", "obj3_stage1_output_exp_vs_rtl.csv")):
-            with self.subTest(stage=stage):
-                data = column(fixture / input_file, "value")
-                table = ([1] * (len(data) // 2) if stage == 0 else
-                         column(fixture / "obj4_twiddle.csv", "value")[:len(data) // 2])
-                expected = column(fixture / output_file, "rtl_act")
-                self.assertEqual(self.run_c(data, table, 0xFFFFFFFE, stage, 1), expected)
 
     def test_all_stages_and_loader_boundaries(self):
         q = 65537

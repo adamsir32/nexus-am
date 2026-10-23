@@ -32,14 +32,14 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 180
     env:
-      HPU_OUTPUT: ${{ github.workspace }}/tests/hpu_frontend_workload/build/runtime-delivery
-      TMPDIR: ${{ github.workspace }}/tests/hpu_frontend_workload/build/runtime-delivery/tmp
+      HPU_OUTPUT: ${{ github.workspace }}/tests/hputest/build/runtime-delivery
+      TMPDIR: ${{ github.workspace }}/tests/hputest/build/runtime-delivery/tmp
     steps:
       - uses: actions/checkout@v7
         with:
           persist-credentials: false
       - name: Initialize the pinned HPU API
-        run: git submodule update --init tests/hpu_frontend_workload/third_party/inline-asm
+        run: git submodule update --init tests/hputest/third_party/inline-asm
       - name: Install build dependencies
         run: |
           sudo apt-get update
@@ -49,18 +49,22 @@ jobs:
           df -h /tmp "$GITHUB_WORKSPACE"
           mkdir -p "$TMPDIR"
       - name: Check the runtime package boundary
-        run: python3 -m unittest discover -s tests/hpu_frontend_workload/scripts -p 'test_package_runtime.py'
+        run: make -C tests/hputest test
+      - name: Check owned source and canonical case catalog
+        run: |
+          python3 tests/hputest/scripts/audit_sources.py --repo "$GITHUB_WORKSPACE" \
+            --report "$HPU_OUTPUT/source-audit.tsv"
       # One sequential builder reuses the native producer and shared AM libraries.
       # Its explicit catalog excludes source, golden data, disassembly and extra variants.
       - name: Build groups 00 to 07 (ELF and BIN)
         run: |
-          python3 tests/hpu_frontend_workload/scripts/build-runtime.py \
+          python3 tests/hputest/scripts/build-runtime.py \
             --am-home "$GITHUB_WORKSPACE" \
-            --producer "$GITHUB_WORKSPACE/tests/hpu_frontend_workload/third_party/inline-asm" \
+            --producer "$GITHUB_WORKSPACE/tests/hputest/third_party/inline-asm" \
             --output "$HPU_OUTPUT" --jobs 4
       - name: Check that only catalog runtime files can be uploaded
         run: |
-          python3 tests/hpu_frontend_workload/scripts/package-runtime.py \
+          python3 tests/hputest/scripts/package-runtime.py \
             --catalog "$HPU_OUTPUT/runtime-cases.tsv" \
             --root "runtime=$HPU_OUTPUT/runtime" --check-tree --check-only
       - name: Upload the single runtime package

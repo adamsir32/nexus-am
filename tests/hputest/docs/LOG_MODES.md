@@ -1,68 +1,29 @@
-# 少打印与完全静默版本
+# 日志与静默构建
 
-默认不再逐轮打印配置、阶段、DMA计划、成功系数或比较成功统计。
-这次仅关闭日志开销，不减少用例轮数、数据量、指令序列、同步、golden或guard检查。
-不能根据聊天中的一个下标判断10M周期超时一定由UART造成：旧brief也可能打印很靠后的错误项，
-全量版则会依次打印全部4096项；UART不前进也可能卡在任意一次发送。
+统一构建器默认`LOG_LEVEL=1`：短开始/结束摘要、失败阶段/状态/首错，不打印每个成功系数。03保留定向用例额外报告子项身份；正常阶段保留RAM trace。07每个ELF只有一轮，正确性检查通过后统一打印cycle起止及差值，计时区间内不打印。
 
-## 三种模式
+`LOG_LEVEL=0`关闭目标程序UART输出，保留相同发令、同步、golden、guard、计时和退出行为。静默07仍保存`workload_trace.cycle_start/cycle_end`，但没有可解析的UART性能数值；需要收集数值时用默认版本。普通00～06不因阶段日志额外采样cycle。关闭日志不求值实参，测试步骤不放入日志宏。
 
-| HPU_LOG_LEVEL | HPU_DUMP_RESULTS | 行为 |
-| --- | --- | --- |
-| 0（silent） | 0 | 不打印；跳过AM串口初始化和输出；只保留原返回码与仿真结束指令 |
-| 1（minimal，默认） | 0 | HPU开始/最终PASS或FAIL；03独立子项额外一条固定编号记录；失败结果每块仅首错及总错误数；性能例外输出逐轮cycle及汇总，不打印其它用例的成功系数/每轮阶段 |
-| 2（verbose） | 0 | 详细配置/阶段/受限结果诊断，主要用于定位错误 |
-| 2（verbose） | 1 | 完整BEGIN/DATA/END逐项输出，最慢，仅按需使用 |
+## 下载与本地构建
 
-最小版仍可能有少量公共AM启动日志；完全不需要UART时请选择silent。
-除07组性能用例为度量工作显式读取cycle外，minimal/silent不再采样通用阶段cycle或写
-`mcounteren.CY`，也不计算只用于详细误差报告的差值除法。性能用例的silent版本仍执行
-同样的计时与正确性检查，但不经UART输出统计；应使用同构建的minimal版本读取数值。
-它们仍逐项读取并精确比较结果，不能把输出先取模或放宽误差来制造PASS。
-
-关闭的日志不求值实参；原报告的block递增已移出日志参数，避免静默后漏更新软件状态。
-关键CSR写读、自检、HPU发令、中断claim/clear及返回码均不放入可关闭的日志宏。
-
-## 下载包
-
-GitHub Actions只发布一个`nexus-am-hpu-tests`。普通minimal版本保留原文件名，真正无printf的
-版本在扩展名前加`_silent`，例如`foo.elf`和`foo_silent.elf`。03只发布37个独立子项，
-不发布原九个串行整例；其它章节使用原workload。11项未接入用例仍不发布占位二进制。
-
-`INDEX.tsv`记录每个文件的`variant/log_mode/uart_results`。各模式仍先在独立构建目录完成
-静态验证，再由组包器核对revision、producer、清单和文件集合后合并，防止混用。
-全量逐系数结果不放进默认下载包，需要时仍可在本地使用`make diagnostic`构建。
-
-## 本地构建
-
-首次准备同批数据（已经make all时可跳过）：
+Actions只交付一个`hpu`运行集合，按00～07目录放ELF+BIN。默认不混装silent、全量诊断或重复版本，也不把源码和golden放进下载包。
 
 ```bash
-export AM_HOME=/path/to/nexus-am
-make -C tests/hputest verify-inline-asm
-make -C tests/hputest all
-python3 tests/hputest/scripts/package-chapters.py tests/hputest/build/artifact --all
-make -C tests/hputest subtests
-make -C tests/hputest silent
-python3 tests/hputest/scripts/package-chapters.py tests/hputest/build/silent/artifact --silent
-make -C tests/hputest silent-subtests
-make -C tests/hputest unified
+# 默认短日志；输出目录必须是新目录
+make -C tests/hputest all OUTPUT_ROOT=/disk/hpu-minimal
+
+# 按需单独生成无UART包，不与默认交付混装
+make -C tests/hputest silent OUTPUT_ROOT=/disk/hpu-silent
+
+# 也可筛选同一参数/单例
+make -C tests/hputest one CASE_ID=03_010_padd_l1_n128 LOG_LEVEL=0 \
+  OUTPUT_ROOT=/disk/hpu-one-silent
 ```
 
-最终目录为`build/unified/release/hputest/`；其中保留并行运行脚本和四份输入构建清单。
-单例可使用`make one CASE=... HPU_LOG_LEVEL=0`；详细日志用`HPU_LOG_LEVEL=2`，
-只有同时显式设置`HPU_DUMP_RESULTS=1`才输出所有系数。
+内部低层日志头还支持按需详细诊断宏，但统一交付入口只接受0/1；旧`diagnostic/subtests/unified`构建和多包拼装入口已删除，不再作为当前用法。
 
-## 如何判定结果
+## 结果判定
 
-静默仅影响ELF中执行的printf/UART，不关闭仿真器自身的日志与PASS/FAIL报告。
-有限用例依旧通过`main()`的0/非0及原`_halt`指令上报；超时、无日志不等于PASS。
-无限等待看波形的`00_01`和故意return1的`00_11`探针仍保持原特殊行为。
-并行脚本的进程exit0仍不是用例PASS，需核对IT的终止结果。
+静默只影响ELF中的UART，不关闭仿真器自己的日志。构建器检查无输出空桩及最终ELF停止指令，不修改公共AM/klib或RTL。有限用例仍通过`main()`返回0/非0上报结果；无日志、进程exit0或耗尽cycle预算都不能单独算PASS。
 
-静默构建不修改共享AM/klib或RTL：在链接阶段使用无输出空桩封住真实`printf_`、printf系列、
-字符输出及UART初始化，并在每个最终ELF中静态检查真正的格式化器/输出驱动已排除、空桩无UART访问，
-同时验证原`_halt`停止指令仍存在。验证涵盖当前主清单和37个subtest；不代表已在VCS执行通过。
-
-如果静默版仍超时，应继续区分计算/等待/硬件故障，而不是无限增加cycle-limit或删自检。
-需要定位时再用同版本的minimal或verbose单子项复现，并保留实际用例ID、log_mode、cycle-limit和simv版本。
+`00_01`发令后无限保持、`00_11`故意返回1的探针仍维持特殊验收方式。日志减量不意味着这些探针会正常PASS，也不意味着运行过RTL/FPGA。若静默仍超时，应区分计算、等待和硬件故障，不删自检或无限加预算。

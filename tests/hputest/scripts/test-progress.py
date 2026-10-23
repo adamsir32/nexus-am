@@ -46,7 +46,11 @@ int main(int argc, char **argv) {
         samples[1] = 5U;
     }
     const char *case_name = strcmp(mode, "numbered") == 0
-        ? "tests/hputest/src/03_compute_instructions/01_basic/03_01_padd.c" : "CASE";
+        ? "03_01_padd.c"
+        : strcmp(mode, "numbered-three") == 0
+        ? "tests/hputest/src/03_instructions/directed/03_005_pntt.c"
+        : strcmp(mode, "numbered-four-invalid") == 0
+        ? "03_0005_pntt.c" : "CASE";
     int rc = progress_begin(strcmp(mode, "badid") == 0 ? NULL : case_name, count);
     if (strcmp(mode, "invalid") == 0 || strcmp(mode, "badid") == 0) {
         assert(rc == 1);
@@ -71,7 +75,7 @@ int main(int argc, char **argv) {
     if (strcmp(mode, "all") == 0) {
         for (unsigned index = 0U; index < count; ++index)
             assert(subcase_selected(index) == 1);
-    } else if (strcmp(mode, "selected") == 0) {
+    } else if (strcmp(mode, "selected") == 0 || strncmp(mode, "numbered", 8U) == 0) {
         unsigned chosen = (unsigned)strtoul(arguments + 8, NULL, 10);
         for (unsigned index = 0U; index < count; ++index)
             assert(subcase_selected(index) == (index == chosen));
@@ -196,6 +200,23 @@ class ProgressTests(unittest.TestCase):
                     else:
                         self.assertIn(f"[HPU][SUBTEST] id=03_01_{index + 1:02d} subcase={index}", output)
                         self.assertEqual(output.count("[HPU][SUBTEST]"), 1)
+
+    def test_three_digit_canonical_identity_preserves_selection_and_cycle_behavior(self):
+        for level in (0, 1, 2):
+            for index in (0, 2, 3):
+                with self.subTest(level=level, index=index):
+                    output = self.run_case(f"subcase={index}", 4, "numbered-three", level)
+                    if level == 0:
+                        self.assertEqual(output, "")
+                    else:
+                        self.assertIn(f"[HPU][SUBTEST] id=03_005_{index + 1:02d} subcase={index}", output)
+                        self.assertEqual(output.count("[HPU][SUBTEST]"), 1)
+
+    def test_four_digit_string_is_not_misreported_as_a_three_digit_case(self):
+        for level in (0, 1, 2):
+            with self.subTest(level=level):
+                output = self.run_case("subcase=2", 4, "numbered-four-invalid", level)
+                self.assertNotIn("[HPU][SUBTEST]", output)
 
 
 if __name__ == "__main__":

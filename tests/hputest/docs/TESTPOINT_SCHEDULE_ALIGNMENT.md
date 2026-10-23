@@ -1,25 +1,24 @@
 # HPU 测试点、甘特图与冒烟用例对齐
 
 本文固定 Nexus-AM HPU 测试源码、测试点文档和项目甘特图之间的命名关系。
-机器可检查的父用例清单是[`cases.tsv`](../cases.tsv)，03独立入口见`subtests/cases.tsv`。
+唯一机器清单是[`cases.tsv`](../cases.tsv)，不再另维护旧编号子项清单。
 计划表每行填写清单中的短名`case_id`和源码路径；命名及旧名追溯见[整理说明](TEST_ORGANIZATION.md)。
 
 ## 1. 测试类别
 
 | 甘特图类别 | 源码目录 | 测试点数 | 测试点 ID |
 |---|---|---:|---|
-| 配置、正常连接与数据通路 | `src/01_configuration_and_data_paths` | 8 | `01_01_mmio_rw`、`01_06_dma_loopback`等 |
-| 边界、RISC-V交叉与故障 | `src/02_boundaries_and_cpu_interaction` | 22 | `02_01_window_bounds`、`02_11_cmd_burst_8`、`02_17_watchdog_failstop`等 |
-| 指令测试 | `src/03_compute_instructions` | 9 | `03_01_padd`至`03_09_pfree`；交付37项`03_父用例号_子项号_行为` |
-| 基本算子/指令链测试 | `src/04_composite_instruction_sequences` | 11 | `04_01_bconv_q4_to_p3_n4096`、`04_05_ckks_keyswitch_n4096`等 |
-| 算法库接口/参数回归 | `src/05_algorithm_library` | 39 | 30项标准接口、7项不同参数、2项待接入；名称为`05_用例号_算法_行为_规模` |
-| 应用测试 | `src/06_full_application` | 9 | `06_01_ckks_x2_add1_n65536`、`06_03_bfv_mul_chain_n128`等 |
-| 性能测试 | `src/07_performance` | 6 | `07_01_ntt_n4096`、`07_02_intt_n4096`等，4项未接入 |
+| 配置、正常连接与数据通路 | `src/01_connection` | 8 | `01_01_mmio_rw`、`01_06_dma_loopback`等 |
+| 边界、RISC-V交叉与故障 | `src/02_boundary` | 16 | `02_01_window_bounds`、`02_11_cmd_burst_8`等；watchdog条件实验独立存放 |
+| 指令测试 | `src/03_instructions` | 189 | 9项保留定向，180项N/level矩阵；`03_001`至`03_189` |
+| 基本/组合算子 | `src/04_operators` | 120 | NTT/INTT/BConv与三算法KeySwitch的N/level矩阵 |
+| 算法库接口/参数回归 | `src/05_library` | 287 | 280项有效参数组合与7项CF/特殊旋转回归 |
+| 应用测试 | `src/06_applications` | 8 | 直接使用上游完整应用；另6项API诊断按需构建 |
+| 性能测试 | `src/07_performance` | 72 | 四种N、三算法、六项操作，单ELF一轮计时 |
 
-以上共104个后续用例。`src/00_bringup`下的9个冒烟用例和2个
-`main()`返回值探针是上板/仿真辅助程序，不应在甘特图中重复计为这104个IT
-测试点。测试是否已经具备真实指令和 self-check，还必须同时查看 `cases.tsv` 的
-`qualifier`；`blocked-not-issued` 不能因为排进甘特图就改写成已完成。
+以上共700项，加`src/00_smoke`的9个冒烟和2个返回值探针，默认711项。
+不同参数组合不等于711种结构覆盖；是否需要monitor、负向预期或特殊结束方式，仍须查看清单`qualifier`。
+未实现/未接入项不发布占位二进制，不能因列入计划而标为完成。
 
 ## 2. 冒烟用例的当前名称
 

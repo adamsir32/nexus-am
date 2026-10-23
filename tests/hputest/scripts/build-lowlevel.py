@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""顺序构建00～03组已实现的44项，仅导出ELF/BIN。"""
+"""按唯一清单顺序构建低层定向用例，仅导出ELF/BIN。"""
 
 import argparse
 import csv
@@ -23,21 +23,16 @@ def require(condition, message):
 
 
 def selected_cases(root):
-    # 清单显式限定已迁移用例，不包含大规模、未实现或旧watchdog依赖用例。
-    limits = {"00": 11, "01": 8, "02": 16, "03": 9}
-    cases = []
+    # kind明确区分定向C用例和新的03指令矩阵，不凭旧编号范围猜测归属。
     with (root / "cases.tsv").open(newline="", encoding="utf-8") as stream:
-        for row in csv.DictReader(stream, delimiter="\t"):
-            match = re.fullmatch(r"(0[0-3])_(\d{2})_.+", row["case_id"])
-            if match and 1 <= int(match[2]) <= limits[match[1]]:
-                cases.append({**row, "group": match[1]})
-    require(len(cases) == 44 and len({row["case_id"] for row in cases}) == 44,
-            "低层清单必须恰好包含44项且case_id唯一")
+        cases = [row for row in csv.DictReader(stream, delimiter="\t") if row["kind"] == "lowlevel"]
+    require(cases and len({row["case_id"] for row in cases}) == len(cases),
+            "低层清单为空或case_id重复")
     return cases
 
 
 def prepare(args):
-    expected = json.loads((args.am_home / "tests/hpu_frontend_workload/producer.json").read_text())["commit"]
+    expected = json.loads((ROOT / "producer.json").read_text())["commit"]
     actual_commit = subprocess.check_output(
         ["git", "-C", args.producer, "rev-parse", "HEAD"], text=True).strip()
     require(actual_commit == expected, "低层producer路径不是当前固定新版提交")
@@ -74,13 +69,7 @@ def verify_elf(path, cross, allowed):
 
 
 def degree(row):
-    case_id = row["case_id"]
-    if row["group"] == "03":
-        return 4096
-    if row["group"] == "00" and int(case_id[3:5]) in (1, 3, 5, 6, 7, 8, 9):
-        return 4096
-    # 配置、不同长度DMA与CPU交互不宣称单一多项式规模。
-    return 0
+    return int(row.get("degree") or 0)
 
 
 def build_case(args, row, allowed):
@@ -94,20 +83,24 @@ def build_case(args, row, allowed):
                "-f", "Makefile.case", "image", f"AM_HOME={args.am_home}", f"ARCH={args.arch}",
                f"CROSS_COMPILE={args.cross}", "LINUX_GNU_TOOLCHAIN=1", f"CASE_ID={case_id}",
                f"CASE_SOURCE={source}", f"HPU_DST_DIR={objects}",
-               f"HPU_GENERATED_ROOT={args.generated}", f"BINARY={binary}", "HPU_LOG_LEVEL=1"]
+               f"HPU_GENERATED_ROOT={args.generated}", f"CASE_BINARY={binary}",
+               f"HPU_LOG_LEVEL={getattr(args, 'log_level', 1)}"]
     with log.open("w", encoding="utf-8") as stream:
         result = subprocess.run([str(value) for value in command], stdout=stream, stderr=subprocess.STDOUT)
         require(result.returncode == 0, f"{case_id}构建失败，详见{log}")
         subprocess.run([args.cross + "strip", "--strip-debug", str(binary) + ".elf"],
                        check=True, stdout=stream, stderr=subprocess.STDOUT)
     count = verify_elf(Path(str(binary) + ".elf"), args.cross, allowed)
+    if getattr(args, "log_level", 1) == 0:
+        subprocess.run([sys.executable, ROOT / "scripts/verify-silent-elf.py", "--elf", str(binary) + ".elf",
+                        "--cross-compile", args.cross], check=True)
     destination = args.output / "runtime" / row["group"]
     destination.mkdir(parents=True, exist_ok=True)
     for extension in ("elf", "bin"):
         shutil.copyfile(str(binary) + "." + extension, destination / (case_id + "." + extension))
     return {"group": row["group"], "case_id": case_id, "producer": "runtime",
             "elf": f'{row["group"]}/{case_id}.elf', "bin": f'{row["group"]}/{case_id}.bin',
-            "degree": degree(row), "level": "", "qualifier": row["qualifier"]}, count
+            "degree": degree(row), "level": int(row.get("level") or 0), "qualifier": row["qualifier"]}, count
 
 
 def main():
@@ -117,6 +110,7 @@ def main():
     parser.add_argument("--jobs", type=int, default=4)
     parser.add_argument("--cross", default=os.environ.get("CROSS_COMPILE", "riscv64-linux-gnu-"))
     parser.add_argument("--arch", default="riscv64-xs", choices=["riscv64-xs"])
+    parser.add_argument("--log-level", type=int, choices=(0, 1), default=1)
     args = parser.parse_args()
     require(args.jobs > 0, "jobs必须为正整数")
     args.generated = args.generated or args.output / "generated"
@@ -128,12 +122,12 @@ def main():
     for index, case in enumerate(cases, 1):
         row, count = build_case(args, case, allowed)
         rows.append(row)
-        print(f"[{index}/44] {row['case_id']} ELF/BIN通过，原生HPU机器字{count}条", flush=True)
+        print(f"[{index}/{len(cases)}] {row['case_id']} ELF/BIN通过，原生HPU机器字{count}条", flush=True)
     with (args.output / "lowlevel-cases.tsv").open("w", newline="", encoding="utf-8") as stream:
         writer = csv.DictWriter(stream, fieldnames=FIELDS, delimiter="\t")
         writer.writeheader()
         writer.writerows(rows)
-    print("44项低层用例构建及机器字验证完成；未运行RTL。")
+    print(f"{len(cases)}项低层用例构建及机器字验证完成；未运行RTL。")
 
 
 if __name__ == "__main__":

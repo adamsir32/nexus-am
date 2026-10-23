@@ -1,0 +1,341 @@
+old_case_id	case_id	status	note
+00_01_dload_hold	00_01_dload_hold	retained	原定向逻辑保留，目录与编号统一
+00_02_mmio_rw	00_02_mmio_rw	retained	原定向逻辑保留，目录与编号统一
+00_03_dload_mmio	00_03_dload_mmio	retained	原定向逻辑保留，目录与编号统一
+00_04_psync_irq	00_04_psync_irq	retained	原定向逻辑保留，目录与编号统一
+00_05_dload_irq	00_05_dload_irq	retained	原定向逻辑保留，目录与编号统一
+00_06_loopback_mmio	00_06_loopback_mmio	retained	原定向逻辑保留，目录与编号统一
+00_07_loopback_irq	00_07_loopback_irq	retained	原定向逻辑保留，目录与编号统一
+00_08_compute_irq	00_08_compute_irq	retained	原定向逻辑保留，目录与编号统一
+00_09_compute_mmio	00_09_compute_mmio	retained	原定向逻辑保留，目录与编号统一
+00_10_return_0	00_10_return_0	retained	原定向逻辑保留，目录与编号统一
+00_11_return_1	00_11_return_1	retained	原定向逻辑保留，目录与编号统一
+01_01_mmio_rw	01_01_mmio_rw	retained	原定向逻辑保留，目录与编号统一
+01_02_window_commit	01_02_window_commit	retained	原定向逻辑保留，目录与编号统一
+01_03_dma_busy_transition	01_03_dma_busy_transition	retained	原定向逻辑保留，目录与编号统一
+01_04_cmd_handshake	01_04_cmd_handshake	retained	原定向逻辑保留，目录与编号统一
+01_05_dma_arg_pair	01_05_dma_arg_pair	retained	原定向逻辑保留，目录与编号统一
+01_06_dma_loopback	01_06_dma_loopback	retained	原定向逻辑保留，目录与编号统一
+01_07_compute_writeback	01_07_compute_writeback	retained	原定向逻辑保留，目录与编号统一
+01_08_channel_loopback	01_08_channel_loopback	retained	原定向逻辑保留，目录与编号统一
+02_01_window_bounds	02_01_window_bounds	retained	原定向逻辑保留，目录与编号统一
+02_02_window_write_order	02_02_window_write_order	retained	原定向逻辑保留，目录与编号统一
+02_03_object_isolation	02_03_object_isolation	retained	原定向逻辑保留，目录与编号统一
+02_04_psync_rearm_mmio	02_04_psync_rearm_mmio	retained	原定向逻辑保留，目录与编号统一
+02_05_dload_window_fault	02_05_dload_window_fault	retained	原定向逻辑保留，目录与编号统一
+02_06_cmd_timing	02_06_cmd_timing	retained	原定向逻辑保留，目录与编号统一
+02_07_cmd_queue_8_plus_1	02_07_cmd_queue_8_plus_1	retained	原定向逻辑保留，目录与编号统一
+02_08_channel_timing	02_08_channel_timing	retained	原定向逻辑保留，目录与编号统一
+02_09_cpu_hpu_config_mix	02_09_cpu_hpu_config_mix	retained	原定向逻辑保留，目录与编号统一
+02_10_cmd_burst_1	02_10_cmd_burst_1	retained	原定向逻辑保留，目录与编号统一
+02_11_cmd_burst_8	02_11_cmd_burst_8	retained	原定向逻辑保留，目录与编号统一
+02_12_cmd_burst_9	02_12_cmd_burst_9	retained	原定向逻辑保留，目录与编号统一
+02_13_cmd_burst_32	02_13_cmd_burst_32	retained	原定向逻辑保留，目录与编号统一
+02_14_cmd_burst_64	02_14_cmd_burst_64	retained	原定向逻辑保留，目录与编号统一
+02_15_cpu_hpu_alu_mix	02_15_cpu_hpu_alu_mix	retained	原定向逻辑保留，目录与编号统一
+02_16_cpu_hpu_mem_branch_mix	02_16_cpu_hpu_mem_branch_mix	retained	原定向逻辑保留，目录与编号统一
+03_01_padd	03_001_padd	retained	原定向逻辑保留，目录与编号统一
+03_02_psub	03_002_psub	retained	原定向逻辑保留，目录与编号统一
+03_03_pmul	03_003_pmul	retained	原定向逻辑保留，目录与编号统一
+03_04_pmac	03_004_pmac	retained	原定向逻辑保留，目录与编号统一
+03_05_pntt	03_005_pntt	retained	原定向逻辑保留，目录与编号统一
+03_06_pintt	03_006_pintt	retained	原定向逻辑保留，目录与编号统一
+03_07_pmodld	03_007_pmodld	retained	原定向逻辑保留，目录与编号统一
+03_08_psync	03_008_psync	retained	原定向逻辑保留，目录与编号统一
+03_09_pfree	03_009_pfree	retained	原定向逻辑保留，目录与编号统一
+05_31_bgv_hadd_cf3_cf5_n4096	05_281_bgv_hadd_cf3_cf5_l3_n4096	migrated	保留特殊参数回归，区别于标准library矩阵
+05_32_bgv_hmul_reline_cf3_cf5_n4096	05_282_bgv_hmul_reline_cf3_cf5_l3_n4096	migrated	保留特殊参数回归，区别于标准library矩阵
+05_33_bgv_reline_cf15_n4096	05_283_bgv_reline_cf15_l3_n4096	migrated	保留特殊参数回归，区别于标准library矩阵
+05_34_bgv_modswitch_cf3_n4096	05_284_bgv_modswitch_cf3_l3_n4096	migrated	保留特殊参数回归，区别于标准library矩阵
+05_35_ckks_rotate_gen3_step1_n4096	05_286_ckks_rotate_gen3_step1_l4_n4096	migrated	保留特殊参数回归，区别于标准library矩阵
+05_36_bfv_rotate_gen3_step1_n4096	05_287_bfv_rotate_gen3_step1_l4_n4096	migrated	保留特殊参数回归，区别于标准library矩阵
+05_37_bgv_rotate_gen3_step1_cf3_n4096	05_285_bgv_rotate_gen3_step1_cf3_l3_n4096	migrated	保留特殊参数回归，区别于标准library矩阵
+04_01_bconv_q4_to_p3_n4096	04_091_bconv_l4_n4096	migrated	测试职责迁入统一N/L矩阵，参数以新清单为准
+04_02_ntt_n4096	04_074_ntt_l1_n4096	migrated	测试职责迁入统一N/L矩阵，参数以新清单为准
+04_03_intt_n4096	04_075_intt_l1_n4096	migrated	测试职责迁入统一N/L矩阵，参数以新清单为准
+04_04_ckks_keyswitch_n128	04_022_ckks_keyswitch_l4_n128	migrated	测试职责迁入统一N/L矩阵，参数以新清单为准
+04_05_ckks_keyswitch_n4096	04_094_ckks_keyswitch_l4_n4096	migrated	测试职责迁入统一N/L矩阵，参数以新清单为准
+04_06_bfv_keyswitch_n128	04_023_bfv_keyswitch_l4_n128	migrated	测试职责迁入统一N/L矩阵，参数以新清单为准
+04_07_bfv_keyswitch_n4096	04_095_bfv_keyswitch_l4_n4096	migrated	测试职责迁入统一N/L矩阵，参数以新清单为准
+04_08_bgv_keyswitch_n128	04_018_bgv_keyswitch_l3_n128	migrated	测试职责迁入统一N/L矩阵，参数以新清单为准
+04_09_bgv_keyswitch_n4096	04_090_bgv_keyswitch_l3_n4096	migrated	测试职责迁入统一N/L矩阵，参数以新清单为准
+05_01_ckks_hadd_n128	05_042_ckks_hadd_l4_n128	migrated	测试职责迁入统一N/L矩阵，参数以新清单为准
+05_02_ckks_hmul_reline_n128	05_043_ckks_hmul_reline_l4_n128	migrated	测试职责迁入统一N/L矩阵，参数以新清单为准
+05_03_ckks_reline_n128	05_044_ckks_reline_l4_n128	migrated	测试职责迁入统一N/L矩阵，参数以新清单为准
+05_04_ckks_rescale_n128	05_045_ckks_rescale_l4_n128	migrated	测试职责迁入统一N/L矩阵，参数以新清单为准
+05_05_ckks_rotate_n128	05_046_ckks_rotate_l4_n128	migrated	测试职责迁入统一N/L矩阵，参数以新清单为准
+05_06_ckks_hadd_n4096	05_210_ckks_hadd_l4_n4096	migrated	测试职责迁入统一N/L矩阵，参数以新清单为准
+05_07_ckks_hmul_reline_n4096	05_211_ckks_hmul_reline_l4_n4096	migrated	测试职责迁入统一N/L矩阵，参数以新清单为准
+05_08_ckks_reline_n4096	05_212_ckks_reline_l4_n4096	migrated	测试职责迁入统一N/L矩阵，参数以新清单为准
+05_09_ckks_rescale_n4096	05_213_ckks_rescale_l4_n4096	migrated	测试职责迁入统一N/L矩阵，参数以新清单为准
+05_10_ckks_rotate_n4096	05_214_ckks_rotate_l4_n4096	migrated	测试职责迁入统一N/L矩阵，参数以新清单为准
+05_11_bfv_hadd_n128	05_047_bfv_hadd_l4_n128	migrated	测试职责迁入统一N/L矩阵，参数以新清单为准
+05_12_bfv_hmul_reline_n128	05_048_bfv_hmul_reline_l4_n128	migrated	测试职责迁入统一N/L矩阵，参数以新清单为准
+05_13_bfv_reline_n128	05_049_bfv_reline_l4_n128	migrated	测试职责迁入统一N/L矩阵，参数以新清单为准
+05_14_bfv_modswitch_n128	05_050_bfv_modswitch_l4_n128	migrated	测试职责迁入统一N/L矩阵，参数以新清单为准
+05_15_bfv_rotate_n128	05_051_bfv_rotate_l4_n128	migrated	测试职责迁入统一N/L矩阵，参数以新清单为准
+05_16_bfv_hadd_n4096	05_215_bfv_hadd_l4_n4096	migrated	测试职责迁入统一N/L矩阵，参数以新清单为准
+05_17_bfv_hmul_reline_n4096	05_216_bfv_hmul_reline_l4_n4096	migrated	测试职责迁入统一N/L矩阵，参数以新清单为准
+05_18_bfv_reline_n4096	05_217_bfv_reline_l4_n4096	migrated	测试职责迁入统一N/L矩阵，参数以新清单为准
+05_19_bfv_modswitch_n4096	05_218_bfv_modswitch_l4_n4096	migrated	测试职责迁入统一N/L矩阵，参数以新清单为准
+05_20_bfv_rotate_n4096	05_219_bfv_rotate_l4_n4096	migrated	测试职责迁入统一N/L矩阵，参数以新清单为准
+05_21_bgv_hadd_n128	05_037_bgv_hadd_l3_n128	migrated	测试职责迁入统一N/L矩阵，参数以新清单为准
+05_22_bgv_hmul_reline_n128	05_038_bgv_hmul_reline_l3_n128	migrated	测试职责迁入统一N/L矩阵，参数以新清单为准
+05_23_bgv_reline_n128	05_039_bgv_reline_l3_n128	migrated	测试职责迁入统一N/L矩阵，参数以新清单为准
+05_24_bgv_modswitch_n128	05_040_bgv_modswitch_l3_n128	migrated	测试职责迁入统一N/L矩阵，参数以新清单为准
+05_25_bgv_rotate_n128	05_041_bgv_rotate_l3_n128	migrated	测试职责迁入统一N/L矩阵，参数以新清单为准
+05_26_bgv_hadd_n4096	05_205_bgv_hadd_l3_n4096	migrated	测试职责迁入统一N/L矩阵，参数以新清单为准
+05_27_bgv_hmul_reline_n4096	05_206_bgv_hmul_reline_l3_n4096	migrated	测试职责迁入统一N/L矩阵，参数以新清单为准
+05_28_bgv_reline_n4096	05_207_bgv_reline_l3_n4096	migrated	测试职责迁入统一N/L矩阵，参数以新清单为准
+05_29_bgv_modswitch_n4096	05_208_bgv_modswitch_l3_n4096	migrated	测试职责迁入统一N/L矩阵，参数以新清单为准
+05_30_bgv_rotate_n4096	05_209_bgv_rotate_l3_n4096	migrated	测试职责迁入统一N/L矩阵，参数以新清单为准
+02_17_watchdog_failstop		retired	高N/高level、旧重复包装或未启用条件用例；仅可从Git历史回查
+02_18_watchdog_compute_before_dload		retired	高N/高level、旧重复包装或未启用条件用例；仅可从Git历史回查
+02_19_watchdog_pmodld_before_dload		retired	高N/高level、旧重复包装或未启用条件用例；仅可从Git历史回查
+02_20_wrong_path		retired	高N/高level、旧重复包装或未启用条件用例；仅可从Git历史回查
+02_21_exception_privilege		retired	高N/高level、旧重复包装或未启用条件用例；仅可从Git历史回查
+02_22_random_cpu_hpu_mix		retired	高N/高level、旧重复包装或未启用条件用例；仅可从Git历史回查
+03_10_padd_n65536		retired	高N/高level、旧重复包装或未启用条件用例；仅可从Git历史回查
+03_11_psub_n65536		retired	高N/高level、旧重复包装或未启用条件用例；仅可从Git历史回查
+03_12_pmul_n65536		retired	高N/高level、旧重复包装或未启用条件用例；仅可从Git历史回查
+03_13_pmac_n65536		retired	高N/高level、旧重复包装或未启用条件用例；仅可从Git历史回查
+03_14_pntt_n65536		retired	高N/高level、旧重复包装或未启用条件用例；仅可从Git历史回查
+03_15_pintt_n65536		retired	高N/高level、旧重复包装或未启用条件用例；仅可从Git历史回查
+03_16_pmodld_n65536		retired	高N/高level、旧重复包装或未启用条件用例；仅可从Git历史回查
+03_17_psync_n65536		retired	高N/高level、旧重复包装或未启用条件用例；仅可从Git历史回查
+03_18_pfree_n65536		retired	高N/高level、旧重复包装或未启用条件用例；仅可从Git历史回查
+04_10_legacy_auto_n4096		retired	高N/高level、旧重复包装或未启用条件用例；仅可从Git历史回查
+04_11_instruction_chain		retired	高N/高level、旧重复包装或未启用条件用例；仅可从Git历史回查
+04_12_bconv_n65536		retired	高N/高level、旧重复包装或未启用条件用例；仅可从Git历史回查
+04_13_ntt_n65536		retired	高N/高level、旧重复包装或未启用条件用例；仅可从Git历史回查
+04_14_intt_n65536		retired	高N/高level、旧重复包装或未启用条件用例；仅可从Git历史回查
+04_15_ckks_keyswitch_n65536		retired	高N/高level、旧重复包装或未启用条件用例；仅可从Git历史回查
+04_16_bfv_keyswitch_n65536		retired	高N/高level、旧重复包装或未启用条件用例；仅可从Git历史回查
+04_17_bgv_keyswitch_n65536		retired	高N/高level、旧重复包装或未启用条件用例；仅可从Git历史回查
+04_18_legacy_auto_n65536		retired	高N/高level、旧重复包装或未启用条件用例；仅可从Git历史回查
+05_38_encode_pending		retired	高N/高level、旧重复包装或未启用条件用例；仅可从Git历史回查
+05_39_bootstrap_pending		retired	高N/高level、旧重复包装或未启用条件用例；仅可从Git历史回查
+05_40_ckks_hadd_n65536		retired	高N/高level、旧重复包装或未启用条件用例；仅可从Git历史回查
+05_41_ckks_hmul_reline_n65536		retired	高N/高level、旧重复包装或未启用条件用例；仅可从Git历史回查
+05_42_ckks_reline_n65536		retired	高N/高level、旧重复包装或未启用条件用例；仅可从Git历史回查
+05_43_ckks_rescale_n65536		retired	高N/高level、旧重复包装或未启用条件用例；仅可从Git历史回查
+05_44_ckks_rotate_n65536		retired	高N/高level、旧重复包装或未启用条件用例；仅可从Git历史回查
+05_45_bfv_hadd_n65536		retired	高N/高level、旧重复包装或未启用条件用例；仅可从Git历史回查
+05_46_bfv_hmul_reline_n65536		retired	高N/高level、旧重复包装或未启用条件用例；仅可从Git历史回查
+05_47_bfv_reline_n65536		retired	高N/高level、旧重复包装或未启用条件用例；仅可从Git历史回查
+05_48_bfv_modswitch_n65536		retired	高N/高level、旧重复包装或未启用条件用例；仅可从Git历史回查
+05_49_bfv_rotate_n65536		retired	高N/高level、旧重复包装或未启用条件用例；仅可从Git历史回查
+05_50_bgv_hadd_n65536		retired	高N/高level、旧重复包装或未启用条件用例；仅可从Git历史回查
+05_51_bgv_hmul_reline_n65536		retired	高N/高level、旧重复包装或未启用条件用例；仅可从Git历史回查
+05_52_bgv_reline_n65536		retired	高N/高level、旧重复包装或未启用条件用例；仅可从Git历史回查
+05_53_bgv_modswitch_n65536		retired	高N/高level、旧重复包装或未启用条件用例；仅可从Git历史回查
+05_54_bgv_rotate_n65536		retired	高N/高level、旧重复包装或未启用条件用例；仅可从Git历史回查
+06_01_ckks_x2_add1_n65536		retired	高N/高level、旧重复包装或未启用条件用例；仅可从Git历史回查
+06_02_ckks_rotate_conj_mul_add_n128	06_02_ckks_rotate_conj_mul_add_n128	retained	继续使用
+06_03_bfv_mul_chain_n128	06_03_bfv_mul_chain_n128	retained	继续使用
+06_04_bfv_rotate_chain_n128	06_04_bfv_rotate_chain_n128	retained	继续使用
+06_05_bgv_plain_chain_n128	06_05_bgv_plain_chain_n128	retained	继续使用
+06_06_bgv_rotate_chain_n128	06_06_bgv_rotate_chain_n128	retained	继续使用
+06_07_bgv_mul_chain_n128	06_07_bgv_mul_chain_n128	retained	继续使用
+06_08_bgv_rotate_mul_chain_n128	06_08_bgv_rotate_mul_chain_n128	retained	继续使用
+06_09_mul_add_reduction_pending		retired	高N/高level、旧重复包装或未启用条件用例；仅可从Git历史回查
+07_01_ntt_l1_n4096		retired	高N/高level、旧重复包装或未启用条件用例；仅可从Git历史回查
+07_02_intt_l1_n4096		retired	高N/高level、旧重复包装或未启用条件用例；仅可从Git历史回查
+07_03_bconv_l4_n4096		retired	高N/高level、旧重复包装或未启用条件用例；仅可从Git历史回查
+07_04_ckks_keyswitch_l4_n4096		retired	高N/高level、旧重复包装或未启用条件用例；仅可从Git历史回查
+07_05_ckks_hmul_reline_l4_n4096		retired	高N/高level、旧重复包装或未启用条件用例；仅可从Git历史回查
+07_06_ckks_reline_l4_n4096		retired	高N/高level、旧重复包装或未启用条件用例；仅可从Git历史回查
+07_07_bfv_keyswitch_l4_n4096		retired	高N/高level、旧重复包装或未启用条件用例；仅可从Git历史回查
+07_08_bgv_keyswitch_l3_n4096		retired	高N/高level、旧重复包装或未启用条件用例；仅可从Git历史回查
+07_09_legacy_auto_l4_n4096		retired	高N/高level、旧重复包装或未启用条件用例；仅可从Git历史回查
+07_10_ckks_hadd_l4_n4096		retired	高N/高level、旧重复包装或未启用条件用例；仅可从Git历史回查
+07_11_ckks_rescale_l4_n4096		retired	高N/高level、旧重复包装或未启用条件用例；仅可从Git历史回查
+07_12_ckks_rotate_l4_n4096		retired	高N/高level、旧重复包装或未启用条件用例；仅可从Git历史回查
+07_13_bfv_hadd_l4_n4096		retired	高N/高level、旧重复包装或未启用条件用例；仅可从Git历史回查
+07_14_bfv_hmul_reline_l4_n4096		retired	高N/高level、旧重复包装或未启用条件用例；仅可从Git历史回查
+07_15_bfv_reline_l4_n4096		retired	高N/高level、旧重复包装或未启用条件用例；仅可从Git历史回查
+07_16_bfv_modswitch_l4_n4096		retired	高N/高level、旧重复包装或未启用条件用例；仅可从Git历史回查
+07_17_bfv_rotate_l4_n4096		retired	高N/高level、旧重复包装或未启用条件用例；仅可从Git历史回查
+07_18_bgv_hadd_l3_n4096		retired	高N/高level、旧重复包装或未启用条件用例；仅可从Git历史回查
+07_19_bgv_hmul_reline_l3_n4096		retired	高N/高level、旧重复包装或未启用条件用例；仅可从Git历史回查
+07_20_bgv_reline_l3_n4096		retired	高N/高level、旧重复包装或未启用条件用例；仅可从Git历史回查
+07_21_bgv_modswitch_l3_n4096		retired	高N/高level、旧重复包装或未启用条件用例；仅可从Git历史回查
+07_22_bgv_rotate_l3_n4096		retired	高N/高level、旧重复包装或未启用条件用例；仅可从Git历史回查
+07_23_ckks_keyswitch_l16_n4096		retired	高N/高level、旧重复包装或未启用条件用例；仅可从Git历史回查
+07_24_ckks_hmul_reline_l16_n4096		retired	高N/高level、旧重复包装或未启用条件用例；仅可从Git历史回查
+07_25_ckks_reline_l16_n4096		retired	高N/高level、旧重复包装或未启用条件用例；仅可从Git历史回查
+07_26_bfv_keyswitch_l16_n4096		retired	高N/高level、旧重复包装或未启用条件用例；仅可从Git历史回查
+07_27_bgv_keyswitch_l16_n4096		retired	高N/高level、旧重复包装或未启用条件用例；仅可从Git历史回查
+07_28_ckks_hadd_l16_n4096		retired	高N/高level、旧重复包装或未启用条件用例；仅可从Git历史回查
+07_29_ckks_rescale_l16_n4096		retired	高N/高level、旧重复包装或未启用条件用例；仅可从Git历史回查
+07_30_ckks_rotate_l16_n4096		retired	高N/高level、旧重复包装或未启用条件用例；仅可从Git历史回查
+07_31_bfv_hadd_l16_n4096		retired	高N/高level、旧重复包装或未启用条件用例；仅可从Git历史回查
+07_32_bfv_hmul_reline_l16_n4096		retired	高N/高level、旧重复包装或未启用条件用例；仅可从Git历史回查
+07_33_bfv_reline_l16_n4096		retired	高N/高level、旧重复包装或未启用条件用例；仅可从Git历史回查
+07_34_bfv_modswitch_l16_n4096		retired	高N/高level、旧重复包装或未启用条件用例；仅可从Git历史回查
+07_35_bfv_rotate_l16_n4096		retired	高N/高level、旧重复包装或未启用条件用例；仅可从Git历史回查
+07_36_bgv_hadd_l16_n4096		retired	高N/高level、旧重复包装或未启用条件用例；仅可从Git历史回查
+07_37_bgv_hmul_reline_l16_n4096		retired	高N/高level、旧重复包装或未启用条件用例；仅可从Git历史回查
+07_38_bgv_reline_l16_n4096		retired	高N/高level、旧重复包装或未启用条件用例；仅可从Git历史回查
+07_39_bgv_modswitch_l16_n4096		retired	高N/高level、旧重复包装或未启用条件用例；仅可从Git历史回查
+07_40_bgv_rotate_l16_n4096		retired	高N/高level、旧重复包装或未启用条件用例；仅可从Git历史回查
+07_41_ntt_l1_n8192		retired	高N/高level、旧重复包装或未启用条件用例；仅可从Git历史回查
+07_42_intt_l1_n8192		retired	高N/高level、旧重复包装或未启用条件用例；仅可从Git历史回查
+07_43_bconv_l4_n8192		retired	高N/高level、旧重复包装或未启用条件用例；仅可从Git历史回查
+07_44_ckks_keyswitch_l4_n8192		retired	高N/高level、旧重复包装或未启用条件用例；仅可从Git历史回查
+07_45_ckks_hmul_reline_l4_n8192		retired	高N/高level、旧重复包装或未启用条件用例；仅可从Git历史回查
+07_46_ckks_reline_l4_n8192		retired	高N/高level、旧重复包装或未启用条件用例；仅可从Git历史回查
+07_47_bfv_keyswitch_l4_n8192		retired	高N/高level、旧重复包装或未启用条件用例；仅可从Git历史回查
+07_48_bgv_keyswitch_l3_n8192		retired	高N/高level、旧重复包装或未启用条件用例；仅可从Git历史回查
+07_49_legacy_auto_l4_n8192		retired	高N/高level、旧重复包装或未启用条件用例；仅可从Git历史回查
+07_50_ckks_hadd_l4_n8192		retired	高N/高level、旧重复包装或未启用条件用例；仅可从Git历史回查
+07_51_ckks_rescale_l4_n8192		retired	高N/高level、旧重复包装或未启用条件用例；仅可从Git历史回查
+07_52_ckks_rotate_l4_n8192		retired	高N/高level、旧重复包装或未启用条件用例；仅可从Git历史回查
+07_53_bfv_hadd_l4_n8192		retired	高N/高level、旧重复包装或未启用条件用例；仅可从Git历史回查
+07_54_bfv_hmul_reline_l4_n8192		retired	高N/高level、旧重复包装或未启用条件用例；仅可从Git历史回查
+07_55_bfv_reline_l4_n8192		retired	高N/高level、旧重复包装或未启用条件用例；仅可从Git历史回查
+07_56_bfv_modswitch_l4_n8192		retired	高N/高level、旧重复包装或未启用条件用例；仅可从Git历史回查
+07_57_bfv_rotate_l4_n8192		retired	高N/高level、旧重复包装或未启用条件用例；仅可从Git历史回查
+07_58_bgv_hadd_l3_n8192		retired	高N/高level、旧重复包装或未启用条件用例；仅可从Git历史回查
+07_59_bgv_hmul_reline_l3_n8192		retired	高N/高level、旧重复包装或未启用条件用例；仅可从Git历史回查
+07_60_bgv_reline_l3_n8192		retired	高N/高level、旧重复包装或未启用条件用例；仅可从Git历史回查
+07_61_bgv_modswitch_l3_n8192		retired	高N/高level、旧重复包装或未启用条件用例；仅可从Git历史回查
+07_62_bgv_rotate_l3_n8192		retired	高N/高level、旧重复包装或未启用条件用例；仅可从Git历史回查
+07_63_ckks_keyswitch_l16_n8192		retired	高N/高level、旧重复包装或未启用条件用例；仅可从Git历史回查
+07_64_ckks_hmul_reline_l16_n8192		retired	高N/高level、旧重复包装或未启用条件用例；仅可从Git历史回查
+07_65_ckks_reline_l16_n8192		retired	高N/高level、旧重复包装或未启用条件用例；仅可从Git历史回查
+07_66_bfv_keyswitch_l16_n8192		retired	高N/高level、旧重复包装或未启用条件用例；仅可从Git历史回查
+07_67_bgv_keyswitch_l16_n8192		retired	高N/高level、旧重复包装或未启用条件用例；仅可从Git历史回查
+07_68_ckks_hadd_l16_n8192		retired	高N/高level、旧重复包装或未启用条件用例；仅可从Git历史回查
+07_69_ckks_rescale_l16_n8192		retired	高N/高level、旧重复包装或未启用条件用例；仅可从Git历史回查
+07_70_ckks_rotate_l16_n8192		retired	高N/高level、旧重复包装或未启用条件用例；仅可从Git历史回查
+07_71_bfv_hadd_l16_n8192		retired	高N/高level、旧重复包装或未启用条件用例；仅可从Git历史回查
+07_72_bfv_hmul_reline_l16_n8192		retired	高N/高level、旧重复包装或未启用条件用例；仅可从Git历史回查
+07_73_bfv_reline_l16_n8192		retired	高N/高level、旧重复包装或未启用条件用例；仅可从Git历史回查
+07_74_bfv_modswitch_l16_n8192		retired	高N/高level、旧重复包装或未启用条件用例；仅可从Git历史回查
+07_75_bfv_rotate_l16_n8192		retired	高N/高level、旧重复包装或未启用条件用例；仅可从Git历史回查
+07_76_bgv_hadd_l16_n8192		retired	高N/高level、旧重复包装或未启用条件用例；仅可从Git历史回查
+07_77_bgv_hmul_reline_l16_n8192		retired	高N/高level、旧重复包装或未启用条件用例；仅可从Git历史回查
+07_78_bgv_reline_l16_n8192		retired	高N/高level、旧重复包装或未启用条件用例；仅可从Git历史回查
+07_79_bgv_modswitch_l16_n8192		retired	高N/高level、旧重复包装或未启用条件用例；仅可从Git历史回查
+07_80_bgv_rotate_l16_n8192		retired	高N/高level、旧重复包装或未启用条件用例；仅可从Git历史回查
+07_81_ntt_l1_n16384		retired	高N/高level、旧重复包装或未启用条件用例；仅可从Git历史回查
+07_82_intt_l1_n16384		retired	高N/高level、旧重复包装或未启用条件用例；仅可从Git历史回查
+07_83_bconv_l4_n16384		retired	高N/高level、旧重复包装或未启用条件用例；仅可从Git历史回查
+07_84_ckks_keyswitch_l4_n16384		retired	高N/高level、旧重复包装或未启用条件用例；仅可从Git历史回查
+07_85_ckks_hmul_reline_l4_n16384		retired	高N/高level、旧重复包装或未启用条件用例；仅可从Git历史回查
+07_86_ckks_reline_l4_n16384		retired	高N/高level、旧重复包装或未启用条件用例；仅可从Git历史回查
+07_87_bfv_keyswitch_l4_n16384		retired	高N/高level、旧重复包装或未启用条件用例；仅可从Git历史回查
+07_88_bgv_keyswitch_l3_n16384		retired	高N/高level、旧重复包装或未启用条件用例；仅可从Git历史回查
+07_89_legacy_auto_l4_n16384		retired	高N/高level、旧重复包装或未启用条件用例；仅可从Git历史回查
+07_90_ckks_hadd_l4_n16384		retired	高N/高level、旧重复包装或未启用条件用例；仅可从Git历史回查
+07_91_ckks_rescale_l4_n16384		retired	高N/高level、旧重复包装或未启用条件用例；仅可从Git历史回查
+07_92_ckks_rotate_l4_n16384		retired	高N/高level、旧重复包装或未启用条件用例；仅可从Git历史回查
+07_93_bfv_hadd_l4_n16384		retired	高N/高level、旧重复包装或未启用条件用例；仅可从Git历史回查
+07_94_bfv_hmul_reline_l4_n16384		retired	高N/高level、旧重复包装或未启用条件用例；仅可从Git历史回查
+07_95_bfv_reline_l4_n16384		retired	高N/高level、旧重复包装或未启用条件用例；仅可从Git历史回查
+07_96_bfv_modswitch_l4_n16384		retired	高N/高level、旧重复包装或未启用条件用例；仅可从Git历史回查
+07_97_bfv_rotate_l4_n16384		retired	高N/高level、旧重复包装或未启用条件用例；仅可从Git历史回查
+07_98_bgv_hadd_l3_n16384		retired	高N/高level、旧重复包装或未启用条件用例；仅可从Git历史回查
+07_99_bgv_hmul_reline_l3_n16384		retired	高N/高level、旧重复包装或未启用条件用例；仅可从Git历史回查
+07_100_bgv_reline_l3_n16384		retired	高N/高level、旧重复包装或未启用条件用例；仅可从Git历史回查
+07_101_bgv_modswitch_l3_n16384		retired	高N/高level、旧重复包装或未启用条件用例；仅可从Git历史回查
+07_102_bgv_rotate_l3_n16384		retired	高N/高level、旧重复包装或未启用条件用例；仅可从Git历史回查
+07_103_ckks_keyswitch_l16_n16384		retired	高N/高level、旧重复包装或未启用条件用例；仅可从Git历史回查
+07_104_ckks_hmul_reline_l16_n16384		retired	高N/高level、旧重复包装或未启用条件用例；仅可从Git历史回查
+07_105_ckks_reline_l16_n16384		retired	高N/高level、旧重复包装或未启用条件用例；仅可从Git历史回查
+07_106_bfv_keyswitch_l16_n16384		retired	高N/高level、旧重复包装或未启用条件用例；仅可从Git历史回查
+07_107_bgv_keyswitch_l16_n16384		retired	高N/高level、旧重复包装或未启用条件用例；仅可从Git历史回查
+07_108_ckks_hadd_l16_n16384		retired	高N/高level、旧重复包装或未启用条件用例；仅可从Git历史回查
+07_109_ckks_rescale_l16_n16384		retired	高N/高level、旧重复包装或未启用条件用例；仅可从Git历史回查
+07_110_ckks_rotate_l16_n16384		retired	高N/高level、旧重复包装或未启用条件用例；仅可从Git历史回查
+07_111_bfv_hadd_l16_n16384		retired	高N/高level、旧重复包装或未启用条件用例；仅可从Git历史回查
+07_112_bfv_hmul_reline_l16_n16384		retired	高N/高level、旧重复包装或未启用条件用例；仅可从Git历史回查
+07_113_bfv_reline_l16_n16384		retired	高N/高level、旧重复包装或未启用条件用例；仅可从Git历史回查
+07_114_bfv_modswitch_l16_n16384		retired	高N/高level、旧重复包装或未启用条件用例；仅可从Git历史回查
+07_115_bfv_rotate_l16_n16384		retired	高N/高level、旧重复包装或未启用条件用例；仅可从Git历史回查
+07_116_bgv_hadd_l16_n16384		retired	高N/高level、旧重复包装或未启用条件用例；仅可从Git历史回查
+07_117_bgv_hmul_reline_l16_n16384		retired	高N/高level、旧重复包装或未启用条件用例；仅可从Git历史回查
+07_118_bgv_reline_l16_n16384		retired	高N/高level、旧重复包装或未启用条件用例；仅可从Git历史回查
+07_119_bgv_modswitch_l16_n16384		retired	高N/高level、旧重复包装或未启用条件用例；仅可从Git历史回查
+07_120_bgv_rotate_l16_n16384		retired	高N/高level、旧重复包装或未启用条件用例；仅可从Git历史回查
+07_121_ntt_l1_n32768		retired	高N/高level、旧重复包装或未启用条件用例；仅可从Git历史回查
+07_122_intt_l1_n32768		retired	高N/高level、旧重复包装或未启用条件用例；仅可从Git历史回查
+07_123_bconv_l4_n32768		retired	高N/高level、旧重复包装或未启用条件用例；仅可从Git历史回查
+07_124_ckks_keyswitch_l4_n32768		retired	高N/高level、旧重复包装或未启用条件用例；仅可从Git历史回查
+07_125_ckks_hmul_reline_l4_n32768		retired	高N/高level、旧重复包装或未启用条件用例；仅可从Git历史回查
+07_126_ckks_reline_l4_n32768		retired	高N/高level、旧重复包装或未启用条件用例；仅可从Git历史回查
+07_127_bfv_keyswitch_l4_n32768		retired	高N/高level、旧重复包装或未启用条件用例；仅可从Git历史回查
+07_128_bgv_keyswitch_l3_n32768		retired	高N/高level、旧重复包装或未启用条件用例；仅可从Git历史回查
+07_129_legacy_auto_l4_n32768		retired	高N/高level、旧重复包装或未启用条件用例；仅可从Git历史回查
+07_130_ckks_hadd_l4_n32768		retired	高N/高level、旧重复包装或未启用条件用例；仅可从Git历史回查
+07_131_ckks_rescale_l4_n32768		retired	高N/高level、旧重复包装或未启用条件用例；仅可从Git历史回查
+07_132_ckks_rotate_l4_n32768		retired	高N/高level、旧重复包装或未启用条件用例；仅可从Git历史回查
+07_133_bfv_hadd_l4_n32768		retired	高N/高level、旧重复包装或未启用条件用例；仅可从Git历史回查
+07_134_bfv_hmul_reline_l4_n32768		retired	高N/高level、旧重复包装或未启用条件用例；仅可从Git历史回查
+07_135_bfv_reline_l4_n32768		retired	高N/高level、旧重复包装或未启用条件用例；仅可从Git历史回查
+07_136_bfv_modswitch_l4_n32768		retired	高N/高level、旧重复包装或未启用条件用例；仅可从Git历史回查
+07_137_bfv_rotate_l4_n32768		retired	高N/高level、旧重复包装或未启用条件用例；仅可从Git历史回查
+07_138_bgv_hadd_l3_n32768		retired	高N/高level、旧重复包装或未启用条件用例；仅可从Git历史回查
+07_139_bgv_hmul_reline_l3_n32768		retired	高N/高level、旧重复包装或未启用条件用例；仅可从Git历史回查
+07_140_bgv_reline_l3_n32768		retired	高N/高level、旧重复包装或未启用条件用例；仅可从Git历史回查
+07_141_bgv_modswitch_l3_n32768		retired	高N/高level、旧重复包装或未启用条件用例；仅可从Git历史回查
+07_142_bgv_rotate_l3_n32768		retired	高N/高level、旧重复包装或未启用条件用例；仅可从Git历史回查
+07_143_ckks_keyswitch_l16_n32768		retired	高N/高level、旧重复包装或未启用条件用例；仅可从Git历史回查
+07_144_ckks_hmul_reline_l16_n32768		retired	高N/高level、旧重复包装或未启用条件用例；仅可从Git历史回查
+07_145_ckks_reline_l16_n32768		retired	高N/高level、旧重复包装或未启用条件用例；仅可从Git历史回查
+07_146_bfv_keyswitch_l16_n32768		retired	高N/高level、旧重复包装或未启用条件用例；仅可从Git历史回查
+07_147_bgv_keyswitch_l16_n32768		retired	高N/高level、旧重复包装或未启用条件用例；仅可从Git历史回查
+07_148_ckks_hadd_l16_n32768		retired	高N/高level、旧重复包装或未启用条件用例；仅可从Git历史回查
+07_149_ckks_rescale_l16_n32768		retired	高N/高level、旧重复包装或未启用条件用例；仅可从Git历史回查
+07_150_ckks_rotate_l16_n32768		retired	高N/高level、旧重复包装或未启用条件用例；仅可从Git历史回查
+07_151_bfv_hadd_l16_n32768		retired	高N/高level、旧重复包装或未启用条件用例；仅可从Git历史回查
+07_152_bfv_hmul_reline_l16_n32768		retired	高N/高level、旧重复包装或未启用条件用例；仅可从Git历史回查
+07_153_bfv_reline_l16_n32768		retired	高N/高level、旧重复包装或未启用条件用例；仅可从Git历史回查
+07_154_bfv_modswitch_l16_n32768		retired	高N/高level、旧重复包装或未启用条件用例；仅可从Git历史回查
+07_155_bfv_rotate_l16_n32768		retired	高N/高level、旧重复包装或未启用条件用例；仅可从Git历史回查
+07_156_bgv_hadd_l16_n32768		retired	高N/高level、旧重复包装或未启用条件用例；仅可从Git历史回查
+07_157_bgv_hmul_reline_l16_n32768		retired	高N/高level、旧重复包装或未启用条件用例；仅可从Git历史回查
+07_158_bgv_reline_l16_n32768		retired	高N/高level、旧重复包装或未启用条件用例；仅可从Git历史回查
+07_159_bgv_modswitch_l16_n32768		retired	高N/高level、旧重复包装或未启用条件用例；仅可从Git历史回查
+07_160_bgv_rotate_l16_n32768		retired	高N/高level、旧重复包装或未启用条件用例；仅可从Git历史回查
+07_161_ntt_l1_n65536		retired	高N/高level、旧重复包装或未启用条件用例；仅可从Git历史回查
+07_162_intt_l1_n65536		retired	高N/高level、旧重复包装或未启用条件用例；仅可从Git历史回查
+07_163_bconv_l4_n65536		retired	高N/高level、旧重复包装或未启用条件用例；仅可从Git历史回查
+07_164_ckks_keyswitch_l4_n65536		retired	高N/高level、旧重复包装或未启用条件用例；仅可从Git历史回查
+07_165_ckks_hmul_reline_l4_n65536		retired	高N/高level、旧重复包装或未启用条件用例；仅可从Git历史回查
+07_166_ckks_reline_l4_n65536		retired	高N/高level、旧重复包装或未启用条件用例；仅可从Git历史回查
+07_167_bfv_keyswitch_l4_n65536		retired	高N/高level、旧重复包装或未启用条件用例；仅可从Git历史回查
+07_168_bgv_keyswitch_l3_n65536		retired	高N/高level、旧重复包装或未启用条件用例；仅可从Git历史回查
+07_169_legacy_auto_l4_n65536		retired	高N/高level、旧重复包装或未启用条件用例；仅可从Git历史回查
+07_170_ckks_hadd_l4_n65536		retired	高N/高level、旧重复包装或未启用条件用例；仅可从Git历史回查
+07_171_ckks_rescale_l4_n65536		retired	高N/高level、旧重复包装或未启用条件用例；仅可从Git历史回查
+07_172_ckks_rotate_l4_n65536		retired	高N/高level、旧重复包装或未启用条件用例；仅可从Git历史回查
+07_173_bfv_hadd_l4_n65536		retired	高N/高level、旧重复包装或未启用条件用例；仅可从Git历史回查
+07_174_bfv_hmul_reline_l4_n65536		retired	高N/高level、旧重复包装或未启用条件用例；仅可从Git历史回查
+07_175_bfv_reline_l4_n65536		retired	高N/高level、旧重复包装或未启用条件用例；仅可从Git历史回查
+07_176_bfv_modswitch_l4_n65536		retired	高N/高level、旧重复包装或未启用条件用例；仅可从Git历史回查
+07_177_bfv_rotate_l4_n65536		retired	高N/高level、旧重复包装或未启用条件用例；仅可从Git历史回查
+07_178_bgv_hadd_l3_n65536		retired	高N/高level、旧重复包装或未启用条件用例；仅可从Git历史回查
+07_179_bgv_hmul_reline_l3_n65536		retired	高N/高level、旧重复包装或未启用条件用例；仅可从Git历史回查
+07_180_bgv_reline_l3_n65536		retired	高N/高level、旧重复包装或未启用条件用例；仅可从Git历史回查
+07_181_bgv_modswitch_l3_n65536		retired	高N/高level、旧重复包装或未启用条件用例；仅可从Git历史回查
+07_182_bgv_rotate_l3_n65536		retired	高N/高level、旧重复包装或未启用条件用例；仅可从Git历史回查
+07_183_ckks_keyswitch_l16_n65536		retired	高N/高level、旧重复包装或未启用条件用例；仅可从Git历史回查
+07_184_ckks_hmul_reline_l16_n65536		retired	高N/高level、旧重复包装或未启用条件用例；仅可从Git历史回查
+07_185_ckks_reline_l16_n65536		retired	高N/高level、旧重复包装或未启用条件用例；仅可从Git历史回查
+07_186_bfv_keyswitch_l16_n65536		retired	高N/高level、旧重复包装或未启用条件用例；仅可从Git历史回查
+07_187_bgv_keyswitch_l16_n65536		retired	高N/高level、旧重复包装或未启用条件用例；仅可从Git历史回查
+07_188_ckks_hadd_l16_n65536		retired	高N/高level、旧重复包装或未启用条件用例；仅可从Git历史回查
+07_189_ckks_rescale_l16_n65536		retired	高N/高level、旧重复包装或未启用条件用例；仅可从Git历史回查
+07_190_ckks_rotate_l16_n65536		retired	高N/高level、旧重复包装或未启用条件用例；仅可从Git历史回查
+07_191_bfv_hadd_l16_n65536		retired	高N/高level、旧重复包装或未启用条件用例；仅可从Git历史回查
+07_192_bfv_hmul_reline_l16_n65536		retired	高N/高level、旧重复包装或未启用条件用例；仅可从Git历史回查
+07_193_bfv_reline_l16_n65536		retired	高N/高level、旧重复包装或未启用条件用例；仅可从Git历史回查
+07_194_bfv_modswitch_l16_n65536		retired	高N/高level、旧重复包装或未启用条件用例；仅可从Git历史回查
+07_195_bfv_rotate_l16_n65536		retired	高N/高level、旧重复包装或未启用条件用例；仅可从Git历史回查
+07_196_bgv_hadd_l16_n65536		retired	高N/高level、旧重复包装或未启用条件用例；仅可从Git历史回查
+07_197_bgv_hmul_reline_l16_n65536		retired	高N/高level、旧重复包装或未启用条件用例；仅可从Git历史回查
+07_198_bgv_reline_l16_n65536		retired	高N/高level、旧重复包装或未启用条件用例；仅可从Git历史回查
+07_199_bgv_modswitch_l16_n65536		retired	高N/高level、旧重复包装或未启用条件用例；仅可从Git历史回查
+07_200_bgv_rotate_l16_n65536		retired	高N/高level、旧重复包装或未启用条件用例；仅可从Git历史回查

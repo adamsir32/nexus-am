@@ -1,74 +1,41 @@
 # 05组：inline-asm/modified-SEAL算法库验证
 
-当前默认参考库为inline-asm main固定提交`03a32c168404f3ad64e6a4d7ad82a081f910314b`
-内的`third_party/modified-SEAL`。通过其`SEAL::seal`与HPU适配层构建，
-不使用系统安装的标准SEAL，也不调用Poseidon。库版本随inline-asm gitlink冻结。
+参考库来自`producer.json`与gitlink固定的inline-asm提交`3ab94da16abce89b7e9b74f4e7fcd93604dea495`，分支为`feature/operator-resource-management`。使用它自带的`third_party/modified-SEAL`和HPU顶层接口，不使用系统SEAL，也不调用Poseidon。不能把此实验分支写成main。
 
-## 层级与用例
+## 04与05的边界
 
-04仍只放BConv、整体NTT/INTT、KeySwitch、Auto和指令链；05验收完整库操作。
-KeySwitch隔离c2切换，Reline保留并合并完整密文c0/c1，不能按共享指令链合并。
+04检查整体NTT/INTT、BConv和KeySwitch核心。05以完整密文库操作为验收边界；KeySwitch隔离切换分量，而Reline保留并合并完整密文，不能因共享底层指令而视为同一用例。
 
-05共39项：30项SEAL规范用例、7项不同参数回归、2项待接入记录。
-
-| 操作 | CKKS | BFV/BGV |
+| 操作 | CKKS参考API | BFV/BGV参考API |
 |---|---|---|
 | HADD | `Evaluator::add` | `Evaluator::add` |
-| HMUL_RELINE | `multiply`后`relinearize` | `multiply`后`relinearize` |
+| HMUL+RELINE | `multiply`后`relinearize` | `multiply`后`relinearize` |
 | RELINE | `relinearize` | `relinearize` |
-| RESCALE/MODSWITCH | `rescale_to_next` | `mod_switch_to_next` |
+| 降level | `rescale_to_next` | `mod_switch_to_next` |
 | ROTATE | `rotate_vector` | `rotate_rows` |
 
-三方案各提供N128/N4096，文件分别在`src/05_algorithm_library/01_ckks`、
-`02_bfv`、`03_bgv`，一个C文件一个ELF，只执行一遍。
-编码器、Encryptor、评估密钥、Evaluator与golden都使用同一份modified-SEAL。
+05默认287项：280个有效N/level/算法/操作组合，另7项特殊参数回归。统一入口是`src/05_library/main.c`，每个清单场景独立生成ELF，不把多个N/level串成一轮。唯一清单为`cases.tsv`，不是另维护一套目录或scheme清单。
 
-本轮只切换参考依赖，不同时更换输入：规范项保留CF1/1和半行旋转，
-旋转步长为N/4（N128为32，N4096为1024），SEAL generator为3。
-`04_parameter_regression`保留BGV CF3/5、CF15、CF3及三方案步长1旋转，
-不会把参数不同的测试当成完全重复项。
-`05_pending_interfaces`只记录Encode/Bootstrap接收缺口，不发布占位ELF。
+N取128、1024、2048、4096、8192；level是输入Q基的RNS分量数1～4，既不是SEAL chain_index，也不包含KeySwitch特殊P。降层算子的L1没有下一层；上游BFV HMUL也明确要求至少两个活动Q。这20个组合写在`docs/unsupported-parameters.tsv`，不产生伪可运行用例。
 
-## 严格参考与目标检查
+规范profile保留CF1/1、N/4旋转及固定输入种子；不同level实际生成相应子基，CKKS scale受当前Q容量约束。7项特殊回归保留BGV CF3/5、CF15、CF3及三方案step1旋转，不当成重复项删除。精确模数、scale、密钥和物理布局从生成包metadata读取。
 
-BFV也以modified-SEAL输出的原始密文为golden，**不允许以“解密明文相同”放行原始word失配**。
-Poseidon与该fork的BFV乘法曾产生不同噪声密文，该差异仅保留在实验记录，
-不进入当前默认验收。
+## 参考与目标检查
 
-规范profile由`hpu_scheme_case_generator ... library`生成，
-sidecar `*.seal.json`记录库来源、生产者提交、实际API、方案、N、CF、旋转步长与逐word检查状态。
-sidecar位于原包外，不改变上游v1白名单。接收后写为`SEAL_ORACLE.json`，
-进入`AM_ADAPTATION.json`的`seal_oracle`字段。
+上游HPU软件执行器必须逐原始物理word匹配modified-SEAL；AM接收器检查完整输出集合、程序/DMA/布局一致性，并保留只读区和guard自检。BFV也不允许以“解密明文相同”放行原始word不匹配。
 
-上游HPU软件执行器必须逐word匹配modified-SEAL；AM继续复放实际ASM、DMA与对象生命周期，
-CKKS rounded-P直接采用上游交付，不在AM插入算术指令或另造half-P数据。
-只保留必要的BFV物理排列、只读输入/output的shadow重定位；上游可写workspace不额外复制。
-目标检查完整输出、只读区和guard，BFV/CKKS/BGV均返回0才是该次自检通过。
-每个程序DSTORE后唯一PSYNC，通过MMIO等待完成且BUSY清零，不启用PLIC/timer。
+rounded-P等算术沿用上游实现，不在AM另加取整指令或half-P数据。SSA可将内部tensor留在片上，但所有显式导出结果必须完整检查，不以减少导出诊断值为由漏检最终结果。
 
-软件模型通过、构建通过不等于IT/VCS通过。N128仅作快速功能定位，参数不作为安全部署承诺。
+每段完整程序DSTORE后只有一次PSYNC，通过MMIO观察完成且BUSY清零，不启用PLIC/timer。软件模型、包验证与编译通过不等于IT/VCS或FPGA通过；这些demo参数不作为安全部署承诺。
 
-## Poseidon单独保留
+## 构建与实验
 
-原30项Poseidon测试、桥接工具、参考检查和固定SDK在
-`experiments/poseidon/`。它们不在默认`cases.tsv`/`scheme-cases.tsv`中，
-默认CMake、make和Actions不构建、不下载该SDK、不发布其实验ELF。
-未删除Poseidon源码，也不改写其SDK；日后对照需显式运行实验目录的独立入口。
-
-旧编号仍能在`case-aliases.tsv`中找到当前规范项，
-04/05层级迁移见`layer-migration.tsv`。本次不会重引入已合并的8个重复程序。
-
-## 默认构建
-
-```sh
-git submodule update --init --recursive \
-  tests/hputest/third_party/inline-asm \
-  tests/hputest/third_party/hpu-seal \
-  tests/hputest/third_party/hpu-applications
-make -C tests/hputest all JOBS=4
-make -C tests/hputest silent JOBS=4
+```bash
+git submodule update --init --recursive tests/hputest/third_party/inline-asm
+make -C tests/hputest group GROUP=05 N=8192 LEVEL=4 \
+  OUTPUT_ROOT=/disk/hpu-library
 ```
 
-无需GMP/Poseidon。沿用普通摘要与真正静默两种版本；
-顶层MANIFEST记录`golden_backend=inline-asm/modified-SEAL`及inline-asm版本。
-生成的数据、ELF、BIN和反汇编只进入Actions artifact，不提交到源码仓库。
+默认Actions仅发布00～07的单一ELF+BIN集合。生成包、golden和中间模型报告留在构建目录，不混进下载包。
+
+Poseidon源码和桥接试验单独放在`tests/hpu-experiments/poseidon`，不由默认CMake/Makefile/Actions构建，也没有因本轮整理而宣称验证通过。旧用例编号映射见`docs/case-id-migration.tsv`，旧源码从Git历史查。

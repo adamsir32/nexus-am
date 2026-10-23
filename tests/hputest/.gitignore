@@ -3,8 +3,8 @@
 *.elf
 *.bin
 *.txt
-!tools/hpu-scheme-cases/CMakeLists.txt
-!experiments/poseidon/tools/CMakeLists.txt
+!tools/operator_perf/CMakeLists.txt
+__pycache__/
 *.o
 *.a
 *.map

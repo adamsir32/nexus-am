@@ -55,7 +55,7 @@ def main():
     for name in ("producer", "output", "native-build"):
         parser.add_argument("--" + name, required=True, type=lambda value: Path(value).resolve())
     args = parser.parse_args()
-    expected = json.loads((ROOT.parent / "hpu_frontend_workload/producer.json").read_text())["commit"]
+    expected = json.loads((ROOT / "producer.json").read_text())["commit"]
     commit = output(["git", "-C", args.producer, "rev-parse", "HEAD"])
     if commit != expected:
         raise RuntimeError("低层producer必须与当前新版gitlink固定提交一致")

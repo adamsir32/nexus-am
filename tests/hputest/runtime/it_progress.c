@@ -103,11 +103,17 @@ int progress_begin(const char *case_id, unsigned subcases) {
         }
         if (name[0] == '0' && name[1] == '3' && name[2] == '_' &&
             name[3] >= '0' && name[3] <= '9' &&
-            name[4] >= '0' && name[4] <= '9' && name[5] == '_') {
-            const char number[] = {name[0], name[1], name[2], name[3], name[4], '\0'};
-            /* 仅一条身份记录；不改零起始选择号，不增加逐系数或发令循环打印。 */
-            LOG_EVENT("[HPU][SUBTEST] id=%s_%02u subcase=%u\n",
-                      number, selected_subcase + 1U, selected_subcase);
+            name[4] >= '0' && name[4] <= '9') {
+            unsigned length = 5U;
+            if (name[length] >= '0' && name[length] <= '9') ++length;
+            if (name[length] == '_') {
+                char number[7];
+                for (unsigned index = 0U; index < length; ++index) number[index] = name[index];
+                number[length] = '\0';
+                /* 两位历史号和三位新编号均只记录一次，不改变选择和计时。 */
+                LOG_EVENT("[HPU][SUBTEST] id=%s_%02u subcase=%u\n",
+                          number, selected_subcase + 1U, selected_subcase);
+            }
         }
     }
 #endif

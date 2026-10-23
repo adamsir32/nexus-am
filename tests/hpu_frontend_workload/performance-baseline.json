@@ -1,8 +1,0 @@
-{
-  "am_commit": "9016ef9ccb1d7954e13c38b33de5b39b6dc5eb7c",
-  "inline_asm_commit": "03a32c168404f3ad64e6a4d7ad82a081f910314b",
-  "fixture_source": "tests/hputest/tools/hpu-scheme-cases/fixture.hpp",
-  "metric": "issue_to_done_v2",
-  "comparison": "same experimental API with optimize_resources on and off; main is a separately identified reference",
-  "hardware_contract_verified": false
-}
