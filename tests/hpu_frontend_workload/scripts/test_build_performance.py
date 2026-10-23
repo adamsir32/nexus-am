@@ -77,11 +77,17 @@ class BuildTests(unittest.TestCase):
         self.addCleanup(self.temp.cleanup)
         self.root = Path(self.temp.name)
 
-    def test_twelve_scopes_cover_72_cases_without_overlap(self):
-        rows = [row for degree in (4096, 8192) for profile in ("baseline", "l16")
+    def test_six_scopes_cover_36_cases_without_overlap(self):
+        rows = [row for degree in (4096, 8192) for profile in ("baseline",)
                 for scheme in ("ckks", "bfv", "bgv") for row in build.select_specs(degree, profile, scheme)]
-        self.assertEqual(len(rows), 72)
-        self.assertEqual(len({row["case_id"] for row in rows}), 72)
+        self.assertEqual(len(rows), 36)
+        self.assertEqual(len({row["case_id"] for row in rows}), 36)
+
+    def test_retired_profiles_and_larger_degrees_are_rejected(self):
+        for degree, profile in ((4096, "l16"), (8192, "l16"), (16384, "baseline")):
+            with self.subTest(degree=degree, profile=profile):
+                with self.assertRaisesRegex(ValueError, "N<=8192 and level<=4"):
+                    build.select_specs(degree, profile, "ckks")
 
     def test_cache_cannot_switch_producer_or_fixture_recipe(self):
         marker = self.root / "request.json"

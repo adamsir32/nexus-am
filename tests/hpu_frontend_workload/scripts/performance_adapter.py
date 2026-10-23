@@ -91,9 +91,21 @@ def preflight_source(original, stem):
     if checked.count(span_loop) != 1:
         raise ValueError("producer span-range loop changed")
     checked = checked.replace(span_loop, "")
-    checked = re.sub(r"^    if \(spans\[\d+\]\.line_count > HPU_SMALL_BANK_LINE_COUNT\) return -3;\n", "", checked, flags=re.M)
-    checked = re.sub(r"^    if \(hpu_obj_len\[(\d+)\] == 0 \|\| spans\[\d+\]\.line_count != hpu_obj_len\[\1\]\) return -5;\n", "", checked, flags=re.M)
-    checked = re.sub(r"^    uint32_t hpu_obj_len\[8\] = \{0\};\n|^    hpu_obj_len\[\d+\] = (?:0|spans\[\d+\]\.line_count|hpu_obj_len\[\d+\]);\n", "", checked, flags=re.M)
+    checks = (
+        r"^    if \(spans\[\d+\]\.line_count > (?:4|28|1024)\) return -3;\n",
+        r"^    if \(hpu_obj_len\[(\d+)\] == 0 \|\| spans\[\d+\]\.line_count != hpu_obj_len\[\1\]\) return -5;\n",
+        r"^    hpu_obj_len\[\d+\] = (?:0|spans\[\d+\]\.line_count|hpu_obj_len\[\d+\]);\n",
+        r"^    if \(hpu_obj_len\[\d+\] == 0(?: \|\| hpu_obj_len\[\d+\] != hpu_obj_len\[\d+\]){0,2}\) return -6;\n",
+        r"^    if \((hpu_obj_len\[\d+\]) < 2 \|\| \1 > 1024 \|\| \(\1 & \(\1 - 1\)\) != 0 \|\| hpu_obj_len\[\d+\] != 2 \|\| UINT32_C\(\d+\) >= \1 \* 64\) return -7;\n",
+        r"^    if \(UINT32_C\(\d+\) >= hpu_obj_len\[\d+\]\) return -8;\n",
+    )
+    initialization = ("    volatile uint32_t hpu_obj_len[64];\n"
+                      "    for (size_t i = 0; i < 64; ++i) hpu_obj_len[i] = 0;\n")
+    if checked.count(initialization) != 1:
+        raise ValueError("producer 64-object initialization changed")
+    checked = checked.replace(initialization, "")
+    for pattern in checks:
+        checked = re.sub(pattern, "", checked, flags=re.M)
     expected = f"int hpu_program_{stem}(const hpu_dma_span_t *spans, size_t span_count) {{\n    return 0;\n}}"
     if checked != expected:
         raise ValueError("unexpected producer control/diagnostic code in preflight")

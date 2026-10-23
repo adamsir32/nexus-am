@@ -12,12 +12,13 @@ ROOT = Path(__file__).resolve().parents[1]
 class ReceiverTests(unittest.TestCase):
     def setUp(self):
         # 范围校验单测：真指令字段与完整native包的对应另由producer validator把关。
-        self.word = 0x00b5202b
+        self.word = 0x00b5102b
         self.allocations = [{"allocation_id": "$compiler/scratch_arena", "line_offset": "10",
-                             "line_count": "20", "read_only": "false"}]
+                             "line_count": "20", "read_only": "false", "kind": "scratch"}]
         self.dma = [{"instruction_index": "0", "dma_index": "0", "direction": "dstore",
                      "allocation_id": "$compiler/scratch_arena", "line_offset": "16", "line_count": "2",
-                     "word_hex": hex(self.word), "operation_index": "0", "operation_id": "node_0"}]
+                     "word_hex": hex(self.word), "operation_index": "0", "operation_id": "node_0",
+                     "object_slot": "0", "type_or_release": "0", "flag": "0", "cp": "0"}]
         self.ops = [{"id": "node_0"}]
 
     def validate(self):
@@ -52,6 +53,23 @@ class ReceiverTests(unittest.TestCase):
     def test_missing_dma_is_rejected(self):
         self.dma = []
         with self.assertRaisesRegex(ValueError, "order"):
+            self.validate()
+
+    def test_high_object_id_uses_all_six_bits(self):
+        self.word |= 63 << 26
+        self.dma[0].update(word_hex=hex(self.word), object_slot="63")
+        self.validate()
+        self.dma[0]["object_slot"] = "7"
+        with self.assertRaisesRegex(ValueError, "v1.2"):
+            self.validate()
+
+    def test_cp_manifest_and_twiddle_policy_must_match_word(self):
+        self.dma[0]["cp"] = "1"
+        with self.assertRaisesRegex(ValueError, "v1.2"):
+            self.validate()
+        self.word |= 1 << 13
+        self.dma[0]["word_hex"] = hex(self.word)
+        with self.assertRaisesRegex(ValueError, "cache policy"):
             self.validate()
 
     def test_host_diagnostic_export_is_rejected(self):

@@ -18,6 +18,23 @@ NTT_ABI = {
     "normalization": "explicit_post_pmul", "twist_fused": False,
 }
 
+ISA_ABI = {
+    "instruction_isa": "hpu-objects64-v1.2", "object_slots": 64,
+    "allocation_granule_lines": 128, "mod_table_lines": 4,
+    "stage_parameter_mod": 0, "stage_parameter_bank_mask": 32,
+    "default_cp": 0, "dma_cache_policy": "twiddle_loads_only",
+    "dma_format": "mod_rel_cp", "dload_mask_scope": "load_only",
+    "dstore_rel0_retains": True,
+}
+DMA_COLUMNS = ["instruction_index", "dma_index", "operation_index", "operation_id",
+               "operation_dma_index", "direction", "object_slot", "type_or_release", "flag",
+               "allocation_id", "line_offset", "line_count", "word_hex", "normalized_asm", "cp"]
+
+
+def validate_isa_contract(memory_abi):
+    require(all(memory_abi.get(key) == value for key, value in ISA_ABI.items()),
+            "64-object ISA v1.2/MOD-REL-CP/cache policy ABI mismatch")
+
 
 def expected_operations(scheme, operation):
     return {
@@ -37,12 +54,12 @@ def package_profile(spec):
     operation, level, variant = spec["operation"], int(spec["level"]), spec["variant"]
     require(scheme in ("ckks", "bfv", "bgv") and degree in (4096, 8192), "unsupported 07 scheme/degree")
     require(operation in ("keyswitch", "hadd", "hmul", "reline", "modswitch", "rotate"), "unsupported 07 operator")
-    require(level in ((3, 16) if scheme == "bgv" else (4, 16)), "unsupported 07 level")
+    require(level == (3 if scheme == "bgv" else 4), "unsupported 07 level")
     require(variant in ("optimized", "noopt"), "unsupported resource variant")
     stem = f"frontend_{scheme}_{operation}_l{level}_n{degree}"
     require(spec["program_stem"] == stem, "explicit program stem mismatch")
     base, ram = int(spec["memory_base"], 0), int(spec["minimum_ram_bytes"])
-    require((base, ram) == ((0xc0000000, 2147483648) if level == 16 else (0x90000000, 536870912)),
+    require((base, ram) == (0x90000000, 536870912),
             "07 memory contract mismatch")
     return stem, base, ram, True
 
@@ -110,7 +127,15 @@ def validate_dma(words, dma, allocations, operations, used):
         inst = words[int(row["instruction_index"])]
         require(inst == int(row["word_hex"], 16) and (inst >> 15) & 31 == 10 and
                 (inst >> 20) & 31 == 11, "DMA word/register ABI mismatch")
-        require(row["direction"] in ("dload", "dstore"), "invalid DMA direction")
+        direction = "dstore" if (inst >> 12) & 1 else "dload"
+        flag = ((inst >> 7) & 31) | (((inst >> 25) & 1) << 5)
+        require(row["direction"] == direction and int(row["object_slot"]) == (inst >> 26) & 63 and
+                int(row["type_or_release"]) == (inst >> 14) & 1 and
+                int(row["flag"]) == flag and int(row["cp"]) == (inst >> 13) & 1,
+                "DMA v1.2 object/MOD-REL/CP/mask fields differ from instruction")
+        require(direction != "dstore" or flag == 0, "DSTORE mask is reserved")
+        expected_cp = int(direction == "dload" and allocation["kind"] == "twiddle")
+        require(int(row["cp"]) == expected_cp, "DMA twiddle-only LLC cache policy mismatch")
         for line in range(first, first + count):
             first_access.setdefault(line, row["direction"])
         if row["direction"] == "dstore":
@@ -185,7 +210,9 @@ def import_package(source, destination, spec, commit, verify_existing=False):
         require(len(parameters["levels"][0]["moduli"]) == int(spec["level"]),
                 "07 input Q-RNS count differs from level")
     allocations = read_rows(files["line_map"])
-    validate_ntt_contract(parameters, read_json(files["memory_abi"]), allocations, degree)
+    memory_abi = read_json(files["memory_abi"])
+    validate_isa_contract(memory_abi)
+    validate_ntt_contract(parameters, memory_abi, allocations, degree)
     fields = ("allocation_id", "kind", "read_only", "line_offset", "line_count",
               "payload_words", "padded_words", "initialization")
     require([{key: row[key] for key in fields} for row in allocations] ==
@@ -202,6 +229,7 @@ def import_package(source, destination, spec, commit, verify_existing=False):
     require(words and words[-1] == 0x7000005b and words.count(0x7000005b) == 1 and
             all(word & 0x7f in (0x2b, 0x5b) for word in words), "opcode/terminal PSYNC mismatch")
     dma = read_rows(files["dma_relocation_manifest"])
+    require(dma and list(dma[0]) == DMA_COLUMNS, "v1.2 resolved DMA manifest requires 15 columns")
     validate_source(code, stem, words, [(int(row["line_offset"]), int(row["line_count"])) for row in dma])
     writable, first_access = validate_dma(words, dma, allocations, operations, used)
     levels = {tuple(level["parms_id"]): level["moduli"] for level in parameters["levels"]}
@@ -266,7 +294,7 @@ def import_package(source, destination, spec, commit, verify_existing=False):
     table += "\n".join("    { " + ", ".join(f"{value}U" for value in row) + " }," for row in outputs)
     store_or_verify(destination / "layout.c", (table + "\n};\n").encode(), existing)
     metadata = {**spec, **constants, "program_stem": stem, "producer_commit": commit,
-                "ntt_table_abi": NTT_ABI, "hardware_verified": False,
+                "ntt_table_abi": NTT_ABI, "instruction_abi": ISA_ABI, "hardware_verified": False,
                 "status": "BUILD_READY_NOT_IT_PASS", "layout_adaptation": "none",
                 "compiler_resources": {key: value for key, value in report["compiler_resources"].items()
                                        if key != "logical_buffers"}}

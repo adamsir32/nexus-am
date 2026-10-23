@@ -21,7 +21,7 @@ jobs:
       max-parallel: 4
       matrix:
         degree: [4096, 8192]
-        profile: [baseline, l16]
+        profile: [baseline]
         scheme: [ckks, bfv, bgv]
     steps:
       - uses: actions/checkout@v7

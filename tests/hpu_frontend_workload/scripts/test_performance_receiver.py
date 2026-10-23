@@ -22,10 +22,14 @@ class PerformanceReceiverTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "workload memory budget"):
             validate_capacity(spec, 0x07000000 // 256)
 
-    def test_new_large_profile_uses_explicit_ram_contract(self):
-        validate_capacity(specification(16), 200 * 1024 * 1024 // 256)
+    def test_active_profile_uses_explicit_ram_contract(self):
+        validate_capacity(specification(), 200 * 1024 * 1024 // 256)
         with self.assertRaisesRegex(ValueError, "explicit 07 RAM"):
-            validate_capacity(specification(16), 1073741824 // 256)
+            validate_capacity(specification(), 268435456 // 256)
+
+    def test_retired_level16_is_rejected(self):
+        with self.assertRaisesRegex(ValueError, "unsupported 07 level"):
+            package_profile(specification(16))
 
     def test_memory_and_stem_cannot_be_silently_mismatched(self):
         spec = specification()

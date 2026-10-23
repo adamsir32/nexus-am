@@ -31,9 +31,10 @@ def output(command):
 
 
 def select_specs(degree, profile, scheme, case_id=None):
+    require(degree in (4096, 8192) and profile == "baseline", "1019 requires N<=8192 and level<=4")
     with (ROOT / "performance-cases.tsv").open(newline="") as stream:
         rows = list(csv.DictReader(stream, delimiter="\t"))
-    require(len(rows) == 72 and len({row["case_id"] for row in rows}) == 72, "invalid experimental roster")
+    require(len(rows) == 36 and len({row["case_id"] for row in rows}) == 36, "invalid experimental roster")
     result = []
     for source in rows:
         row = dict(source)
@@ -46,7 +47,7 @@ def select_specs(degree, profile, scheme, case_id=None):
         package_profile({**row, "variant": "optimized"})
         require(row["metric"] == "issue_to_done_v2", "unknown measurement contract")
         if row["degree"] == degree and row["scheme"] == scheme and \
-                ("l16" if row["level"] == 16 else "baseline") == profile and \
+                profile == "baseline" and \
                 (case_id is None or row["case_id"] == case_id):
             result.append(row)
     require(len(result) == (1 if case_id else 6), "scope/case does not select the expected operator set")
@@ -397,7 +398,7 @@ def main():
     for name in ("am-home", "producer", "output"):
         parser.add_argument("--" + name, required=True, type=lambda value: Path(value).resolve())
     parser.add_argument("--degree", required=True, type=int, choices=(4096, 8192))
-    parser.add_argument("--profile", required=True, choices=("baseline", "l16"))
+    parser.add_argument("--profile", required=True, choices=("baseline",))
     parser.add_argument("--scheme", required=True, choices=("ckks", "bfv", "bgv"))
     parser.add_argument("--mode", default="both", choices=("both", "minimal", "silent"))
     parser.add_argument("--arch", default="riscv64-xs", choices=("riscv64-xs",))

@@ -34,7 +34,7 @@ std::string quoted(const std::string &value) {
 
 Options arguments(int argc, char **argv) {
     if (argc < 6)
-        throw std::invalid_argument("usage: generator SCHEME OP N baseline|l16 OUTPUT [--verify-only] [--ntt-contract=legacy-raw-stage]");
+        throw std::invalid_argument("usage: generator SCHEME OP N baseline OUTPUT [--verify-only] [--ntt-contract=legacy-raw-stage]");
     Options options;
     options.scheme = argv[1]; options.operation = argv[2]; options.profile = argv[4]; options.output = argv[5];
     std::size_t used = 0;
@@ -46,8 +46,8 @@ Options arguments(int argc, char **argv) {
     const std::array<std::string, 6> operations{{"keyswitch", "hadd", "hmul", "reline", "modswitch", "rotate"}};
     if (std::find(operations.begin(), operations.end(), options.operation) == operations.end())
         throw std::invalid_argument("unknown operator");
-    if (options.profile != "baseline" && options.profile != "l16")
-        throw std::invalid_argument("profile must be baseline or l16");
+    if (options.profile != "baseline")
+        throw std::invalid_argument("1019 supports baseline only (input level <= 4)");
     if (options.output.empty()) throw std::invalid_argument("output directory is empty");
     for (int i = 6; i < argc; ++i) {
         const std::string arg = argv[i];
@@ -200,7 +200,7 @@ int main(int argc, char **argv) {
         // 和现main及CPU基准直接共享Fixture，原level必须传0，不能传3/4。
         Fixture fixture(options.scheme, options.operation, options.degree, "", 30,
                         kernel ? 1 : static_cast<int>(options.degree / 4), kernel,
-                        options.profile == "l16" ? 16 : 0);
+                        0);
         const auto stem = "frontend_" + options.scheme + '_' + options.operation + "_l" +
                           std::to_string(fixture.q_rns_count) + "_n" + std::to_string(options.degree);
         frontend::ApplicationBuilder application(*fixture.context);

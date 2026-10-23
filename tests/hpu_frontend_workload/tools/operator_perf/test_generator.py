@@ -33,7 +33,7 @@ class OperatorGenerator(unittest.TestCase):
             self.assertIs(metadata['hardware_verified'],False)
             self.assertIs(metadata['hardware_contract_verified'],False)
             self.assertEqual(metadata['native_package_written'],native_package)
-            self.assertEqual(metadata['producer_commit'],'7306d1c69010b3e92576a19f1d90b1c25cf01f8c')
+            self.assertEqual(metadata['producer_commit'],'968607698ea850774f952b73e8622697f6cce96a')
             self.assertEqual(metadata['baseline_inline_asm_commit'],'03a32c168404f3ad64e6a4d7ad82a081f910314b')
             self.assertEqual(metadata['baseline_modified_seal_tree'],'036be909da472f4343b6bac6add0dcb3be5bd057')
             self.assertIn(metadata['producer_worktree_state'],('clean-at-configure','dirty-at-configure'))
@@ -80,11 +80,11 @@ class OperatorGenerator(unittest.TestCase):
         self.assertFalse((self.directory/'GENERATION_ERROR.json').exists())
 
     def test_verify_only_keeps_strict_checks_without_native_images(self):
-        result=self.run_generator(scheme='bgv',profile='l16',extra=('--verify-only',))
+        result=self.run_generator(scheme='bgv',extra=('--verify-only',))
         self.assertEqual(result.returncode,0,result.stderr)
         metadata=self.read_variants(native_package=False)
-        self.assertEqual(metadata['program_stem'],'frontend_bgv_hadd_l16_n4096')
-        self.assertEqual(len(metadata['Q']),16)
+        self.assertEqual(metadata['program_stem'],'frontend_bgv_hadd_l3_n4096')
+        self.assertEqual(len(metadata['Q']),3)
         self.assertEqual(len(metadata['P']),1)
         self.assertEqual(metadata['plain_modulus'],65537)
         self.assertEqual(metadata['input_correction_factor'],1)

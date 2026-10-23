@@ -5,7 +5,7 @@ from pathlib import Path
 import tempfile
 import unittest
 
-from import_package import NTT_ABI, validate_ntt_contract
+from import_package import ISA_ABI, NTT_ABI, validate_isa_contract, validate_ntt_contract
 from performance_adapter import (RETURN_BLOCK, adapt, function_span, instruction_words,
                                  prepare, validate_source)
 
@@ -19,7 +19,8 @@ def source_fixture():
     # 缩小的上游C模板夹具；只验证接收/适配，不是算法/真实native包证据。
     dynamic = f'''int hpu_program_{STEM}(const hpu_dma_span_t *spans, size_t span_count) {{
     if (span_count != HPU_PROGRAM_{STEM.upper()}_DMA_COUNT || (span_count != 0 && spans == NULL)) return -1;
-    uint32_t hpu_obj_len[8] = {{0}};
+    volatile uint32_t hpu_obj_len[64];
+    for (size_t i = 0; i < 64; ++i) hpu_obj_len[i] = 0;
     for (size_t i = 0; i < span_count; ++i) {{
         if (spans[i].line_count == 0 ||
             spans[i].line_offset >= HPU_MEM_LINE_COUNT ||
@@ -105,6 +106,20 @@ class OnlineNttAbiTests(unittest.TestCase):
             self.validate()
 
 
+class Objects64AbiTests(unittest.TestCase):
+    def test_current_contract_is_accepted(self):
+        validate_isa_contract(dict(ISA_ABI))
+
+    def test_old_isa_missing_cp_or_wrong_object_width_is_rejected(self):
+        for field, value in (("instruction_isa", "hpu-objects64-v1.1"), ("object_slots", 8),
+                             ("dma_format", "type_release"), ("dma_cache_policy", "preserve")):
+            with self.subTest(field=field):
+                abi = dict(ISA_ABI)
+                abi[field] = value
+                with self.assertRaisesRegex(ValueError, "v1.2"):
+                    validate_isa_contract(abi)
+
+
 class FixedEntryTests(unittest.TestCase):
     def test_double_word_copy_is_accepted_only_in_matching_dynamic_and_fixed_entries(self):
         validate_source(source_fixture(), STEM, WORDS, SPANS)
@@ -133,7 +148,7 @@ class FixedEntryTests(unittest.TestCase):
         self.assertEqual(adapted.count('"li x11,'), 2)
 
     def test_unknown_dynamic_control_is_not_moved_out_of_timing(self):
-        original = source_fixture().replace("    uint32_t hpu_obj_len", "    unexpected();\n    uint32_t hpu_obj_len")
+        original = source_fixture().replace("    volatile uint32_t hpu_obj_len", "    unexpected();\n    volatile uint32_t hpu_obj_len")
         with self.assertRaisesRegex(ValueError, "unexpected producer control"):
             adapt(original, STEM)
 

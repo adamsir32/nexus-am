@@ -2,7 +2,7 @@ name: build experimental HPU frontend workload
 
 on:
   push:
-    branches: [ master ]
+    branches: [ master, 1019-operator-resource-perf ]
     paths:
       - 'tests/hpu_frontend_workload/**'
       - '.github/workflows/build-hpu-frontend.yml'

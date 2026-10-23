@@ -1,4 +1,5 @@
 import csv
+import os
 from pathlib import Path
 import re
 import subprocess
@@ -21,19 +22,27 @@ def catalog():
 
 
 class PerformanceCaseTests(unittest.TestCase):
+    def test_default_performance_entry_uses_n8192_and_baseline(self):
+        environment = {key: value for key, value in os.environ.items()
+                       if key not in ("DEGREE", "PROFILE", "MAKEFLAGS")}
+        command = subprocess.check_output(
+            ["make", "-s", "-n", "-C", str(ROOT), "performance"],
+            text=True, env=environment)
+        self.assertIn('--degree "8192" --profile "baseline"', command)
+
     def test_catalog_matches_baseline_operation_parameters_and_memory(self):
         cases = catalog()
         with (BASELINE / "perf-cases.tsv").open() as stream:
             baseline = {row["case_id"]: row for row in csv.DictReader(stream, delimiter="\t")}
-        self.assertEqual(len(cases), 72)
-        self.assertEqual([int(row["case_id"].split("_")[1]) for row in cases], list(range(1, 73)))
-        self.assertEqual(len({row["baseline_case_id"] for row in cases}), 72)
+        self.assertEqual(len(cases), 36)
+        self.assertEqual([int(row["case_id"].split("_")[1]) for row in cases], list(range(1, 19)) + list(range(37, 55)))
+        self.assertEqual(len({row["baseline_case_id"] for row in cases}), 36)
         expected = []
         for degree in (4096, 8192):
-            for profile in ("baseline", "l16"):
+            for profile in ("baseline",):
                 for scheme in ("ckks", "bfv", "bgv"):
                     for operation in ("keyswitch", "hadd", "hmul", "reline", "modswitch", "rotate"):
-                        level = 16 if profile == "l16" else 3 if scheme == "bgv" else 4
+                        level = 3 if scheme == "bgv" else 4
                         expected.append((str(degree), str(level), scheme, operation))
         self.assertEqual([(r["degree"], r["level"], r["scheme"], r["operation"]) for r in cases], expected)
         for row in cases:
