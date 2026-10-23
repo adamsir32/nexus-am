@@ -1,111 +1,383 @@
 old_case_id	case_id	status	note
-00_01_dload_hold	00_01_dload_hold	retained	原定向逻辑保留，目录与编号统一
-00_02_mmio_rw	00_02_mmio_rw	retained	原定向逻辑保留，目录与编号统一
-00_03_dload_mmio	00_03_dload_mmio	retained	原定向逻辑保留，目录与编号统一
-00_04_psync_irq	00_04_psync_irq	retained	原定向逻辑保留，目录与编号统一
-00_05_dload_irq	00_05_dload_irq	retained	原定向逻辑保留，目录与编号统一
-00_06_loopback_mmio	00_06_loopback_mmio	retained	原定向逻辑保留，目录与编号统一
-00_07_loopback_irq	00_07_loopback_irq	retained	原定向逻辑保留，目录与编号统一
-00_08_compute_irq	00_08_compute_irq	retained	原定向逻辑保留，目录与编号统一
-00_09_compute_mmio	00_09_compute_mmio	retained	原定向逻辑保留，目录与编号统一
-00_10_return_0	00_10_return_0	retained	原定向逻辑保留，目录与编号统一
-00_11_return_1	00_11_return_1	retained	原定向逻辑保留，目录与编号统一
-01_01_mmio_rw	01_01_mmio_rw	retained	原定向逻辑保留，目录与编号统一
-01_02_window_commit	01_02_window_commit	retained	原定向逻辑保留，目录与编号统一
-01_03_dma_busy_transition	01_03_dma_busy_transition	retained	原定向逻辑保留，目录与编号统一
-01_04_cmd_handshake	01_04_cmd_handshake	retained	原定向逻辑保留，目录与编号统一
-01_05_dma_arg_pair	01_05_dma_arg_pair	retained	原定向逻辑保留，目录与编号统一
-01_06_dma_loopback	01_06_dma_loopback	retained	原定向逻辑保留，目录与编号统一
-01_07_compute_writeback	01_07_compute_writeback	retained	原定向逻辑保留，目录与编号统一
-01_08_channel_loopback	01_08_channel_loopback	retained	原定向逻辑保留，目录与编号统一
-02_01_window_bounds	02_01_window_bounds	retained	原定向逻辑保留，目录与编号统一
-02_02_window_write_order	02_02_window_write_order	retained	原定向逻辑保留，目录与编号统一
-02_03_object_isolation	02_03_object_isolation	retained	原定向逻辑保留，目录与编号统一
-02_04_psync_rearm_mmio	02_04_psync_rearm_mmio	retained	原定向逻辑保留，目录与编号统一
-02_05_dload_window_fault	02_05_dload_window_fault	retained	原定向逻辑保留，目录与编号统一
-02_06_cmd_timing	02_06_cmd_timing	retained	原定向逻辑保留，目录与编号统一
-02_07_cmd_queue_8_plus_1	02_07_cmd_queue_8_plus_1	retained	原定向逻辑保留，目录与编号统一
-02_08_channel_timing	02_08_channel_timing	retained	原定向逻辑保留，目录与编号统一
-02_09_cpu_hpu_config_mix	02_09_cpu_hpu_config_mix	retained	原定向逻辑保留，目录与编号统一
-02_10_cmd_burst_1	02_10_cmd_burst_1	retained	原定向逻辑保留，目录与编号统一
-02_11_cmd_burst_8	02_11_cmd_burst_8	retained	原定向逻辑保留，目录与编号统一
-02_12_cmd_burst_9	02_12_cmd_burst_9	retained	原定向逻辑保留，目录与编号统一
-02_13_cmd_burst_32	02_13_cmd_burst_32	retained	原定向逻辑保留，目录与编号统一
-02_14_cmd_burst_64	02_14_cmd_burst_64	retained	原定向逻辑保留，目录与编号统一
-02_15_cpu_hpu_alu_mix	02_15_cpu_hpu_alu_mix	retained	原定向逻辑保留，目录与编号统一
-02_16_cpu_hpu_mem_branch_mix	02_16_cpu_hpu_mem_branch_mix	retained	原定向逻辑保留，目录与编号统一
-03_01_padd	03_001_padd	retained	原定向逻辑保留，目录与编号统一
-03_02_psub	03_002_psub	retained	原定向逻辑保留，目录与编号统一
-03_03_pmul	03_003_pmul	retained	原定向逻辑保留，目录与编号统一
-03_04_pmac	03_004_pmac	retained	原定向逻辑保留，目录与编号统一
-03_05_pntt	03_005_pntt	retained	原定向逻辑保留，目录与编号统一
-03_06_pintt	03_006_pintt	retained	原定向逻辑保留，目录与编号统一
-03_07_pmodld	03_007_pmodld	retained	原定向逻辑保留，目录与编号统一
-03_08_psync	03_008_psync	retained	原定向逻辑保留，目录与编号统一
-03_09_pfree	03_009_pfree	retained	原定向逻辑保留，目录与编号统一
-05_31_bgv_hadd_cf3_cf5_n4096	05_281_bgv_hadd_cf3_cf5_l3_n4096	migrated	保留特殊参数回归，区别于标准library矩阵
-05_32_bgv_hmul_reline_cf3_cf5_n4096	05_282_bgv_hmul_reline_cf3_cf5_l3_n4096	migrated	保留特殊参数回归，区别于标准library矩阵
-05_33_bgv_reline_cf15_n4096	05_283_bgv_reline_cf15_l3_n4096	migrated	保留特殊参数回归，区别于标准library矩阵
-05_34_bgv_modswitch_cf3_n4096	05_284_bgv_modswitch_cf3_l3_n4096	migrated	保留特殊参数回归，区别于标准library矩阵
-05_35_ckks_rotate_gen3_step1_n4096	05_286_ckks_rotate_gen3_step1_l4_n4096	migrated	保留特殊参数回归，区别于标准library矩阵
-05_36_bfv_rotate_gen3_step1_n4096	05_287_bfv_rotate_gen3_step1_l4_n4096	migrated	保留特殊参数回归，区别于标准library矩阵
-05_37_bgv_rotate_gen3_step1_cf3_n4096	05_285_bgv_rotate_gen3_step1_cf3_l3_n4096	migrated	保留特殊参数回归，区别于标准library矩阵
-04_01_bconv_q4_to_p3_n4096	04_091_bconv_l4_n4096	migrated	测试职责迁入统一N/L矩阵，参数以新清单为准
-04_02_ntt_n4096	04_074_ntt_l1_n4096	migrated	测试职责迁入统一N/L矩阵，参数以新清单为准
-04_03_intt_n4096	04_075_intt_l1_n4096	migrated	测试职责迁入统一N/L矩阵，参数以新清单为准
-04_04_ckks_keyswitch_n128	04_022_ckks_keyswitch_l4_n128	migrated	测试职责迁入统一N/L矩阵，参数以新清单为准
-04_05_ckks_keyswitch_n4096	04_094_ckks_keyswitch_l4_n4096	migrated	测试职责迁入统一N/L矩阵，参数以新清单为准
-04_06_bfv_keyswitch_n128	04_023_bfv_keyswitch_l4_n128	migrated	测试职责迁入统一N/L矩阵，参数以新清单为准
-04_07_bfv_keyswitch_n4096	04_095_bfv_keyswitch_l4_n4096	migrated	测试职责迁入统一N/L矩阵，参数以新清单为准
-04_08_bgv_keyswitch_n128	04_018_bgv_keyswitch_l3_n128	migrated	测试职责迁入统一N/L矩阵，参数以新清单为准
-04_09_bgv_keyswitch_n4096	04_090_bgv_keyswitch_l3_n4096	migrated	测试职责迁入统一N/L矩阵，参数以新清单为准
-05_01_ckks_hadd_n128	05_042_ckks_hadd_l4_n128	migrated	测试职责迁入统一N/L矩阵，参数以新清单为准
-05_02_ckks_hmul_reline_n128	05_043_ckks_hmul_reline_l4_n128	migrated	测试职责迁入统一N/L矩阵，参数以新清单为准
-05_03_ckks_reline_n128	05_044_ckks_reline_l4_n128	migrated	测试职责迁入统一N/L矩阵，参数以新清单为准
-05_04_ckks_rescale_n128	05_045_ckks_rescale_l4_n128	migrated	测试职责迁入统一N/L矩阵，参数以新清单为准
-05_05_ckks_rotate_n128	05_046_ckks_rotate_l4_n128	migrated	测试职责迁入统一N/L矩阵，参数以新清单为准
-05_06_ckks_hadd_n4096	05_210_ckks_hadd_l4_n4096	migrated	测试职责迁入统一N/L矩阵，参数以新清单为准
-05_07_ckks_hmul_reline_n4096	05_211_ckks_hmul_reline_l4_n4096	migrated	测试职责迁入统一N/L矩阵，参数以新清单为准
-05_08_ckks_reline_n4096	05_212_ckks_reline_l4_n4096	migrated	测试职责迁入统一N/L矩阵，参数以新清单为准
-05_09_ckks_rescale_n4096	05_213_ckks_rescale_l4_n4096	migrated	测试职责迁入统一N/L矩阵，参数以新清单为准
-05_10_ckks_rotate_n4096	05_214_ckks_rotate_l4_n4096	migrated	测试职责迁入统一N/L矩阵，参数以新清单为准
-05_11_bfv_hadd_n128	05_047_bfv_hadd_l4_n128	migrated	测试职责迁入统一N/L矩阵，参数以新清单为准
-05_12_bfv_hmul_reline_n128	05_048_bfv_hmul_reline_l4_n128	migrated	测试职责迁入统一N/L矩阵，参数以新清单为准
-05_13_bfv_reline_n128	05_049_bfv_reline_l4_n128	migrated	测试职责迁入统一N/L矩阵，参数以新清单为准
-05_14_bfv_modswitch_n128	05_050_bfv_modswitch_l4_n128	migrated	测试职责迁入统一N/L矩阵，参数以新清单为准
-05_15_bfv_rotate_n128	05_051_bfv_rotate_l4_n128	migrated	测试职责迁入统一N/L矩阵，参数以新清单为准
-05_16_bfv_hadd_n4096	05_215_bfv_hadd_l4_n4096	migrated	测试职责迁入统一N/L矩阵，参数以新清单为准
-05_17_bfv_hmul_reline_n4096	05_216_bfv_hmul_reline_l4_n4096	migrated	测试职责迁入统一N/L矩阵，参数以新清单为准
-05_18_bfv_reline_n4096	05_217_bfv_reline_l4_n4096	migrated	测试职责迁入统一N/L矩阵，参数以新清单为准
-05_19_bfv_modswitch_n4096	05_218_bfv_modswitch_l4_n4096	migrated	测试职责迁入统一N/L矩阵，参数以新清单为准
-05_20_bfv_rotate_n4096	05_219_bfv_rotate_l4_n4096	migrated	测试职责迁入统一N/L矩阵，参数以新清单为准
-05_21_bgv_hadd_n128	05_037_bgv_hadd_l3_n128	migrated	测试职责迁入统一N/L矩阵，参数以新清单为准
-05_22_bgv_hmul_reline_n128	05_038_bgv_hmul_reline_l3_n128	migrated	测试职责迁入统一N/L矩阵，参数以新清单为准
-05_23_bgv_reline_n128	05_039_bgv_reline_l3_n128	migrated	测试职责迁入统一N/L矩阵，参数以新清单为准
-05_24_bgv_modswitch_n128	05_040_bgv_modswitch_l3_n128	migrated	测试职责迁入统一N/L矩阵，参数以新清单为准
-05_25_bgv_rotate_n128	05_041_bgv_rotate_l3_n128	migrated	测试职责迁入统一N/L矩阵，参数以新清单为准
-05_26_bgv_hadd_n4096	05_205_bgv_hadd_l3_n4096	migrated	测试职责迁入统一N/L矩阵，参数以新清单为准
-05_27_bgv_hmul_reline_n4096	05_206_bgv_hmul_reline_l3_n4096	migrated	测试职责迁入统一N/L矩阵，参数以新清单为准
-05_28_bgv_reline_n4096	05_207_bgv_reline_l3_n4096	migrated	测试职责迁入统一N/L矩阵，参数以新清单为准
-05_29_bgv_modswitch_n4096	05_208_bgv_modswitch_l3_n4096	migrated	测试职责迁入统一N/L矩阵，参数以新清单为准
-05_30_bgv_rotate_n4096	05_209_bgv_rotate_l3_n4096	migrated	测试职责迁入统一N/L矩阵，参数以新清单为准
+00_01_dload_hold	00_01_dload_hold	retained	本例参数与源码保持
+00_02_mmio_rw	00_02_mmio_rw	retained	本例参数与源码保持
+00_03_dload_mmio	00_03_dload_mmio	retained	本例参数与源码保持
+00_04_psync_irq	00_04_psync_irq	retained	本例参数与源码保持
+00_05_dload_irq	00_05_dload_irq	retained	本例参数与源码保持
+00_06_loopback_mmio	00_06_loopback_mmio	retained	本例参数与源码保持
+00_07_loopback_irq	00_07_loopback_irq	retained	本例参数与源码保持
+00_08_compute_irq	00_08_compute_irq	retained	本例参数与源码保持
+00_09_compute_mmio	00_09_compute_mmio	retained	本例参数与源码保持
+00_10_return_0	00_10_return_0	retained	本例参数与源码保持
+00_11_return_1	00_11_return_1	retained	本例参数与源码保持
+01_01_mmio_rw	01_01_mmio_rw	retained	本例参数与源码保持
+01_02_window_commit	01_02_window_commit	retained	本例参数与源码保持
+01_03_dma_busy_transition	01_03_dma_busy_transition	retained	本例参数与源码保持
+01_04_cmd_handshake	01_04_cmd_handshake	retained	本例参数与源码保持
+01_05_dma_arg_pair	01_05_dma_arg_pair	retained	本例参数与源码保持
+01_06_dma_loopback	01_06_dma_loopback	retained	本例参数与源码保持
+01_07_compute_writeback	01_07_compute_writeback	retained	本例参数与源码保持
+01_08_channel_loopback	01_08_channel_loopback	retained	本例参数与源码保持
+02_01_window_bounds	02_01_window_bounds	retained	本例参数与源码保持
+02_02_window_write_order	02_02_window_write_order	retained	本例参数与源码保持
+02_03_object_isolation	02_03_object_isolation	retained	本例参数与源码保持
+02_04_psync_rearm_mmio	02_04_psync_rearm_mmio	retained	本例参数与源码保持
+02_05_dload_window_fault	02_05_dload_window_fault	retained	本例参数与源码保持
+02_06_cmd_timing	02_06_cmd_timing	retained	本例参数与源码保持
+02_07_cmd_queue_8_plus_1	02_07_cmd_queue_8_plus_1	retained	本例参数与源码保持
+02_08_channel_timing	02_08_channel_timing	retained	本例参数与源码保持
+02_09_cpu_hpu_config_mix	02_09_cpu_hpu_config_mix	retained	本例参数与源码保持
+02_10_cmd_burst_1	02_10_cmd_burst_1	retained	本例参数与源码保持
+02_11_cmd_burst_8	02_11_cmd_burst_8	retained	本例参数与源码保持
+02_12_cmd_burst_9	02_12_cmd_burst_9	retained	本例参数与源码保持
+02_13_cmd_burst_32	02_13_cmd_burst_32	retained	本例参数与源码保持
+02_14_cmd_burst_64	02_14_cmd_burst_64	retained	本例参数与源码保持
+02_15_cpu_hpu_alu_mix	02_15_cpu_hpu_alu_mix	retained	本例参数与源码保持
+02_16_cpu_hpu_mem_branch_mix	02_16_cpu_hpu_mem_branch_mix	retained	本例参数与源码保持
 02_17_watchdog_failstop		retired	高N/高level、旧重复包装或未启用条件用例；仅可从Git历史回查
 02_18_watchdog_compute_before_dload		retired	高N/高level、旧重复包装或未启用条件用例；仅可从Git历史回查
 02_19_watchdog_pmodld_before_dload		retired	高N/高level、旧重复包装或未启用条件用例；仅可从Git历史回查
 02_20_wrong_path		retired	高N/高level、旧重复包装或未启用条件用例；仅可从Git历史回查
 02_21_exception_privilege		retired	高N/高level、旧重复包装或未启用条件用例；仅可从Git历史回查
 02_22_random_cpu_hpu_mix		retired	高N/高level、旧重复包装或未启用条件用例；仅可从Git历史回查
+03_001_padd		removed-parameter	已删除该参数case及源码：N4096/level1；基点7b10ddea可回查
+03_002_psub		removed-parameter	已删除该参数case及源码：N4096/level1；基点7b10ddea可回查
+03_003_pmul		removed-parameter	已删除该参数case及源码：N4096/level1；基点7b10ddea可回查
+03_004_pmac		removed-parameter	已删除该参数case及源码：N4096/level1；基点7b10ddea可回查
+03_005_pntt		removed-parameter	已删除该参数case及源码：N4096/level1；基点7b10ddea可回查
+03_006_pintt		removed-parameter	已删除该参数case及源码：N4096/level1；基点7b10ddea可回查
+03_007_pmodld		removed-parameter	已删除该参数case及源码：N4096/level1；基点7b10ddea可回查
+03_008_psync		removed-parameter	已删除该参数case及源码：N4096/level1；基点7b10ddea可回查
+03_009_pfree		removed-parameter	已删除该参数case及源码：N4096/level1；基点7b10ddea可回查
+03_010_padd_l1_n128		removed-parameter	已删除该参数case及源码：N128/level1；基点7b10ddea可回查
+03_011_psub_l1_n128		removed-parameter	已删除该参数case及源码：N128/level1；基点7b10ddea可回查
+03_012_pmul_l1_n128		removed-parameter	已删除该参数case及源码：N128/level1；基点7b10ddea可回查
+03_013_pmac_l1_n128		removed-parameter	已删除该参数case及源码：N128/level1；基点7b10ddea可回查
+03_014_pntt_l1_n128		removed-parameter	已删除该参数case及源码：N128/level1；基点7b10ddea可回查
+03_015_pintt_l1_n128		removed-parameter	已删除该参数case及源码：N128/level1；基点7b10ddea可回查
+03_016_pmodld_l1_n128		removed-parameter	已删除该参数case及源码：N128/level1；基点7b10ddea可回查
+03_017_psync_l1_n128		removed-parameter	已删除该参数case及源码：N128/level1；基点7b10ddea可回查
+03_018_pfree_l1_n128		removed-parameter	已删除该参数case及源码：N128/level1；基点7b10ddea可回查
+03_019_padd_l2_n128		removed-parameter	已删除该参数case及源码：N128/level2；基点7b10ddea可回查
+03_01_padd		removed-parameter	原定向逻辑保留，目录与编号统一；本轮按参数范围删除，不再交付
+03_020_psub_l2_n128		removed-parameter	已删除该参数case及源码：N128/level2；基点7b10ddea可回查
+03_021_pmul_l2_n128		removed-parameter	已删除该参数case及源码：N128/level2；基点7b10ddea可回查
+03_022_pmac_l2_n128		removed-parameter	已删除该参数case及源码：N128/level2；基点7b10ddea可回查
+03_023_pntt_l2_n128		removed-parameter	已删除该参数case及源码：N128/level2；基点7b10ddea可回查
+03_024_pintt_l2_n128		removed-parameter	已删除该参数case及源码：N128/level2；基点7b10ddea可回查
+03_025_pmodld_l2_n128		removed-parameter	已删除该参数case及源码：N128/level2；基点7b10ddea可回查
+03_026_psync_l2_n128		removed-parameter	已删除该参数case及源码：N128/level2；基点7b10ddea可回查
+03_027_pfree_l2_n128		removed-parameter	已删除该参数case及源码：N128/level2；基点7b10ddea可回查
+03_028_padd_l3_n128		removed-parameter	已删除该参数case及源码：N128/level3；基点7b10ddea可回查
+03_029_psub_l3_n128		removed-parameter	已删除该参数case及源码：N128/level3；基点7b10ddea可回查
+03_02_psub		removed-parameter	原定向逻辑保留，目录与编号统一；本轮按参数范围删除，不再交付
+03_030_pmul_l3_n128		removed-parameter	已删除该参数case及源码：N128/level3；基点7b10ddea可回查
+03_031_pmac_l3_n128		removed-parameter	已删除该参数case及源码：N128/level3；基点7b10ddea可回查
+03_032_pntt_l3_n128		removed-parameter	已删除该参数case及源码：N128/level3；基点7b10ddea可回查
+03_033_pintt_l3_n128		removed-parameter	已删除该参数case及源码：N128/level3；基点7b10ddea可回查
+03_034_pmodld_l3_n128		removed-parameter	已删除该参数case及源码：N128/level3；基点7b10ddea可回查
+03_035_psync_l3_n128		removed-parameter	已删除该参数case及源码：N128/level3；基点7b10ddea可回查
+03_036_pfree_l3_n128		removed-parameter	已删除该参数case及源码：N128/level3；基点7b10ddea可回查
+03_037_padd_l4_n128		removed-parameter	已删除该参数case及源码：N128/level4；基点7b10ddea可回查
+03_038_psub_l4_n128		removed-parameter	已删除该参数case及源码：N128/level4；基点7b10ddea可回查
+03_039_pmul_l4_n128		removed-parameter	已删除该参数case及源码：N128/level4；基点7b10ddea可回查
+03_03_pmul		removed-parameter	原定向逻辑保留，目录与编号统一；本轮按参数范围删除，不再交付
+03_040_pmac_l4_n128		removed-parameter	已删除该参数case及源码：N128/level4；基点7b10ddea可回查
+03_041_pntt_l4_n128		removed-parameter	已删除该参数case及源码：N128/level4；基点7b10ddea可回查
+03_042_pintt_l4_n128		removed-parameter	已删除该参数case及源码：N128/level4；基点7b10ddea可回查
+03_043_pmodld_l4_n128		removed-parameter	已删除该参数case及源码：N128/level4；基点7b10ddea可回查
+03_044_psync_l4_n128		removed-parameter	已删除该参数case及源码：N128/level4；基点7b10ddea可回查
+03_045_pfree_l4_n128		removed-parameter	已删除该参数case及源码：N128/level4；基点7b10ddea可回查
+03_046_padd_l1_n1024		removed-parameter	已删除该参数case及源码：N1024/level1；基点7b10ddea可回查
+03_047_psub_l1_n1024		removed-parameter	已删除该参数case及源码：N1024/level1；基点7b10ddea可回查
+03_048_pmul_l1_n1024		removed-parameter	已删除该参数case及源码：N1024/level1；基点7b10ddea可回查
+03_049_pmac_l1_n1024		removed-parameter	已删除该参数case及源码：N1024/level1；基点7b10ddea可回查
+03_04_pmac		removed-parameter	原定向逻辑保留，目录与编号统一；本轮按参数范围删除，不再交付
+03_050_pntt_l1_n1024		removed-parameter	已删除该参数case及源码：N1024/level1；基点7b10ddea可回查
+03_051_pintt_l1_n1024		removed-parameter	已删除该参数case及源码：N1024/level1；基点7b10ddea可回查
+03_052_pmodld_l1_n1024		removed-parameter	已删除该参数case及源码：N1024/level1；基点7b10ddea可回查
+03_053_psync_l1_n1024		removed-parameter	已删除该参数case及源码：N1024/level1；基点7b10ddea可回查
+03_054_pfree_l1_n1024		removed-parameter	已删除该参数case及源码：N1024/level1；基点7b10ddea可回查
+03_055_padd_l2_n1024		removed-parameter	已删除该参数case及源码：N1024/level2；基点7b10ddea可回查
+03_056_psub_l2_n1024		removed-parameter	已删除该参数case及源码：N1024/level2；基点7b10ddea可回查
+03_057_pmul_l2_n1024		removed-parameter	已删除该参数case及源码：N1024/level2；基点7b10ddea可回查
+03_058_pmac_l2_n1024		removed-parameter	已删除该参数case及源码：N1024/level2；基点7b10ddea可回查
+03_059_pntt_l2_n1024		removed-parameter	已删除该参数case及源码：N1024/level2；基点7b10ddea可回查
+03_05_pntt		removed-parameter	原定向逻辑保留，目录与编号统一；本轮按参数范围删除，不再交付
+03_060_pintt_l2_n1024		removed-parameter	已删除该参数case及源码：N1024/level2；基点7b10ddea可回查
+03_061_pmodld_l2_n1024		removed-parameter	已删除该参数case及源码：N1024/level2；基点7b10ddea可回查
+03_062_psync_l2_n1024		removed-parameter	已删除该参数case及源码：N1024/level2；基点7b10ddea可回查
+03_063_pfree_l2_n1024		removed-parameter	已删除该参数case及源码：N1024/level2；基点7b10ddea可回查
+03_064_padd_l3_n1024		removed-parameter	已删除该参数case及源码：N1024/level3；基点7b10ddea可回查
+03_065_psub_l3_n1024		removed-parameter	已删除该参数case及源码：N1024/level3；基点7b10ddea可回查
+03_066_pmul_l3_n1024		removed-parameter	已删除该参数case及源码：N1024/level3；基点7b10ddea可回查
+03_067_pmac_l3_n1024		removed-parameter	已删除该参数case及源码：N1024/level3；基点7b10ddea可回查
+03_068_pntt_l3_n1024		removed-parameter	已删除该参数case及源码：N1024/level3；基点7b10ddea可回查
+03_069_pintt_l3_n1024		removed-parameter	已删除该参数case及源码：N1024/level3；基点7b10ddea可回查
+03_06_pintt		removed-parameter	原定向逻辑保留，目录与编号统一；本轮按参数范围删除，不再交付
+03_070_pmodld_l3_n1024		removed-parameter	已删除该参数case及源码：N1024/level3；基点7b10ddea可回查
+03_071_psync_l3_n1024		removed-parameter	已删除该参数case及源码：N1024/level3；基点7b10ddea可回查
+03_072_pfree_l3_n1024		removed-parameter	已删除该参数case及源码：N1024/level3；基点7b10ddea可回查
+03_073_padd_l4_n1024	03_01_padd_l4_n1024	retained	参数与程序保留，编号/路径顺排
+03_074_psub_l4_n1024	03_02_psub_l4_n1024	retained	参数与程序保留，编号/路径顺排
+03_075_pmul_l4_n1024	03_03_pmul_l4_n1024	retained	参数与程序保留，编号/路径顺排
+03_076_pmac_l4_n1024	03_04_pmac_l4_n1024	retained	参数与程序保留，编号/路径顺排
+03_077_pntt_l4_n1024	03_05_pntt_l4_n1024	retained	参数与程序保留，编号/路径顺排
+03_078_pintt_l4_n1024	03_06_pintt_l4_n1024	retained	参数与程序保留，编号/路径顺排
+03_079_pmodld_l4_n1024	03_07_pmodld_l4_n1024	retained	参数与程序保留，编号/路径顺排
+03_07_pmodld		removed-parameter	原定向逻辑保留，目录与编号统一；本轮按参数范围删除，不再交付
+03_080_psync_l4_n1024	03_08_psync_l4_n1024	retained	参数与程序保留，编号/路径顺排
+03_081_pfree_l4_n1024	03_09_pfree_l4_n1024	retained	参数与程序保留，编号/路径顺排
+03_082_padd_l1_n2048		removed-parameter	已删除该参数case及源码：N2048/level1；基点7b10ddea可回查
+03_083_psub_l1_n2048		removed-parameter	已删除该参数case及源码：N2048/level1；基点7b10ddea可回查
+03_084_pmul_l1_n2048		removed-parameter	已删除该参数case及源码：N2048/level1；基点7b10ddea可回查
+03_085_pmac_l1_n2048		removed-parameter	已删除该参数case及源码：N2048/level1；基点7b10ddea可回查
+03_086_pntt_l1_n2048		removed-parameter	已删除该参数case及源码：N2048/level1；基点7b10ddea可回查
+03_087_pintt_l1_n2048		removed-parameter	已删除该参数case及源码：N2048/level1；基点7b10ddea可回查
+03_088_pmodld_l1_n2048		removed-parameter	已删除该参数case及源码：N2048/level1；基点7b10ddea可回查
+03_089_psync_l1_n2048		removed-parameter	已删除该参数case及源码：N2048/level1；基点7b10ddea可回查
+03_08_psync		removed-parameter	原定向逻辑保留，目录与编号统一；本轮按参数范围删除，不再交付
+03_090_pfree_l1_n2048		removed-parameter	已删除该参数case及源码：N2048/level1；基点7b10ddea可回查
+03_091_padd_l2_n2048		removed-parameter	已删除该参数case及源码：N2048/level2；基点7b10ddea可回查
+03_092_psub_l2_n2048		removed-parameter	已删除该参数case及源码：N2048/level2；基点7b10ddea可回查
+03_093_pmul_l2_n2048		removed-parameter	已删除该参数case及源码：N2048/level2；基点7b10ddea可回查
+03_094_pmac_l2_n2048		removed-parameter	已删除该参数case及源码：N2048/level2；基点7b10ddea可回查
+03_095_pntt_l2_n2048		removed-parameter	已删除该参数case及源码：N2048/level2；基点7b10ddea可回查
+03_096_pintt_l2_n2048		removed-parameter	已删除该参数case及源码：N2048/level2；基点7b10ddea可回查
+03_097_pmodld_l2_n2048		removed-parameter	已删除该参数case及源码：N2048/level2；基点7b10ddea可回查
+03_098_psync_l2_n2048		removed-parameter	已删除该参数case及源码：N2048/level2；基点7b10ddea可回查
+03_099_pfree_l2_n2048		removed-parameter	已删除该参数case及源码：N2048/level2；基点7b10ddea可回查
+03_09_pfree		removed-parameter	原定向逻辑保留，目录与编号统一；本轮按参数范围删除，不再交付
+03_100_padd_l3_n2048		removed-parameter	已删除该参数case及源码：N2048/level3；基点7b10ddea可回查
+03_101_psub_l3_n2048		removed-parameter	已删除该参数case及源码：N2048/level3；基点7b10ddea可回查
+03_102_pmul_l3_n2048		removed-parameter	已删除该参数case及源码：N2048/level3；基点7b10ddea可回查
+03_103_pmac_l3_n2048		removed-parameter	已删除该参数case及源码：N2048/level3；基点7b10ddea可回查
+03_104_pntt_l3_n2048		removed-parameter	已删除该参数case及源码：N2048/level3；基点7b10ddea可回查
+03_105_pintt_l3_n2048		removed-parameter	已删除该参数case及源码：N2048/level3；基点7b10ddea可回查
+03_106_pmodld_l3_n2048		removed-parameter	已删除该参数case及源码：N2048/level3；基点7b10ddea可回查
+03_107_psync_l3_n2048		removed-parameter	已删除该参数case及源码：N2048/level3；基点7b10ddea可回查
+03_108_pfree_l3_n2048		removed-parameter	已删除该参数case及源码：N2048/level3；基点7b10ddea可回查
+03_109_padd_l4_n2048		removed-parameter	已删除该参数case及源码：N2048/level4；基点7b10ddea可回查
 03_10_padd_n65536		retired	高N/高level、旧重复包装或未启用条件用例；仅可从Git历史回查
+03_110_psub_l4_n2048		removed-parameter	已删除该参数case及源码：N2048/level4；基点7b10ddea可回查
+03_111_pmul_l4_n2048		removed-parameter	已删除该参数case及源码：N2048/level4；基点7b10ddea可回查
+03_112_pmac_l4_n2048		removed-parameter	已删除该参数case及源码：N2048/level4；基点7b10ddea可回查
+03_113_pntt_l4_n2048		removed-parameter	已删除该参数case及源码：N2048/level4；基点7b10ddea可回查
+03_114_pintt_l4_n2048		removed-parameter	已删除该参数case及源码：N2048/level4；基点7b10ddea可回查
+03_115_pmodld_l4_n2048		removed-parameter	已删除该参数case及源码：N2048/level4；基点7b10ddea可回查
+03_116_psync_l4_n2048		removed-parameter	已删除该参数case及源码：N2048/level4；基点7b10ddea可回查
+03_117_pfree_l4_n2048		removed-parameter	已删除该参数case及源码：N2048/level4；基点7b10ddea可回查
+03_118_padd_l1_n4096		removed-parameter	已删除该参数case及源码：N4096/level1；基点7b10ddea可回查
+03_119_psub_l1_n4096		removed-parameter	已删除该参数case及源码：N4096/level1；基点7b10ddea可回查
 03_11_psub_n65536		retired	高N/高level、旧重复包装或未启用条件用例；仅可从Git历史回查
+03_120_pmul_l1_n4096		removed-parameter	已删除该参数case及源码：N4096/level1；基点7b10ddea可回查
+03_121_pmac_l1_n4096		removed-parameter	已删除该参数case及源码：N4096/level1；基点7b10ddea可回查
+03_122_pntt_l1_n4096		removed-parameter	已删除该参数case及源码：N4096/level1；基点7b10ddea可回查
+03_123_pintt_l1_n4096		removed-parameter	已删除该参数case及源码：N4096/level1；基点7b10ddea可回查
+03_124_pmodld_l1_n4096		removed-parameter	已删除该参数case及源码：N4096/level1；基点7b10ddea可回查
+03_125_psync_l1_n4096		removed-parameter	已删除该参数case及源码：N4096/level1；基点7b10ddea可回查
+03_126_pfree_l1_n4096		removed-parameter	已删除该参数case及源码：N4096/level1；基点7b10ddea可回查
+03_127_padd_l2_n4096		removed-parameter	已删除该参数case及源码：N4096/level2；基点7b10ddea可回查
+03_128_psub_l2_n4096		removed-parameter	已删除该参数case及源码：N4096/level2；基点7b10ddea可回查
+03_129_pmul_l2_n4096		removed-parameter	已删除该参数case及源码：N4096/level2；基点7b10ddea可回查
 03_12_pmul_n65536		retired	高N/高level、旧重复包装或未启用条件用例；仅可从Git历史回查
+03_130_pmac_l2_n4096		removed-parameter	已删除该参数case及源码：N4096/level2；基点7b10ddea可回查
+03_131_pntt_l2_n4096		removed-parameter	已删除该参数case及源码：N4096/level2；基点7b10ddea可回查
+03_132_pintt_l2_n4096		removed-parameter	已删除该参数case及源码：N4096/level2；基点7b10ddea可回查
+03_133_pmodld_l2_n4096		removed-parameter	已删除该参数case及源码：N4096/level2；基点7b10ddea可回查
+03_134_psync_l2_n4096		removed-parameter	已删除该参数case及源码：N4096/level2；基点7b10ddea可回查
+03_135_pfree_l2_n4096		removed-parameter	已删除该参数case及源码：N4096/level2；基点7b10ddea可回查
+03_136_padd_l3_n4096		removed-parameter	已删除该参数case及源码：N4096/level3；基点7b10ddea可回查
+03_137_psub_l3_n4096		removed-parameter	已删除该参数case及源码：N4096/level3；基点7b10ddea可回查
+03_138_pmul_l3_n4096		removed-parameter	已删除该参数case及源码：N4096/level3；基点7b10ddea可回查
+03_139_pmac_l3_n4096		removed-parameter	已删除该参数case及源码：N4096/level3；基点7b10ddea可回查
 03_13_pmac_n65536		retired	高N/高level、旧重复包装或未启用条件用例；仅可从Git历史回查
+03_140_pntt_l3_n4096		removed-parameter	已删除该参数case及源码：N4096/level3；基点7b10ddea可回查
+03_141_pintt_l3_n4096		removed-parameter	已删除该参数case及源码：N4096/level3；基点7b10ddea可回查
+03_142_pmodld_l3_n4096		removed-parameter	已删除该参数case及源码：N4096/level3；基点7b10ddea可回查
+03_143_psync_l3_n4096		removed-parameter	已删除该参数case及源码：N4096/level3；基点7b10ddea可回查
+03_144_pfree_l3_n4096		removed-parameter	已删除该参数case及源码：N4096/level3；基点7b10ddea可回查
+03_145_padd_l4_n4096		removed-parameter	已删除该参数case及源码：N4096/level4；基点7b10ddea可回查
+03_146_psub_l4_n4096		removed-parameter	已删除该参数case及源码：N4096/level4；基点7b10ddea可回查
+03_147_pmul_l4_n4096		removed-parameter	已删除该参数case及源码：N4096/level4；基点7b10ddea可回查
+03_148_pmac_l4_n4096		removed-parameter	已删除该参数case及源码：N4096/level4；基点7b10ddea可回查
+03_149_pntt_l4_n4096		removed-parameter	已删除该参数case及源码：N4096/level4；基点7b10ddea可回查
 03_14_pntt_n65536		retired	高N/高level、旧重复包装或未启用条件用例；仅可从Git历史回查
+03_150_pintt_l4_n4096		removed-parameter	已删除该参数case及源码：N4096/level4；基点7b10ddea可回查
+03_151_pmodld_l4_n4096		removed-parameter	已删除该参数case及源码：N4096/level4；基点7b10ddea可回查
+03_152_psync_l4_n4096		removed-parameter	已删除该参数case及源码：N4096/level4；基点7b10ddea可回查
+03_153_pfree_l4_n4096		removed-parameter	已删除该参数case及源码：N4096/level4；基点7b10ddea可回查
+03_154_padd_l1_n8192		removed-parameter	已删除该参数case及源码：N8192/level1；基点7b10ddea可回查
+03_155_psub_l1_n8192		removed-parameter	已删除该参数case及源码：N8192/level1；基点7b10ddea可回查
+03_156_pmul_l1_n8192		removed-parameter	已删除该参数case及源码：N8192/level1；基点7b10ddea可回查
+03_157_pmac_l1_n8192		removed-parameter	已删除该参数case及源码：N8192/level1；基点7b10ddea可回查
+03_158_pntt_l1_n8192		removed-parameter	已删除该参数case及源码：N8192/level1；基点7b10ddea可回查
+03_159_pintt_l1_n8192		removed-parameter	已删除该参数case及源码：N8192/level1；基点7b10ddea可回查
 03_15_pintt_n65536		retired	高N/高level、旧重复包装或未启用条件用例；仅可从Git历史回查
+03_160_pmodld_l1_n8192		removed-parameter	已删除该参数case及源码：N8192/level1；基点7b10ddea可回查
+03_161_psync_l1_n8192		removed-parameter	已删除该参数case及源码：N8192/level1；基点7b10ddea可回查
+03_162_pfree_l1_n8192		removed-parameter	已删除该参数case及源码：N8192/level1；基点7b10ddea可回查
+03_163_padd_l2_n8192		removed-parameter	已删除该参数case及源码：N8192/level2；基点7b10ddea可回查
+03_164_psub_l2_n8192		removed-parameter	已删除该参数case及源码：N8192/level2；基点7b10ddea可回查
+03_165_pmul_l2_n8192		removed-parameter	已删除该参数case及源码：N8192/level2；基点7b10ddea可回查
+03_166_pmac_l2_n8192		removed-parameter	已删除该参数case及源码：N8192/level2；基点7b10ddea可回查
+03_167_pntt_l2_n8192		removed-parameter	已删除该参数case及源码：N8192/level2；基点7b10ddea可回查
+03_168_pintt_l2_n8192		removed-parameter	已删除该参数case及源码：N8192/level2；基点7b10ddea可回查
+03_169_pmodld_l2_n8192		removed-parameter	已删除该参数case及源码：N8192/level2；基点7b10ddea可回查
 03_16_pmodld_n65536		retired	高N/高level、旧重复包装或未启用条件用例；仅可从Git历史回查
+03_170_psync_l2_n8192		removed-parameter	已删除该参数case及源码：N8192/level2；基点7b10ddea可回查
+03_171_pfree_l2_n8192		removed-parameter	已删除该参数case及源码：N8192/level2；基点7b10ddea可回查
+03_172_padd_l3_n8192		removed-parameter	已删除该参数case及源码：N8192/level3；基点7b10ddea可回查
+03_173_psub_l3_n8192		removed-parameter	已删除该参数case及源码：N8192/level3；基点7b10ddea可回查
+03_174_pmul_l3_n8192		removed-parameter	已删除该参数case及源码：N8192/level3；基点7b10ddea可回查
+03_175_pmac_l3_n8192		removed-parameter	已删除该参数case及源码：N8192/level3；基点7b10ddea可回查
+03_176_pntt_l3_n8192		removed-parameter	已删除该参数case及源码：N8192/level3；基点7b10ddea可回查
+03_177_pintt_l3_n8192		removed-parameter	已删除该参数case及源码：N8192/level3；基点7b10ddea可回查
+03_178_pmodld_l3_n8192		removed-parameter	已删除该参数case及源码：N8192/level3；基点7b10ddea可回查
+03_179_psync_l3_n8192		removed-parameter	已删除该参数case及源码：N8192/level3；基点7b10ddea可回查
 03_17_psync_n65536		retired	高N/高level、旧重复包装或未启用条件用例；仅可从Git历史回查
+03_180_pfree_l3_n8192		removed-parameter	已删除该参数case及源码：N8192/level3；基点7b10ddea可回查
+03_181_padd_l4_n8192		removed-parameter	已删除该参数case及源码：N8192/level4；基点7b10ddea可回查
+03_182_psub_l4_n8192		removed-parameter	已删除该参数case及源码：N8192/level4；基点7b10ddea可回查
+03_183_pmul_l4_n8192		removed-parameter	已删除该参数case及源码：N8192/level4；基点7b10ddea可回查
+03_184_pmac_l4_n8192		removed-parameter	已删除该参数case及源码：N8192/level4；基点7b10ddea可回查
+03_185_pntt_l4_n8192		removed-parameter	已删除该参数case及源码：N8192/level4；基点7b10ddea可回查
+03_186_pintt_l4_n8192		removed-parameter	已删除该参数case及源码：N8192/level4；基点7b10ddea可回查
+03_187_pmodld_l4_n8192		removed-parameter	已删除该参数case及源码：N8192/level4；基点7b10ddea可回查
+03_188_psync_l4_n8192		removed-parameter	已删除该参数case及源码：N8192/level4；基点7b10ddea可回查
+03_189_pfree_l4_n8192		removed-parameter	已删除该参数case及源码：N8192/level4；基点7b10ddea可回查
 03_18_pfree_n65536		retired	高N/高level、旧重复包装或未启用条件用例；仅可从Git历史回查
+04_001_bconv_l1_n128		removed-parameter	已删除该参数case及源码：N128/level1；基点7b10ddea可回查
+04_002_ntt_l1_n128		removed-parameter	已删除该参数case及源码：N128/level1；基点7b10ddea可回查
+04_003_intt_l1_n128		removed-parameter	已删除该参数case及源码：N128/level1；基点7b10ddea可回查
+04_004_ckks_keyswitch_l1_n128		removed-parameter	已删除该参数case及源码：N128/level1；基点7b10ddea可回查
+04_005_bfv_keyswitch_l1_n128		removed-parameter	已删除该参数case及源码：N128/level1；基点7b10ddea可回查
+04_006_bgv_keyswitch_l1_n128		removed-parameter	已删除该参数case及源码：N128/level1；基点7b10ddea可回查
+04_007_bconv_l2_n128		removed-parameter	已删除该参数case及源码：N128/level2；基点7b10ddea可回查
+04_008_ntt_l2_n128		removed-parameter	已删除该参数case及源码：N128/level2；基点7b10ddea可回查
+04_009_intt_l2_n128		removed-parameter	已删除该参数case及源码：N128/level2；基点7b10ddea可回查
+04_010_ckks_keyswitch_l2_n128		removed-parameter	已删除该参数case及源码：N128/level2；基点7b10ddea可回查
+04_011_bfv_keyswitch_l2_n128		removed-parameter	已删除该参数case及源码：N128/level2；基点7b10ddea可回查
+04_012_bgv_keyswitch_l2_n128		removed-parameter	已删除该参数case及源码：N128/level2；基点7b10ddea可回查
+04_013_bconv_l3_n128		removed-parameter	已删除该参数case及源码：N128/level3；基点7b10ddea可回查
+04_014_ntt_l3_n128		removed-parameter	已删除该参数case及源码：N128/level3；基点7b10ddea可回查
+04_015_intt_l3_n128		removed-parameter	已删除该参数case及源码：N128/level3；基点7b10ddea可回查
+04_016_ckks_keyswitch_l3_n128		removed-parameter	已删除该参数case及源码：N128/level3；基点7b10ddea可回查
+04_017_bfv_keyswitch_l3_n128		removed-parameter	已删除该参数case及源码：N128/level3；基点7b10ddea可回查
+04_018_bgv_keyswitch_l3_n128		removed-parameter	已删除该参数case及源码：N128/level3；基点7b10ddea可回查
+04_019_bconv_l4_n128		removed-parameter	已删除该参数case及源码：N128/level4；基点7b10ddea可回查
+04_01_bconv_q4_to_p3_n4096		removed-parameter	测试职责迁入统一N/L矩阵，参数以新清单为准；本轮按参数范围删除，不再交付
+04_020_ntt_l4_n128		removed-parameter	已删除该参数case及源码：N128/level4；基点7b10ddea可回查
+04_021_intt_l4_n128		removed-parameter	已删除该参数case及源码：N128/level4；基点7b10ddea可回查
+04_022_ckks_keyswitch_l4_n128		removed-parameter	已删除该参数case及源码：N128/level4；基点7b10ddea可回查
+04_023_bfv_keyswitch_l4_n128		removed-parameter	已删除该参数case及源码：N128/level4；基点7b10ddea可回查
+04_024_bgv_keyswitch_l4_n128		removed-parameter	已删除该参数case及源码：N128/level4；基点7b10ddea可回查
+04_025_bconv_l1_n1024		removed-parameter	已删除该参数case及源码：N1024/level1；基点7b10ddea可回查
+04_026_ntt_l1_n1024		removed-parameter	已删除该参数case及源码：N1024/level1；基点7b10ddea可回查
+04_027_intt_l1_n1024		removed-parameter	已删除该参数case及源码：N1024/level1；基点7b10ddea可回查
+04_028_ckks_keyswitch_l1_n1024		removed-parameter	已删除该参数case及源码：N1024/level1；基点7b10ddea可回查
+04_029_bfv_keyswitch_l1_n1024		removed-parameter	已删除该参数case及源码：N1024/level1；基点7b10ddea可回查
+04_02_ntt_n4096		removed-parameter	测试职责迁入统一N/L矩阵，参数以新清单为准；本轮按参数范围删除，不再交付
+04_030_bgv_keyswitch_l1_n1024		removed-parameter	已删除该参数case及源码：N1024/level1；基点7b10ddea可回查
+04_031_bconv_l2_n1024		removed-parameter	已删除该参数case及源码：N1024/level2；基点7b10ddea可回查
+04_032_ntt_l2_n1024		removed-parameter	已删除该参数case及源码：N1024/level2；基点7b10ddea可回查
+04_033_intt_l2_n1024		removed-parameter	已删除该参数case及源码：N1024/level2；基点7b10ddea可回查
+04_034_ckks_keyswitch_l2_n1024		removed-parameter	已删除该参数case及源码：N1024/level2；基点7b10ddea可回查
+04_035_bfv_keyswitch_l2_n1024		removed-parameter	已删除该参数case及源码：N1024/level2；基点7b10ddea可回查
+04_036_bgv_keyswitch_l2_n1024		removed-parameter	已删除该参数case及源码：N1024/level2；基点7b10ddea可回查
+04_037_bconv_l3_n1024		removed-parameter	已删除该参数case及源码：N1024/level3；基点7b10ddea可回查
+04_038_ntt_l3_n1024		removed-parameter	已删除该参数case及源码：N1024/level3；基点7b10ddea可回查
+04_039_intt_l3_n1024		removed-parameter	已删除该参数case及源码：N1024/level3；基点7b10ddea可回查
+04_03_intt_n4096		removed-parameter	测试职责迁入统一N/L矩阵，参数以新清单为准；本轮按参数范围删除，不再交付
+04_040_ckks_keyswitch_l3_n1024		removed-parameter	已删除该参数case及源码：N1024/level3；基点7b10ddea可回查
+04_041_bfv_keyswitch_l3_n1024		removed-parameter	已删除该参数case及源码：N1024/level3；基点7b10ddea可回查
+04_042_bgv_keyswitch_l3_n1024		removed-parameter	已删除该参数case及源码：N1024/level3；基点7b10ddea可回查
+04_043_bconv_l4_n1024	04_01_bconv_l4_n1024	retained	参数与程序保留，编号/路径顺排
+04_044_ntt_l4_n1024	04_02_ntt_l4_n1024	retained	参数与程序保留，编号/路径顺排
+04_045_intt_l4_n1024	04_03_intt_l4_n1024	retained	参数与程序保留，编号/路径顺排
+04_046_ckks_keyswitch_l4_n1024	04_04_ckks_keyswitch_l4_n1024	retained	参数与程序保留，编号/路径顺排
+04_047_bfv_keyswitch_l4_n1024	04_05_bfv_keyswitch_l4_n1024	retained	参数与程序保留，编号/路径顺排
+04_048_bgv_keyswitch_l4_n1024	04_06_bgv_keyswitch_l4_n1024	retained	参数与程序保留，编号/路径顺排
+04_049_bconv_l1_n2048		removed-parameter	已删除该参数case及源码：N2048/level1；基点7b10ddea可回查
+04_04_ckks_keyswitch_n128		removed-parameter	测试职责迁入统一N/L矩阵，参数以新清单为准；本轮按参数范围删除，不再交付
+04_050_ntt_l1_n2048		removed-parameter	已删除该参数case及源码：N2048/level1；基点7b10ddea可回查
+04_051_intt_l1_n2048		removed-parameter	已删除该参数case及源码：N2048/level1；基点7b10ddea可回查
+04_052_ckks_keyswitch_l1_n2048		removed-parameter	已删除该参数case及源码：N2048/level1；基点7b10ddea可回查
+04_053_bfv_keyswitch_l1_n2048		removed-parameter	已删除该参数case及源码：N2048/level1；基点7b10ddea可回查
+04_054_bgv_keyswitch_l1_n2048		removed-parameter	已删除该参数case及源码：N2048/level1；基点7b10ddea可回查
+04_055_bconv_l2_n2048		removed-parameter	已删除该参数case及源码：N2048/level2；基点7b10ddea可回查
+04_056_ntt_l2_n2048		removed-parameter	已删除该参数case及源码：N2048/level2；基点7b10ddea可回查
+04_057_intt_l2_n2048		removed-parameter	已删除该参数case及源码：N2048/level2；基点7b10ddea可回查
+04_058_ckks_keyswitch_l2_n2048		removed-parameter	已删除该参数case及源码：N2048/level2；基点7b10ddea可回查
+04_059_bfv_keyswitch_l2_n2048		removed-parameter	已删除该参数case及源码：N2048/level2；基点7b10ddea可回查
+04_05_ckks_keyswitch_n4096		removed-parameter	测试职责迁入统一N/L矩阵，参数以新清单为准；本轮按参数范围删除，不再交付
+04_060_bgv_keyswitch_l2_n2048		removed-parameter	已删除该参数case及源码：N2048/level2；基点7b10ddea可回查
+04_061_bconv_l3_n2048		removed-parameter	已删除该参数case及源码：N2048/level3；基点7b10ddea可回查
+04_062_ntt_l3_n2048		removed-parameter	已删除该参数case及源码：N2048/level3；基点7b10ddea可回查
+04_063_intt_l3_n2048		removed-parameter	已删除该参数case及源码：N2048/level3；基点7b10ddea可回查
+04_064_ckks_keyswitch_l3_n2048		removed-parameter	已删除该参数case及源码：N2048/level3；基点7b10ddea可回查
+04_065_bfv_keyswitch_l3_n2048		removed-parameter	已删除该参数case及源码：N2048/level3；基点7b10ddea可回查
+04_066_bgv_keyswitch_l3_n2048		removed-parameter	已删除该参数case及源码：N2048/level3；基点7b10ddea可回查
+04_067_bconv_l4_n2048		removed-parameter	已删除该参数case及源码：N2048/level4；基点7b10ddea可回查
+04_068_ntt_l4_n2048		removed-parameter	已删除该参数case及源码：N2048/level4；基点7b10ddea可回查
+04_069_intt_l4_n2048		removed-parameter	已删除该参数case及源码：N2048/level4；基点7b10ddea可回查
+04_06_bfv_keyswitch_n128		removed-parameter	测试职责迁入统一N/L矩阵，参数以新清单为准；本轮按参数范围删除，不再交付
+04_070_ckks_keyswitch_l4_n2048		removed-parameter	已删除该参数case及源码：N2048/level4；基点7b10ddea可回查
+04_071_bfv_keyswitch_l4_n2048		removed-parameter	已删除该参数case及源码：N2048/level4；基点7b10ddea可回查
+04_072_bgv_keyswitch_l4_n2048		removed-parameter	已删除该参数case及源码：N2048/level4；基点7b10ddea可回查
+04_073_bconv_l1_n4096		removed-parameter	已删除该参数case及源码：N4096/level1；基点7b10ddea可回查
+04_074_ntt_l1_n4096		removed-parameter	已删除该参数case及源码：N4096/level1；基点7b10ddea可回查
+04_075_intt_l1_n4096		removed-parameter	已删除该参数case及源码：N4096/level1；基点7b10ddea可回查
+04_076_ckks_keyswitch_l1_n4096		removed-parameter	已删除该参数case及源码：N4096/level1；基点7b10ddea可回查
+04_077_bfv_keyswitch_l1_n4096		removed-parameter	已删除该参数case及源码：N4096/level1；基点7b10ddea可回查
+04_078_bgv_keyswitch_l1_n4096		removed-parameter	已删除该参数case及源码：N4096/level1；基点7b10ddea可回查
+04_079_bconv_l2_n4096		removed-parameter	已删除该参数case及源码：N4096/level2；基点7b10ddea可回查
+04_07_bfv_keyswitch_n4096		removed-parameter	测试职责迁入统一N/L矩阵，参数以新清单为准；本轮按参数范围删除，不再交付
+04_080_ntt_l2_n4096		removed-parameter	已删除该参数case及源码：N4096/level2；基点7b10ddea可回查
+04_081_intt_l2_n4096		removed-parameter	已删除该参数case及源码：N4096/level2；基点7b10ddea可回查
+04_082_ckks_keyswitch_l2_n4096		removed-parameter	已删除该参数case及源码：N4096/level2；基点7b10ddea可回查
+04_083_bfv_keyswitch_l2_n4096		removed-parameter	已删除该参数case及源码：N4096/level2；基点7b10ddea可回查
+04_084_bgv_keyswitch_l2_n4096		removed-parameter	已删除该参数case及源码：N4096/level2；基点7b10ddea可回查
+04_085_bconv_l3_n4096		removed-parameter	已删除该参数case及源码：N4096/level3；基点7b10ddea可回查
+04_086_ntt_l3_n4096		removed-parameter	已删除该参数case及源码：N4096/level3；基点7b10ddea可回查
+04_087_intt_l3_n4096		removed-parameter	已删除该参数case及源码：N4096/level3；基点7b10ddea可回查
+04_088_ckks_keyswitch_l3_n4096		removed-parameter	已删除该参数case及源码：N4096/level3；基点7b10ddea可回查
+04_089_bfv_keyswitch_l3_n4096		removed-parameter	已删除该参数case及源码：N4096/level3；基点7b10ddea可回查
+04_08_bgv_keyswitch_n128		removed-parameter	测试职责迁入统一N/L矩阵，参数以新清单为准；本轮按参数范围删除，不再交付
+04_090_bgv_keyswitch_l3_n4096		removed-parameter	已删除该参数case及源码：N4096/level3；基点7b10ddea可回查
+04_091_bconv_l4_n4096		removed-parameter	已删除该参数case及源码：N4096/level4；基点7b10ddea可回查
+04_092_ntt_l4_n4096		removed-parameter	已删除该参数case及源码：N4096/level4；基点7b10ddea可回查
+04_093_intt_l4_n4096		removed-parameter	已删除该参数case及源码：N4096/level4；基点7b10ddea可回查
+04_094_ckks_keyswitch_l4_n4096		removed-parameter	已删除该参数case及源码：N4096/level4；基点7b10ddea可回查
+04_095_bfv_keyswitch_l4_n4096		removed-parameter	已删除该参数case及源码：N4096/level4；基点7b10ddea可回查
+04_096_bgv_keyswitch_l4_n4096		removed-parameter	已删除该参数case及源码：N4096/level4；基点7b10ddea可回查
+04_097_bconv_l1_n8192		removed-parameter	已删除该参数case及源码：N8192/level1；基点7b10ddea可回查
+04_098_ntt_l1_n8192		removed-parameter	已删除该参数case及源码：N8192/level1；基点7b10ddea可回查
+04_099_intt_l1_n8192		removed-parameter	已删除该参数case及源码：N8192/level1；基点7b10ddea可回查
+04_09_bgv_keyswitch_n4096		removed-parameter	测试职责迁入统一N/L矩阵，参数以新清单为准；本轮按参数范围删除，不再交付
+04_100_ckks_keyswitch_l1_n8192		removed-parameter	已删除该参数case及源码：N8192/level1；基点7b10ddea可回查
+04_101_bfv_keyswitch_l1_n8192		removed-parameter	已删除该参数case及源码：N8192/level1；基点7b10ddea可回查
+04_102_bgv_keyswitch_l1_n8192		removed-parameter	已删除该参数case及源码：N8192/level1；基点7b10ddea可回查
+04_103_bconv_l2_n8192		removed-parameter	已删除该参数case及源码：N8192/level2；基点7b10ddea可回查
+04_104_ntt_l2_n8192		removed-parameter	已删除该参数case及源码：N8192/level2；基点7b10ddea可回查
+04_105_intt_l2_n8192		removed-parameter	已删除该参数case及源码：N8192/level2；基点7b10ddea可回查
+04_106_ckks_keyswitch_l2_n8192		removed-parameter	已删除该参数case及源码：N8192/level2；基点7b10ddea可回查
+04_107_bfv_keyswitch_l2_n8192		removed-parameter	已删除该参数case及源码：N8192/level2；基点7b10ddea可回查
+04_108_bgv_keyswitch_l2_n8192		removed-parameter	已删除该参数case及源码：N8192/level2；基点7b10ddea可回查
+04_109_bconv_l3_n8192		removed-parameter	已删除该参数case及源码：N8192/level3；基点7b10ddea可回查
 04_10_legacy_auto_n4096		retired	高N/高level、旧重复包装或未启用条件用例；仅可从Git历史回查
+04_110_ntt_l3_n8192		removed-parameter	已删除该参数case及源码：N8192/level3；基点7b10ddea可回查
+04_111_intt_l3_n8192		removed-parameter	已删除该参数case及源码：N8192/level3；基点7b10ddea可回查
+04_112_ckks_keyswitch_l3_n8192		removed-parameter	已删除该参数case及源码：N8192/level3；基点7b10ddea可回查
+04_113_bfv_keyswitch_l3_n8192		removed-parameter	已删除该参数case及源码：N8192/level3；基点7b10ddea可回查
+04_114_bgv_keyswitch_l3_n8192		removed-parameter	已删除该参数case及源码：N8192/level3；基点7b10ddea可回查
+04_115_bconv_l4_n8192		removed-parameter	已删除该参数case及源码：N8192/level4；基点7b10ddea可回查
+04_116_ntt_l4_n8192		removed-parameter	已删除该参数case及源码：N8192/level4；基点7b10ddea可回查
+04_117_intt_l4_n8192		removed-parameter	已删除该参数case及源码：N8192/level4；基点7b10ddea可回查
+04_118_ckks_keyswitch_l4_n8192		removed-parameter	已删除该参数case及源码：N8192/level4；基点7b10ddea可回查
+04_119_bfv_keyswitch_l4_n8192		removed-parameter	已删除该参数case及源码：N8192/level4；基点7b10ddea可回查
 04_11_instruction_chain		retired	高N/高level、旧重复包装或未启用条件用例；仅可从Git历史回查
+04_120_bgv_keyswitch_l4_n8192		removed-parameter	已删除该参数case及源码：N8192/level4；基点7b10ddea可回查
 04_12_bconv_n65536		retired	高N/高level、旧重复包装或未启用条件用例；仅可从Git历史回查
 04_13_ntt_n65536		retired	高N/高level、旧重复包装或未启用条件用例；仅可从Git历史回查
 04_14_intt_n65536		retired	高N/高level、旧重复包装或未启用条件用例；仅可从Git历史回查
@@ -113,6 +385,330 @@ old_case_id	case_id	status	note
 04_16_bfv_keyswitch_n65536		retired	高N/高level、旧重复包装或未启用条件用例；仅可从Git历史回查
 04_17_bgv_keyswitch_n65536		retired	高N/高level、旧重复包装或未启用条件用例；仅可从Git历史回查
 04_18_legacy_auto_n65536		retired	高N/高level、旧重复包装或未启用条件用例；仅可从Git历史回查
+05_001_ckks_hadd_l1_n128		removed-parameter	已删除该参数case及源码：N128/level1；基点7b10ddea可回查
+05_002_ckks_hmul_reline_l1_n128		removed-parameter	已删除该参数case及源码：N128/level1；基点7b10ddea可回查
+05_003_ckks_reline_l1_n128		removed-parameter	已删除该参数case及源码：N128/level1；基点7b10ddea可回查
+05_004_ckks_rotate_l1_n128		removed-parameter	已删除该参数case及源码：N128/level1；基点7b10ddea可回查
+05_005_bfv_hadd_l1_n128		removed-parameter	已删除该参数case及源码：N128/level1；基点7b10ddea可回查
+05_006_bfv_reline_l1_n128		removed-parameter	已删除该参数case及源码：N128/level1；基点7b10ddea可回查
+05_007_bfv_rotate_l1_n128		removed-parameter	已删除该参数case及源码：N128/level1；基点7b10ddea可回查
+05_008_bgv_hadd_l1_n128		removed-parameter	已删除该参数case及源码：N128/level1；基点7b10ddea可回查
+05_009_bgv_hmul_reline_l1_n128		removed-parameter	已删除该参数case及源码：N128/level1；基点7b10ddea可回查
+05_010_bgv_reline_l1_n128		removed-parameter	已删除该参数case及源码：N128/level1；基点7b10ddea可回查
+05_011_bgv_rotate_l1_n128		removed-parameter	已删除该参数case及源码：N128/level1；基点7b10ddea可回查
+05_012_ckks_hadd_l2_n128		removed-parameter	已删除该参数case及源码：N128/level2；基点7b10ddea可回查
+05_013_ckks_hmul_reline_l2_n128		removed-parameter	已删除该参数case及源码：N128/level2；基点7b10ddea可回查
+05_014_ckks_reline_l2_n128		removed-parameter	已删除该参数case及源码：N128/level2；基点7b10ddea可回查
+05_015_ckks_rescale_l2_n128		removed-parameter	已删除该参数case及源码：N128/level2；基点7b10ddea可回查
+05_016_ckks_rotate_l2_n128		removed-parameter	已删除该参数case及源码：N128/level2；基点7b10ddea可回查
+05_017_bfv_hadd_l2_n128		removed-parameter	已删除该参数case及源码：N128/level2；基点7b10ddea可回查
+05_018_bfv_hmul_reline_l2_n128		removed-parameter	已删除该参数case及源码：N128/level2；基点7b10ddea可回查
+05_019_bfv_reline_l2_n128		removed-parameter	已删除该参数case及源码：N128/level2；基点7b10ddea可回查
+05_01_ckks_hadd_n128		removed-parameter	测试职责迁入统一N/L矩阵，参数以新清单为准；本轮按参数范围删除，不再交付
+05_020_bfv_modswitch_l2_n128		removed-parameter	已删除该参数case及源码：N128/level2；基点7b10ddea可回查
+05_021_bfv_rotate_l2_n128		removed-parameter	已删除该参数case及源码：N128/level2；基点7b10ddea可回查
+05_022_bgv_hadd_l2_n128		removed-parameter	已删除该参数case及源码：N128/level2；基点7b10ddea可回查
+05_023_bgv_hmul_reline_l2_n128		removed-parameter	已删除该参数case及源码：N128/level2；基点7b10ddea可回查
+05_024_bgv_reline_l2_n128		removed-parameter	已删除该参数case及源码：N128/level2；基点7b10ddea可回查
+05_025_bgv_modswitch_l2_n128		removed-parameter	已删除该参数case及源码：N128/level2；基点7b10ddea可回查
+05_026_bgv_rotate_l2_n128		removed-parameter	已删除该参数case及源码：N128/level2；基点7b10ddea可回查
+05_027_ckks_hadd_l3_n128		removed-parameter	已删除该参数case及源码：N128/level3；基点7b10ddea可回查
+05_028_ckks_hmul_reline_l3_n128		removed-parameter	已删除该参数case及源码：N128/level3；基点7b10ddea可回查
+05_029_ckks_reline_l3_n128		removed-parameter	已删除该参数case及源码：N128/level3；基点7b10ddea可回查
+05_02_ckks_hmul_reline_n128		removed-parameter	测试职责迁入统一N/L矩阵，参数以新清单为准；本轮按参数范围删除，不再交付
+05_030_ckks_rescale_l3_n128		removed-parameter	已删除该参数case及源码：N128/level3；基点7b10ddea可回查
+05_031_ckks_rotate_l3_n128		removed-parameter	已删除该参数case及源码：N128/level3；基点7b10ddea可回查
+05_032_bfv_hadd_l3_n128		removed-parameter	已删除该参数case及源码：N128/level3；基点7b10ddea可回查
+05_033_bfv_hmul_reline_l3_n128		removed-parameter	已删除该参数case及源码：N128/level3；基点7b10ddea可回查
+05_034_bfv_reline_l3_n128		removed-parameter	已删除该参数case及源码：N128/level3；基点7b10ddea可回查
+05_035_bfv_modswitch_l3_n128		removed-parameter	已删除该参数case及源码：N128/level3；基点7b10ddea可回查
+05_036_bfv_rotate_l3_n128		removed-parameter	已删除该参数case及源码：N128/level3；基点7b10ddea可回查
+05_037_bgv_hadd_l3_n128		removed-parameter	已删除该参数case及源码：N128/level3；基点7b10ddea可回查
+05_038_bgv_hmul_reline_l3_n128		removed-parameter	已删除该参数case及源码：N128/level3；基点7b10ddea可回查
+05_039_bgv_reline_l3_n128		removed-parameter	已删除该参数case及源码：N128/level3；基点7b10ddea可回查
+05_03_ckks_reline_n128		removed-parameter	测试职责迁入统一N/L矩阵，参数以新清单为准；本轮按参数范围删除，不再交付
+05_040_bgv_modswitch_l3_n128		removed-parameter	已删除该参数case及源码：N128/level3；基点7b10ddea可回查
+05_041_bgv_rotate_l3_n128		removed-parameter	已删除该参数case及源码：N128/level3；基点7b10ddea可回查
+05_042_ckks_hadd_l4_n128		removed-parameter	已删除该参数case及源码：N128/level4；基点7b10ddea可回查
+05_043_ckks_hmul_reline_l4_n128		removed-parameter	已删除该参数case及源码：N128/level4；基点7b10ddea可回查
+05_044_ckks_reline_l4_n128		removed-parameter	已删除该参数case及源码：N128/level4；基点7b10ddea可回查
+05_045_ckks_rescale_l4_n128		removed-parameter	已删除该参数case及源码：N128/level4；基点7b10ddea可回查
+05_046_ckks_rotate_l4_n128		removed-parameter	已删除该参数case及源码：N128/level4；基点7b10ddea可回查
+05_047_bfv_hadd_l4_n128		removed-parameter	已删除该参数case及源码：N128/level4；基点7b10ddea可回查
+05_048_bfv_hmul_reline_l4_n128		removed-parameter	已删除该参数case及源码：N128/level4；基点7b10ddea可回查
+05_049_bfv_reline_l4_n128		removed-parameter	已删除该参数case及源码：N128/level4；基点7b10ddea可回查
+05_04_ckks_rescale_n128		removed-parameter	测试职责迁入统一N/L矩阵，参数以新清单为准；本轮按参数范围删除，不再交付
+05_050_bfv_modswitch_l4_n128		removed-parameter	已删除该参数case及源码：N128/level4；基点7b10ddea可回查
+05_051_bfv_rotate_l4_n128		removed-parameter	已删除该参数case及源码：N128/level4；基点7b10ddea可回查
+05_052_bgv_hadd_l4_n128		removed-parameter	已删除该参数case及源码：N128/level4；基点7b10ddea可回查
+05_053_bgv_hmul_reline_l4_n128		removed-parameter	已删除该参数case及源码：N128/level4；基点7b10ddea可回查
+05_054_bgv_reline_l4_n128		removed-parameter	已删除该参数case及源码：N128/level4；基点7b10ddea可回查
+05_055_bgv_modswitch_l4_n128		removed-parameter	已删除该参数case及源码：N128/level4；基点7b10ddea可回查
+05_056_bgv_rotate_l4_n128		removed-parameter	已删除该参数case及源码：N128/level4；基点7b10ddea可回查
+05_057_ckks_hadd_l1_n1024		removed-parameter	已删除该参数case及源码：N1024/level1；基点7b10ddea可回查
+05_058_ckks_hmul_reline_l1_n1024		removed-parameter	已删除该参数case及源码：N1024/level1；基点7b10ddea可回查
+05_059_ckks_reline_l1_n1024		removed-parameter	已删除该参数case及源码：N1024/level1；基点7b10ddea可回查
+05_05_ckks_rotate_n128		removed-parameter	测试职责迁入统一N/L矩阵，参数以新清单为准；本轮按参数范围删除，不再交付
+05_060_ckks_rotate_l1_n1024		removed-parameter	已删除该参数case及源码：N1024/level1；基点7b10ddea可回查
+05_061_bfv_hadd_l1_n1024		removed-parameter	已删除该参数case及源码：N1024/level1；基点7b10ddea可回查
+05_062_bfv_reline_l1_n1024		removed-parameter	已删除该参数case及源码：N1024/level1；基点7b10ddea可回查
+05_063_bfv_rotate_l1_n1024		removed-parameter	已删除该参数case及源码：N1024/level1；基点7b10ddea可回查
+05_064_bgv_hadd_l1_n1024		removed-parameter	已删除该参数case及源码：N1024/level1；基点7b10ddea可回查
+05_065_bgv_hmul_reline_l1_n1024		removed-parameter	已删除该参数case及源码：N1024/level1；基点7b10ddea可回查
+05_066_bgv_reline_l1_n1024		removed-parameter	已删除该参数case及源码：N1024/level1；基点7b10ddea可回查
+05_067_bgv_rotate_l1_n1024		removed-parameter	已删除该参数case及源码：N1024/level1；基点7b10ddea可回查
+05_068_ckks_hadd_l2_n1024		removed-parameter	已删除该参数case及源码：N1024/level2；基点7b10ddea可回查
+05_069_ckks_hmul_reline_l2_n1024		removed-parameter	已删除该参数case及源码：N1024/level2；基点7b10ddea可回查
+05_06_ckks_hadd_n4096		removed-parameter	测试职责迁入统一N/L矩阵，参数以新清单为准；本轮按参数范围删除，不再交付
+05_070_ckks_reline_l2_n1024		removed-parameter	已删除该参数case及源码：N1024/level2；基点7b10ddea可回查
+05_071_ckks_rescale_l2_n1024		removed-parameter	已删除该参数case及源码：N1024/level2；基点7b10ddea可回查
+05_072_ckks_rotate_l2_n1024		removed-parameter	已删除该参数case及源码：N1024/level2；基点7b10ddea可回查
+05_073_bfv_hadd_l2_n1024		removed-parameter	已删除该参数case及源码：N1024/level2；基点7b10ddea可回查
+05_074_bfv_hmul_reline_l2_n1024		removed-parameter	已删除该参数case及源码：N1024/level2；基点7b10ddea可回查
+05_075_bfv_reline_l2_n1024		removed-parameter	已删除该参数case及源码：N1024/level2；基点7b10ddea可回查
+05_076_bfv_modswitch_l2_n1024		removed-parameter	已删除该参数case及源码：N1024/level2；基点7b10ddea可回查
+05_077_bfv_rotate_l2_n1024		removed-parameter	已删除该参数case及源码：N1024/level2；基点7b10ddea可回查
+05_078_bgv_hadd_l2_n1024		removed-parameter	已删除该参数case及源码：N1024/level2；基点7b10ddea可回查
+05_079_bgv_hmul_reline_l2_n1024		removed-parameter	已删除该参数case及源码：N1024/level2；基点7b10ddea可回查
+05_07_ckks_hmul_reline_n4096		removed-parameter	测试职责迁入统一N/L矩阵，参数以新清单为准；本轮按参数范围删除，不再交付
+05_080_bgv_reline_l2_n1024		removed-parameter	已删除该参数case及源码：N1024/level2；基点7b10ddea可回查
+05_081_bgv_modswitch_l2_n1024		removed-parameter	已删除该参数case及源码：N1024/level2；基点7b10ddea可回查
+05_082_bgv_rotate_l2_n1024		removed-parameter	已删除该参数case及源码：N1024/level2；基点7b10ddea可回查
+05_083_ckks_hadd_l3_n1024		removed-parameter	已删除该参数case及源码：N1024/level3；基点7b10ddea可回查
+05_084_ckks_hmul_reline_l3_n1024		removed-parameter	已删除该参数case及源码：N1024/level3；基点7b10ddea可回查
+05_085_ckks_reline_l3_n1024		removed-parameter	已删除该参数case及源码：N1024/level3；基点7b10ddea可回查
+05_086_ckks_rescale_l3_n1024		removed-parameter	已删除该参数case及源码：N1024/level3；基点7b10ddea可回查
+05_087_ckks_rotate_l3_n1024		removed-parameter	已删除该参数case及源码：N1024/level3；基点7b10ddea可回查
+05_088_bfv_hadd_l3_n1024		removed-parameter	已删除该参数case及源码：N1024/level3；基点7b10ddea可回查
+05_089_bfv_hmul_reline_l3_n1024		removed-parameter	已删除该参数case及源码：N1024/level3；基点7b10ddea可回查
+05_08_ckks_reline_n4096		removed-parameter	测试职责迁入统一N/L矩阵，参数以新清单为准；本轮按参数范围删除，不再交付
+05_090_bfv_reline_l3_n1024		removed-parameter	已删除该参数case及源码：N1024/level3；基点7b10ddea可回查
+05_091_bfv_modswitch_l3_n1024		removed-parameter	已删除该参数case及源码：N1024/level3；基点7b10ddea可回查
+05_092_bfv_rotate_l3_n1024		removed-parameter	已删除该参数case及源码：N1024/level3；基点7b10ddea可回查
+05_093_bgv_hadd_l3_n1024		removed-parameter	已删除该参数case及源码：N1024/level3；基点7b10ddea可回查
+05_094_bgv_hmul_reline_l3_n1024		removed-parameter	已删除该参数case及源码：N1024/level3；基点7b10ddea可回查
+05_095_bgv_reline_l3_n1024		removed-parameter	已删除该参数case及源码：N1024/level3；基点7b10ddea可回查
+05_096_bgv_modswitch_l3_n1024		removed-parameter	已删除该参数case及源码：N1024/level3；基点7b10ddea可回查
+05_097_bgv_rotate_l3_n1024		removed-parameter	已删除该参数case及源码：N1024/level3；基点7b10ddea可回查
+05_098_ckks_hadd_l4_n1024	05_01_ckks_hadd_l4_n1024	retained	参数与程序保留，编号/路径顺排
+05_099_ckks_hmul_reline_l4_n1024	05_02_ckks_hmul_reline_l4_n1024	retained	参数与程序保留，编号/路径顺排
+05_09_ckks_rescale_n4096		removed-parameter	测试职责迁入统一N/L矩阵，参数以新清单为准；本轮按参数范围删除，不再交付
+05_100_ckks_reline_l4_n1024	05_03_ckks_reline_l4_n1024	retained	参数与程序保留，编号/路径顺排
+05_101_ckks_rescale_l4_n1024	05_04_ckks_rescale_l4_n1024	retained	参数与程序保留，编号/路径顺排
+05_102_ckks_rotate_l4_n1024	05_05_ckks_rotate_l4_n1024	retained	参数与程序保留，编号/路径顺排
+05_103_bfv_hadd_l4_n1024	05_06_bfv_hadd_l4_n1024	retained	参数与程序保留，编号/路径顺排
+05_104_bfv_hmul_reline_l4_n1024	05_07_bfv_hmul_reline_l4_n1024	retained	参数与程序保留，编号/路径顺排
+05_105_bfv_reline_l4_n1024	05_08_bfv_reline_l4_n1024	retained	参数与程序保留，编号/路径顺排
+05_106_bfv_modswitch_l4_n1024	05_09_bfv_modswitch_l4_n1024	retained	参数与程序保留，编号/路径顺排
+05_107_bfv_rotate_l4_n1024	05_10_bfv_rotate_l4_n1024	retained	参数与程序保留，编号/路径顺排
+05_108_bgv_hadd_l4_n1024	05_11_bgv_hadd_l4_n1024	retained	参数与程序保留，编号/路径顺排
+05_109_bgv_hmul_reline_l4_n1024	05_12_bgv_hmul_reline_l4_n1024	retained	参数与程序保留，编号/路径顺排
+05_10_ckks_rotate_n4096		removed-parameter	测试职责迁入统一N/L矩阵，参数以新清单为准；本轮按参数范围删除，不再交付
+05_110_bgv_reline_l4_n1024	05_13_bgv_reline_l4_n1024	retained	参数与程序保留，编号/路径顺排
+05_111_bgv_modswitch_l4_n1024	05_14_bgv_modswitch_l4_n1024	retained	参数与程序保留，编号/路径顺排
+05_112_bgv_rotate_l4_n1024	05_15_bgv_rotate_l4_n1024	retained	参数与程序保留，编号/路径顺排
+05_113_ckks_hadd_l1_n2048		removed-parameter	已删除该参数case及源码：N2048/level1；基点7b10ddea可回查
+05_114_ckks_hmul_reline_l1_n2048		removed-parameter	已删除该参数case及源码：N2048/level1；基点7b10ddea可回查
+05_115_ckks_reline_l1_n2048		removed-parameter	已删除该参数case及源码：N2048/level1；基点7b10ddea可回查
+05_116_ckks_rotate_l1_n2048		removed-parameter	已删除该参数case及源码：N2048/level1；基点7b10ddea可回查
+05_117_bfv_hadd_l1_n2048		removed-parameter	已删除该参数case及源码：N2048/level1；基点7b10ddea可回查
+05_118_bfv_reline_l1_n2048		removed-parameter	已删除该参数case及源码：N2048/level1；基点7b10ddea可回查
+05_119_bfv_rotate_l1_n2048		removed-parameter	已删除该参数case及源码：N2048/level1；基点7b10ddea可回查
+05_11_bfv_hadd_n128		removed-parameter	测试职责迁入统一N/L矩阵，参数以新清单为准；本轮按参数范围删除，不再交付
+05_120_bgv_hadd_l1_n2048		removed-parameter	已删除该参数case及源码：N2048/level1；基点7b10ddea可回查
+05_121_bgv_hmul_reline_l1_n2048		removed-parameter	已删除该参数case及源码：N2048/level1；基点7b10ddea可回查
+05_122_bgv_reline_l1_n2048		removed-parameter	已删除该参数case及源码：N2048/level1；基点7b10ddea可回查
+05_123_bgv_rotate_l1_n2048		removed-parameter	已删除该参数case及源码：N2048/level1；基点7b10ddea可回查
+05_124_ckks_hadd_l2_n2048		removed-parameter	已删除该参数case及源码：N2048/level2；基点7b10ddea可回查
+05_125_ckks_hmul_reline_l2_n2048		removed-parameter	已删除该参数case及源码：N2048/level2；基点7b10ddea可回查
+05_126_ckks_reline_l2_n2048		removed-parameter	已删除该参数case及源码：N2048/level2；基点7b10ddea可回查
+05_127_ckks_rescale_l2_n2048		removed-parameter	已删除该参数case及源码：N2048/level2；基点7b10ddea可回查
+05_128_ckks_rotate_l2_n2048		removed-parameter	已删除该参数case及源码：N2048/level2；基点7b10ddea可回查
+05_129_bfv_hadd_l2_n2048		removed-parameter	已删除该参数case及源码：N2048/level2；基点7b10ddea可回查
+05_12_bfv_hmul_reline_n128		removed-parameter	测试职责迁入统一N/L矩阵，参数以新清单为准；本轮按参数范围删除，不再交付
+05_130_bfv_hmul_reline_l2_n2048		removed-parameter	已删除该参数case及源码：N2048/level2；基点7b10ddea可回查
+05_131_bfv_reline_l2_n2048		removed-parameter	已删除该参数case及源码：N2048/level2；基点7b10ddea可回查
+05_132_bfv_modswitch_l2_n2048		removed-parameter	已删除该参数case及源码：N2048/level2；基点7b10ddea可回查
+05_133_bfv_rotate_l2_n2048		removed-parameter	已删除该参数case及源码：N2048/level2；基点7b10ddea可回查
+05_134_bgv_hadd_l2_n2048		removed-parameter	已删除该参数case及源码：N2048/level2；基点7b10ddea可回查
+05_135_bgv_hmul_reline_l2_n2048		removed-parameter	已删除该参数case及源码：N2048/level2；基点7b10ddea可回查
+05_136_bgv_reline_l2_n2048		removed-parameter	已删除该参数case及源码：N2048/level2；基点7b10ddea可回查
+05_137_bgv_modswitch_l2_n2048		removed-parameter	已删除该参数case及源码：N2048/level2；基点7b10ddea可回查
+05_138_bgv_rotate_l2_n2048		removed-parameter	已删除该参数case及源码：N2048/level2；基点7b10ddea可回查
+05_139_ckks_hadd_l3_n2048		removed-parameter	已删除该参数case及源码：N2048/level3；基点7b10ddea可回查
+05_13_bfv_reline_n128		removed-parameter	测试职责迁入统一N/L矩阵，参数以新清单为准；本轮按参数范围删除，不再交付
+05_140_ckks_hmul_reline_l3_n2048		removed-parameter	已删除该参数case及源码：N2048/level3；基点7b10ddea可回查
+05_141_ckks_reline_l3_n2048		removed-parameter	已删除该参数case及源码：N2048/level3；基点7b10ddea可回查
+05_142_ckks_rescale_l3_n2048		removed-parameter	已删除该参数case及源码：N2048/level3；基点7b10ddea可回查
+05_143_ckks_rotate_l3_n2048		removed-parameter	已删除该参数case及源码：N2048/level3；基点7b10ddea可回查
+05_144_bfv_hadd_l3_n2048		removed-parameter	已删除该参数case及源码：N2048/level3；基点7b10ddea可回查
+05_145_bfv_hmul_reline_l3_n2048		removed-parameter	已删除该参数case及源码：N2048/level3；基点7b10ddea可回查
+05_146_bfv_reline_l3_n2048		removed-parameter	已删除该参数case及源码：N2048/level3；基点7b10ddea可回查
+05_147_bfv_modswitch_l3_n2048		removed-parameter	已删除该参数case及源码：N2048/level3；基点7b10ddea可回查
+05_148_bfv_rotate_l3_n2048		removed-parameter	已删除该参数case及源码：N2048/level3；基点7b10ddea可回查
+05_149_bgv_hadd_l3_n2048		removed-parameter	已删除该参数case及源码：N2048/level3；基点7b10ddea可回查
+05_14_bfv_modswitch_n128		removed-parameter	测试职责迁入统一N/L矩阵，参数以新清单为准；本轮按参数范围删除，不再交付
+05_150_bgv_hmul_reline_l3_n2048		removed-parameter	已删除该参数case及源码：N2048/level3；基点7b10ddea可回查
+05_151_bgv_reline_l3_n2048		removed-parameter	已删除该参数case及源码：N2048/level3；基点7b10ddea可回查
+05_152_bgv_modswitch_l3_n2048		removed-parameter	已删除该参数case及源码：N2048/level3；基点7b10ddea可回查
+05_153_bgv_rotate_l3_n2048		removed-parameter	已删除该参数case及源码：N2048/level3；基点7b10ddea可回查
+05_154_ckks_hadd_l4_n2048		removed-parameter	已删除该参数case及源码：N2048/level4；基点7b10ddea可回查
+05_155_ckks_hmul_reline_l4_n2048		removed-parameter	已删除该参数case及源码：N2048/level4；基点7b10ddea可回查
+05_156_ckks_reline_l4_n2048		removed-parameter	已删除该参数case及源码：N2048/level4；基点7b10ddea可回查
+05_157_ckks_rescale_l4_n2048		removed-parameter	已删除该参数case及源码：N2048/level4；基点7b10ddea可回查
+05_158_ckks_rotate_l4_n2048		removed-parameter	已删除该参数case及源码：N2048/level4；基点7b10ddea可回查
+05_159_bfv_hadd_l4_n2048		removed-parameter	已删除该参数case及源码：N2048/level4；基点7b10ddea可回查
+05_15_bfv_rotate_n128		removed-parameter	测试职责迁入统一N/L矩阵，参数以新清单为准；本轮按参数范围删除，不再交付
+05_160_bfv_hmul_reline_l4_n2048		removed-parameter	已删除该参数case及源码：N2048/level4；基点7b10ddea可回查
+05_161_bfv_reline_l4_n2048		removed-parameter	已删除该参数case及源码：N2048/level4；基点7b10ddea可回查
+05_162_bfv_modswitch_l4_n2048		removed-parameter	已删除该参数case及源码：N2048/level4；基点7b10ddea可回查
+05_163_bfv_rotate_l4_n2048		removed-parameter	已删除该参数case及源码：N2048/level4；基点7b10ddea可回查
+05_164_bgv_hadd_l4_n2048		removed-parameter	已删除该参数case及源码：N2048/level4；基点7b10ddea可回查
+05_165_bgv_hmul_reline_l4_n2048		removed-parameter	已删除该参数case及源码：N2048/level4；基点7b10ddea可回查
+05_166_bgv_reline_l4_n2048		removed-parameter	已删除该参数case及源码：N2048/level4；基点7b10ddea可回查
+05_167_bgv_modswitch_l4_n2048		removed-parameter	已删除该参数case及源码：N2048/level4；基点7b10ddea可回查
+05_168_bgv_rotate_l4_n2048		removed-parameter	已删除该参数case及源码：N2048/level4；基点7b10ddea可回查
+05_169_ckks_hadd_l1_n4096		removed-parameter	已删除该参数case及源码：N4096/level1；基点7b10ddea可回查
+05_16_bfv_hadd_n4096		removed-parameter	测试职责迁入统一N/L矩阵，参数以新清单为准；本轮按参数范围删除，不再交付
+05_170_ckks_hmul_reline_l1_n4096		removed-parameter	已删除该参数case及源码：N4096/level1；基点7b10ddea可回查
+05_171_ckks_reline_l1_n4096		removed-parameter	已删除该参数case及源码：N4096/level1；基点7b10ddea可回查
+05_172_ckks_rotate_l1_n4096		removed-parameter	已删除该参数case及源码：N4096/level1；基点7b10ddea可回查
+05_173_bfv_hadd_l1_n4096		removed-parameter	已删除该参数case及源码：N4096/level1；基点7b10ddea可回查
+05_174_bfv_reline_l1_n4096		removed-parameter	已删除该参数case及源码：N4096/level1；基点7b10ddea可回查
+05_175_bfv_rotate_l1_n4096		removed-parameter	已删除该参数case及源码：N4096/level1；基点7b10ddea可回查
+05_176_bgv_hadd_l1_n4096		removed-parameter	已删除该参数case及源码：N4096/level1；基点7b10ddea可回查
+05_177_bgv_hmul_reline_l1_n4096		removed-parameter	已删除该参数case及源码：N4096/level1；基点7b10ddea可回查
+05_178_bgv_reline_l1_n4096		removed-parameter	已删除该参数case及源码：N4096/level1；基点7b10ddea可回查
+05_179_bgv_rotate_l1_n4096		removed-parameter	已删除该参数case及源码：N4096/level1；基点7b10ddea可回查
+05_17_bfv_hmul_reline_n4096		removed-parameter	测试职责迁入统一N/L矩阵，参数以新清单为准；本轮按参数范围删除，不再交付
+05_180_ckks_hadd_l2_n4096		removed-parameter	已删除该参数case及源码：N4096/level2；基点7b10ddea可回查
+05_181_ckks_hmul_reline_l2_n4096		removed-parameter	已删除该参数case及源码：N4096/level2；基点7b10ddea可回查
+05_182_ckks_reline_l2_n4096		removed-parameter	已删除该参数case及源码：N4096/level2；基点7b10ddea可回查
+05_183_ckks_rescale_l2_n4096		removed-parameter	已删除该参数case及源码：N4096/level2；基点7b10ddea可回查
+05_184_ckks_rotate_l2_n4096		removed-parameter	已删除该参数case及源码：N4096/level2；基点7b10ddea可回查
+05_185_bfv_hadd_l2_n4096		removed-parameter	已删除该参数case及源码：N4096/level2；基点7b10ddea可回查
+05_186_bfv_hmul_reline_l2_n4096		removed-parameter	已删除该参数case及源码：N4096/level2；基点7b10ddea可回查
+05_187_bfv_reline_l2_n4096		removed-parameter	已删除该参数case及源码：N4096/level2；基点7b10ddea可回查
+05_188_bfv_modswitch_l2_n4096		removed-parameter	已删除该参数case及源码：N4096/level2；基点7b10ddea可回查
+05_189_bfv_rotate_l2_n4096		removed-parameter	已删除该参数case及源码：N4096/level2；基点7b10ddea可回查
+05_18_bfv_reline_n4096		removed-parameter	测试职责迁入统一N/L矩阵，参数以新清单为准；本轮按参数范围删除，不再交付
+05_190_bgv_hadd_l2_n4096		removed-parameter	已删除该参数case及源码：N4096/level2；基点7b10ddea可回查
+05_191_bgv_hmul_reline_l2_n4096		removed-parameter	已删除该参数case及源码：N4096/level2；基点7b10ddea可回查
+05_192_bgv_reline_l2_n4096		removed-parameter	已删除该参数case及源码：N4096/level2；基点7b10ddea可回查
+05_193_bgv_modswitch_l2_n4096		removed-parameter	已删除该参数case及源码：N4096/level2；基点7b10ddea可回查
+05_194_bgv_rotate_l2_n4096		removed-parameter	已删除该参数case及源码：N4096/level2；基点7b10ddea可回查
+05_195_ckks_hadd_l3_n4096		removed-parameter	已删除该参数case及源码：N4096/level3；基点7b10ddea可回查
+05_196_ckks_hmul_reline_l3_n4096		removed-parameter	已删除该参数case及源码：N4096/level3；基点7b10ddea可回查
+05_197_ckks_reline_l3_n4096		removed-parameter	已删除该参数case及源码：N4096/level3；基点7b10ddea可回查
+05_198_ckks_rescale_l3_n4096		removed-parameter	已删除该参数case及源码：N4096/level3；基点7b10ddea可回查
+05_199_ckks_rotate_l3_n4096		removed-parameter	已删除该参数case及源码：N4096/level3；基点7b10ddea可回查
+05_19_bfv_modswitch_n4096		removed-parameter	测试职责迁入统一N/L矩阵，参数以新清单为准；本轮按参数范围删除，不再交付
+05_200_bfv_hadd_l3_n4096		removed-parameter	已删除该参数case及源码：N4096/level3；基点7b10ddea可回查
+05_201_bfv_hmul_reline_l3_n4096		removed-parameter	已删除该参数case及源码：N4096/level3；基点7b10ddea可回查
+05_202_bfv_reline_l3_n4096		removed-parameter	已删除该参数case及源码：N4096/level3；基点7b10ddea可回查
+05_203_bfv_modswitch_l3_n4096		removed-parameter	已删除该参数case及源码：N4096/level3；基点7b10ddea可回查
+05_204_bfv_rotate_l3_n4096		removed-parameter	已删除该参数case及源码：N4096/level3；基点7b10ddea可回查
+05_205_bgv_hadd_l3_n4096		removed-parameter	已删除该参数case及源码：N4096/level3；基点7b10ddea可回查
+05_206_bgv_hmul_reline_l3_n4096		removed-parameter	已删除该参数case及源码：N4096/level3；基点7b10ddea可回查
+05_207_bgv_reline_l3_n4096		removed-parameter	已删除该参数case及源码：N4096/level3；基点7b10ddea可回查
+05_208_bgv_modswitch_l3_n4096		removed-parameter	已删除该参数case及源码：N4096/level3；基点7b10ddea可回查
+05_209_bgv_rotate_l3_n4096		removed-parameter	已删除该参数case及源码：N4096/level3；基点7b10ddea可回查
+05_20_bfv_rotate_n4096		removed-parameter	测试职责迁入统一N/L矩阵，参数以新清单为准；本轮按参数范围删除，不再交付
+05_210_ckks_hadd_l4_n4096		removed-parameter	已删除该参数case及源码：N4096/level4；基点7b10ddea可回查
+05_211_ckks_hmul_reline_l4_n4096		removed-parameter	已删除该参数case及源码：N4096/level4；基点7b10ddea可回查
+05_212_ckks_reline_l4_n4096		removed-parameter	已删除该参数case及源码：N4096/level4；基点7b10ddea可回查
+05_213_ckks_rescale_l4_n4096		removed-parameter	已删除该参数case及源码：N4096/level4；基点7b10ddea可回查
+05_214_ckks_rotate_l4_n4096		removed-parameter	已删除该参数case及源码：N4096/level4；基点7b10ddea可回查
+05_215_bfv_hadd_l4_n4096		removed-parameter	已删除该参数case及源码：N4096/level4；基点7b10ddea可回查
+05_216_bfv_hmul_reline_l4_n4096		removed-parameter	已删除该参数case及源码：N4096/level4；基点7b10ddea可回查
+05_217_bfv_reline_l4_n4096		removed-parameter	已删除该参数case及源码：N4096/level4；基点7b10ddea可回查
+05_218_bfv_modswitch_l4_n4096		removed-parameter	已删除该参数case及源码：N4096/level4；基点7b10ddea可回查
+05_219_bfv_rotate_l4_n4096		removed-parameter	已删除该参数case及源码：N4096/level4；基点7b10ddea可回查
+05_21_bgv_hadd_n128		removed-parameter	测试职责迁入统一N/L矩阵，参数以新清单为准；本轮按参数范围删除，不再交付
+05_220_bgv_hadd_l4_n4096		removed-parameter	已删除该参数case及源码：N4096/level4；基点7b10ddea可回查
+05_221_bgv_hmul_reline_l4_n4096		removed-parameter	已删除该参数case及源码：N4096/level4；基点7b10ddea可回查
+05_222_bgv_reline_l4_n4096		removed-parameter	已删除该参数case及源码：N4096/level4；基点7b10ddea可回查
+05_223_bgv_modswitch_l4_n4096		removed-parameter	已删除该参数case及源码：N4096/level4；基点7b10ddea可回查
+05_224_bgv_rotate_l4_n4096		removed-parameter	已删除该参数case及源码：N4096/level4；基点7b10ddea可回查
+05_225_ckks_hadd_l1_n8192		removed-parameter	已删除该参数case及源码：N8192/level1；基点7b10ddea可回查
+05_226_ckks_hmul_reline_l1_n8192		removed-parameter	已删除该参数case及源码：N8192/level1；基点7b10ddea可回查
+05_227_ckks_reline_l1_n8192		removed-parameter	已删除该参数case及源码：N8192/level1；基点7b10ddea可回查
+05_228_ckks_rotate_l1_n8192		removed-parameter	已删除该参数case及源码：N8192/level1；基点7b10ddea可回查
+05_229_bfv_hadd_l1_n8192		removed-parameter	已删除该参数case及源码：N8192/level1；基点7b10ddea可回查
+05_22_bgv_hmul_reline_n128		removed-parameter	测试职责迁入统一N/L矩阵，参数以新清单为准；本轮按参数范围删除，不再交付
+05_230_bfv_reline_l1_n8192		removed-parameter	已删除该参数case及源码：N8192/level1；基点7b10ddea可回查
+05_231_bfv_rotate_l1_n8192		removed-parameter	已删除该参数case及源码：N8192/level1；基点7b10ddea可回查
+05_232_bgv_hadd_l1_n8192		removed-parameter	已删除该参数case及源码：N8192/level1；基点7b10ddea可回查
+05_233_bgv_hmul_reline_l1_n8192		removed-parameter	已删除该参数case及源码：N8192/level1；基点7b10ddea可回查
+05_234_bgv_reline_l1_n8192		removed-parameter	已删除该参数case及源码：N8192/level1；基点7b10ddea可回查
+05_235_bgv_rotate_l1_n8192		removed-parameter	已删除该参数case及源码：N8192/level1；基点7b10ddea可回查
+05_236_ckks_hadd_l2_n8192		removed-parameter	已删除该参数case及源码：N8192/level2；基点7b10ddea可回查
+05_237_ckks_hmul_reline_l2_n8192		removed-parameter	已删除该参数case及源码：N8192/level2；基点7b10ddea可回查
+05_238_ckks_reline_l2_n8192		removed-parameter	已删除该参数case及源码：N8192/level2；基点7b10ddea可回查
+05_239_ckks_rescale_l2_n8192		removed-parameter	已删除该参数case及源码：N8192/level2；基点7b10ddea可回查
+05_23_bgv_reline_n128		removed-parameter	测试职责迁入统一N/L矩阵，参数以新清单为准；本轮按参数范围删除，不再交付
+05_240_ckks_rotate_l2_n8192		removed-parameter	已删除该参数case及源码：N8192/level2；基点7b10ddea可回查
+05_241_bfv_hadd_l2_n8192		removed-parameter	已删除该参数case及源码：N8192/level2；基点7b10ddea可回查
+05_242_bfv_hmul_reline_l2_n8192		removed-parameter	已删除该参数case及源码：N8192/level2；基点7b10ddea可回查
+05_243_bfv_reline_l2_n8192		removed-parameter	已删除该参数case及源码：N8192/level2；基点7b10ddea可回查
+05_244_bfv_modswitch_l2_n8192		removed-parameter	已删除该参数case及源码：N8192/level2；基点7b10ddea可回查
+05_245_bfv_rotate_l2_n8192		removed-parameter	已删除该参数case及源码：N8192/level2；基点7b10ddea可回查
+05_246_bgv_hadd_l2_n8192		removed-parameter	已删除该参数case及源码：N8192/level2；基点7b10ddea可回查
+05_247_bgv_hmul_reline_l2_n8192		removed-parameter	已删除该参数case及源码：N8192/level2；基点7b10ddea可回查
+05_248_bgv_reline_l2_n8192		removed-parameter	已删除该参数case及源码：N8192/level2；基点7b10ddea可回查
+05_249_bgv_modswitch_l2_n8192		removed-parameter	已删除该参数case及源码：N8192/level2；基点7b10ddea可回查
+05_24_bgv_modswitch_n128		removed-parameter	测试职责迁入统一N/L矩阵，参数以新清单为准；本轮按参数范围删除，不再交付
+05_250_bgv_rotate_l2_n8192		removed-parameter	已删除该参数case及源码：N8192/level2；基点7b10ddea可回查
+05_251_ckks_hadd_l3_n8192		removed-parameter	已删除该参数case及源码：N8192/level3；基点7b10ddea可回查
+05_252_ckks_hmul_reline_l3_n8192		removed-parameter	已删除该参数case及源码：N8192/level3；基点7b10ddea可回查
+05_253_ckks_reline_l3_n8192		removed-parameter	已删除该参数case及源码：N8192/level3；基点7b10ddea可回查
+05_254_ckks_rescale_l3_n8192		removed-parameter	已删除该参数case及源码：N8192/level3；基点7b10ddea可回查
+05_255_ckks_rotate_l3_n8192		removed-parameter	已删除该参数case及源码：N8192/level3；基点7b10ddea可回查
+05_256_bfv_hadd_l3_n8192		removed-parameter	已删除该参数case及源码：N8192/level3；基点7b10ddea可回查
+05_257_bfv_hmul_reline_l3_n8192		removed-parameter	已删除该参数case及源码：N8192/level3；基点7b10ddea可回查
+05_258_bfv_reline_l3_n8192		removed-parameter	已删除该参数case及源码：N8192/level3；基点7b10ddea可回查
+05_259_bfv_modswitch_l3_n8192		removed-parameter	已删除该参数case及源码：N8192/level3；基点7b10ddea可回查
+05_25_bgv_rotate_n128		removed-parameter	测试职责迁入统一N/L矩阵，参数以新清单为准；本轮按参数范围删除，不再交付
+05_260_bfv_rotate_l3_n8192		removed-parameter	已删除该参数case及源码：N8192/level3；基点7b10ddea可回查
+05_261_bgv_hadd_l3_n8192		removed-parameter	已删除该参数case及源码：N8192/level3；基点7b10ddea可回查
+05_262_bgv_hmul_reline_l3_n8192		removed-parameter	已删除该参数case及源码：N8192/level3；基点7b10ddea可回查
+05_263_bgv_reline_l3_n8192		removed-parameter	已删除该参数case及源码：N8192/level3；基点7b10ddea可回查
+05_264_bgv_modswitch_l3_n8192		removed-parameter	已删除该参数case及源码：N8192/level3；基点7b10ddea可回查
+05_265_bgv_rotate_l3_n8192		removed-parameter	已删除该参数case及源码：N8192/level3；基点7b10ddea可回查
+05_266_ckks_hadd_l4_n8192		removed-parameter	已删除该参数case及源码：N8192/level4；基点7b10ddea可回查
+05_267_ckks_hmul_reline_l4_n8192		removed-parameter	已删除该参数case及源码：N8192/level4；基点7b10ddea可回查
+05_268_ckks_reline_l4_n8192		removed-parameter	已删除该参数case及源码：N8192/level4；基点7b10ddea可回查
+05_269_ckks_rescale_l4_n8192		removed-parameter	已删除该参数case及源码：N8192/level4；基点7b10ddea可回查
+05_26_bgv_hadd_n4096		removed-parameter	测试职责迁入统一N/L矩阵，参数以新清单为准；本轮按参数范围删除，不再交付
+05_270_ckks_rotate_l4_n8192		removed-parameter	已删除该参数case及源码：N8192/level4；基点7b10ddea可回查
+05_271_bfv_hadd_l4_n8192		removed-parameter	已删除该参数case及源码：N8192/level4；基点7b10ddea可回查
+05_272_bfv_hmul_reline_l4_n8192		removed-parameter	已删除该参数case及源码：N8192/level4；基点7b10ddea可回查
+05_273_bfv_reline_l4_n8192		removed-parameter	已删除该参数case及源码：N8192/level4；基点7b10ddea可回查
+05_274_bfv_modswitch_l4_n8192		removed-parameter	已删除该参数case及源码：N8192/level4；基点7b10ddea可回查
+05_275_bfv_rotate_l4_n8192		removed-parameter	已删除该参数case及源码：N8192/level4；基点7b10ddea可回查
+05_276_bgv_hadd_l4_n8192		removed-parameter	已删除该参数case及源码：N8192/level4；基点7b10ddea可回查
+05_277_bgv_hmul_reline_l4_n8192		removed-parameter	已删除该参数case及源码：N8192/level4；基点7b10ddea可回查
+05_278_bgv_reline_l4_n8192		removed-parameter	已删除该参数case及源码：N8192/level4；基点7b10ddea可回查
+05_279_bgv_modswitch_l4_n8192		removed-parameter	已删除该参数case及源码：N8192/level4；基点7b10ddea可回查
+05_27_bgv_hmul_reline_n4096		removed-parameter	测试职责迁入统一N/L矩阵，参数以新清单为准；本轮按参数范围删除，不再交付
+05_280_bgv_rotate_l4_n8192		removed-parameter	已删除该参数case及源码：N8192/level4；基点7b10ddea可回查
+05_281_bgv_hadd_cf3_cf5_l3_n4096		removed-parameter	已删除该参数case及源码：N4096/level3；基点7b10ddea可回查
+05_282_bgv_hmul_reline_cf3_cf5_l3_n4096		removed-parameter	已删除该参数case及源码：N4096/level3；基点7b10ddea可回查
+05_283_bgv_reline_cf15_l3_n4096		removed-parameter	已删除该参数case及源码：N4096/level3；基点7b10ddea可回查
+05_284_bgv_modswitch_cf3_l3_n4096		removed-parameter	已删除该参数case及源码：N4096/level3；基点7b10ddea可回查
+05_285_bgv_rotate_gen3_step1_cf3_l3_n4096		removed-parameter	已删除该参数case及源码：N4096/level3；基点7b10ddea可回查
+05_286_ckks_rotate_gen3_step1_l4_n4096		removed-parameter	已删除该参数case及源码：N4096/level4；基点7b10ddea可回查
+05_287_bfv_rotate_gen3_step1_l4_n4096		removed-parameter	已删除该参数case及源码：N4096/level4；基点7b10ddea可回查
+05_28_bgv_reline_n4096		removed-parameter	测试职责迁入统一N/L矩阵，参数以新清单为准；本轮按参数范围删除，不再交付
+05_29_bgv_modswitch_n4096		removed-parameter	测试职责迁入统一N/L矩阵，参数以新清单为准；本轮按参数范围删除，不再交付
+05_30_bgv_rotate_n4096		removed-parameter	测试职责迁入统一N/L矩阵，参数以新清单为准；本轮按参数范围删除，不再交付
+05_31_bgv_hadd_cf3_cf5_n4096		removed-parameter	保留特殊参数回归，区别于标准library矩阵；本轮按参数范围删除，不再交付
+05_32_bgv_hmul_reline_cf3_cf5_n4096		removed-parameter	保留特殊参数回归，区别于标准library矩阵；本轮按参数范围删除，不再交付
+05_33_bgv_reline_cf15_n4096		removed-parameter	保留特殊参数回归，区别于标准library矩阵；本轮按参数范围删除，不再交付
+05_34_bgv_modswitch_cf3_n4096		removed-parameter	保留特殊参数回归，区别于标准library矩阵；本轮按参数范围删除，不再交付
+05_35_ckks_rotate_gen3_step1_n4096		removed-parameter	保留特殊参数回归，区别于标准library矩阵；本轮按参数范围删除，不再交付
+05_36_bfv_rotate_gen3_step1_n4096		removed-parameter	保留特殊参数回归，区别于标准library矩阵；本轮按参数范围删除，不再交付
+05_37_bgv_rotate_gen3_step1_cf3_n4096		removed-parameter	保留特殊参数回归，区别于标准library矩阵；本轮按参数范围删除，不再交付
 05_38_encode_pending		retired	高N/高level、旧重复包装或未启用条件用例；仅可从Git历史回查
 05_39_bootstrap_pending		retired	高N/高level、旧重复包装或未启用条件用例；仅可从Git历史回查
 05_40_ckks_hadd_n65536		retired	高N/高level、旧重复包装或未启用条件用例；仅可从Git历史回查
@@ -131,86 +727,266 @@ old_case_id	case_id	status	note
 05_53_bgv_modswitch_n65536		retired	高N/高level、旧重复包装或未启用条件用例；仅可从Git历史回查
 05_54_bgv_rotate_n65536		retired	高N/高level、旧重复包装或未启用条件用例；仅可从Git历史回查
 06_01_ckks_x2_add1_n65536		retired	高N/高level、旧重复包装或未启用条件用例；仅可从Git历史回查
-06_02_ckks_rotate_conj_mul_add_n128	06_02_ckks_rotate_conj_mul_add_n128	retained	继续使用
-06_03_bfv_mul_chain_n128	06_03_bfv_mul_chain_n128	retained	继续使用
-06_04_bfv_rotate_chain_n128	06_04_bfv_rotate_chain_n128	retained	继续使用
-06_05_bgv_plain_chain_n128	06_05_bgv_plain_chain_n128	retained	继续使用
-06_06_bgv_rotate_chain_n128	06_06_bgv_rotate_chain_n128	retained	继续使用
-06_07_bgv_mul_chain_n128	06_07_bgv_mul_chain_n128	retained	继续使用
-06_08_bgv_rotate_mul_chain_n128	06_08_bgv_rotate_mul_chain_n128	retained	继续使用
+06_01_ckks_x2_add1_n8192	06_01_ckks_x2_add1_n8192	retained	本例参数与源码保持
+06_02_ckks_rotate_conj_mul_add_n128	06_02_ckks_rotate_conj_mul_add_n128	retained	本例参数与源码保持
+06_03_bfv_mul_chain_n128	06_03_bfv_mul_chain_n128	retained	本例参数与源码保持
+06_04_bfv_rotate_chain_n128	06_04_bfv_rotate_chain_n128	retained	本例参数与源码保持
+06_05_bgv_plain_chain_n128	06_05_bgv_plain_chain_n128	retained	本例参数与源码保持
+06_06_bgv_rotate_chain_n128	06_06_bgv_rotate_chain_n128	retained	本例参数与源码保持
+06_07_bgv_mul_chain_n128	06_07_bgv_mul_chain_n128	retained	本例参数与源码保持
+06_08_bgv_rotate_mul_chain_n128	06_08_bgv_rotate_mul_chain_n128	retained	本例参数与源码保持
+06_09_ckks_api_n128	06_09_ckks_api_n128	retained	本例参数与源码保持
 06_09_mul_add_reduction_pending		retired	高N/高level、旧重复包装或未启用条件用例；仅可从Git历史回查
+06_10_ckks_api_n4096	06_10_ckks_api_n4096	retained	本例参数与源码保持
+06_11_bfv_api_n128	06_11_bfv_api_n128	retained	本例参数与源码保持
+06_12_bfv_api_n4096	06_12_bfv_api_n4096	retained	本例参数与源码保持
+06_13_bgv_api_n128	06_13_bgv_api_n128	retained	本例参数与源码保持
+06_14_bgv_api_n4096	06_14_bgv_api_n4096	retained	本例参数与源码保持
+07_01_ckks_keyswitch_l4_n1024	07_01_ckks_keyswitch_l4_n1024	retained	本例参数与源码保持
 07_01_ntt_l1_n4096		retired	高N/高level、旧重复包装或未启用条件用例；仅可从Git历史回查
+07_02_ckks_hadd_l4_n1024	07_02_ckks_hadd_l4_n1024	retained	本例参数与源码保持
 07_02_intt_l1_n4096		retired	高N/高level、旧重复包装或未启用条件用例；仅可从Git历史回查
 07_03_bconv_l4_n4096		retired	高N/高level、旧重复包装或未启用条件用例；仅可从Git历史回查
+07_03_ckks_hmul_reline_l4_n1024	07_03_ckks_hmul_reline_l4_n1024	retained	本例参数与源码保持
 07_04_ckks_keyswitch_l4_n4096		retired	高N/高level、旧重复包装或未启用条件用例；仅可从Git历史回查
+07_04_ckks_reline_l4_n1024	07_04_ckks_reline_l4_n1024	retained	本例参数与源码保持
 07_05_ckks_hmul_reline_l4_n4096		retired	高N/高level、旧重复包装或未启用条件用例；仅可从Git历史回查
+07_05_ckks_rescale_l4_n1024	07_05_ckks_rescale_l4_n1024	retained	本例参数与源码保持
 07_06_ckks_reline_l4_n4096		retired	高N/高level、旧重复包装或未启用条件用例；仅可从Git历史回查
+07_06_ckks_rotate_l4_n1024	07_06_ckks_rotate_l4_n1024	retained	本例参数与源码保持
+07_07_bfv_keyswitch_l4_n1024	07_07_bfv_keyswitch_l4_n1024	retained	本例参数与源码保持
 07_07_bfv_keyswitch_l4_n4096		retired	高N/高level、旧重复包装或未启用条件用例；仅可从Git历史回查
+07_08_bfv_hadd_l4_n1024	07_08_bfv_hadd_l4_n1024	retained	本例参数与源码保持
 07_08_bgv_keyswitch_l3_n4096		retired	高N/高level、旧重复包装或未启用条件用例；仅可从Git历史回查
+07_09_bfv_hmul_reline_l4_n1024	07_09_bfv_hmul_reline_l4_n1024	retained	本例参数与源码保持
 07_09_legacy_auto_l4_n4096		retired	高N/高level、旧重复包装或未启用条件用例；仅可从Git历史回查
+07_100_bgv_reline_l3_n16384		retired	高N/高level、旧重复包装或未启用条件用例；仅可从Git历史回查
+07_101_bgv_modswitch_l3_n16384		retired	高N/高level、旧重复包装或未启用条件用例；仅可从Git历史回查
+07_102_bgv_rotate_l3_n16384		retired	高N/高level、旧重复包装或未启用条件用例；仅可从Git历史回查
+07_103_ckks_keyswitch_l16_n16384		retired	高N/高level、旧重复包装或未启用条件用例；仅可从Git历史回查
+07_104_ckks_hmul_reline_l16_n16384		retired	高N/高level、旧重复包装或未启用条件用例；仅可从Git历史回查
+07_105_ckks_reline_l16_n16384		retired	高N/高level、旧重复包装或未启用条件用例；仅可从Git历史回查
+07_106_bfv_keyswitch_l16_n16384		retired	高N/高level、旧重复包装或未启用条件用例；仅可从Git历史回查
+07_107_bgv_keyswitch_l16_n16384		retired	高N/高level、旧重复包装或未启用条件用例；仅可从Git历史回查
+07_108_ckks_hadd_l16_n16384		retired	高N/高level、旧重复包装或未启用条件用例；仅可从Git历史回查
+07_109_ckks_rescale_l16_n16384		retired	高N/高level、旧重复包装或未启用条件用例；仅可从Git历史回查
+07_10_bfv_reline_l4_n1024	07_10_bfv_reline_l4_n1024	retained	本例参数与源码保持
 07_10_ckks_hadd_l4_n4096		retired	高N/高level、旧重复包装或未启用条件用例；仅可从Git历史回查
+07_110_ckks_rotate_l16_n16384		retired	高N/高level、旧重复包装或未启用条件用例；仅可从Git历史回查
+07_111_bfv_hadd_l16_n16384		retired	高N/高level、旧重复包装或未启用条件用例；仅可从Git历史回查
+07_112_bfv_hmul_reline_l16_n16384		retired	高N/高level、旧重复包装或未启用条件用例；仅可从Git历史回查
+07_113_bfv_reline_l16_n16384		retired	高N/高level、旧重复包装或未启用条件用例；仅可从Git历史回查
+07_114_bfv_modswitch_l16_n16384		retired	高N/高level、旧重复包装或未启用条件用例；仅可从Git历史回查
+07_115_bfv_rotate_l16_n16384		retired	高N/高level、旧重复包装或未启用条件用例；仅可从Git历史回查
+07_116_bgv_hadd_l16_n16384		retired	高N/高level、旧重复包装或未启用条件用例；仅可从Git历史回查
+07_117_bgv_hmul_reline_l16_n16384		retired	高N/高level、旧重复包装或未启用条件用例；仅可从Git历史回查
+07_118_bgv_reline_l16_n16384		retired	高N/高level、旧重复包装或未启用条件用例；仅可从Git历史回查
+07_119_bgv_modswitch_l16_n16384		retired	高N/高level、旧重复包装或未启用条件用例；仅可从Git历史回查
+07_11_bfv_modswitch_l4_n1024	07_11_bfv_modswitch_l4_n1024	retained	本例参数与源码保持
 07_11_ckks_rescale_l4_n4096		retired	高N/高level、旧重复包装或未启用条件用例；仅可从Git历史回查
+07_120_bgv_rotate_l16_n16384		retired	高N/高level、旧重复包装或未启用条件用例；仅可从Git历史回查
+07_121_ntt_l1_n32768		retired	高N/高level、旧重复包装或未启用条件用例；仅可从Git历史回查
+07_122_intt_l1_n32768		retired	高N/高level、旧重复包装或未启用条件用例；仅可从Git历史回查
+07_123_bconv_l4_n32768		retired	高N/高level、旧重复包装或未启用条件用例；仅可从Git历史回查
+07_124_ckks_keyswitch_l4_n32768		retired	高N/高level、旧重复包装或未启用条件用例；仅可从Git历史回查
+07_125_ckks_hmul_reline_l4_n32768		retired	高N/高level、旧重复包装或未启用条件用例；仅可从Git历史回查
+07_126_ckks_reline_l4_n32768		retired	高N/高level、旧重复包装或未启用条件用例；仅可从Git历史回查
+07_127_bfv_keyswitch_l4_n32768		retired	高N/高level、旧重复包装或未启用条件用例；仅可从Git历史回查
+07_128_bgv_keyswitch_l3_n32768		retired	高N/高level、旧重复包装或未启用条件用例；仅可从Git历史回查
+07_129_legacy_auto_l4_n32768		retired	高N/高level、旧重复包装或未启用条件用例；仅可从Git历史回查
+07_12_bfv_rotate_l4_n1024	07_12_bfv_rotate_l4_n1024	retained	本例参数与源码保持
 07_12_ckks_rotate_l4_n4096		retired	高N/高level、旧重复包装或未启用条件用例；仅可从Git历史回查
+07_130_ckks_hadd_l4_n32768		retired	高N/高level、旧重复包装或未启用条件用例；仅可从Git历史回查
+07_131_ckks_rescale_l4_n32768		retired	高N/高level、旧重复包装或未启用条件用例；仅可从Git历史回查
+07_132_ckks_rotate_l4_n32768		retired	高N/高level、旧重复包装或未启用条件用例；仅可从Git历史回查
+07_133_bfv_hadd_l4_n32768		retired	高N/高level、旧重复包装或未启用条件用例；仅可从Git历史回查
+07_134_bfv_hmul_reline_l4_n32768		retired	高N/高level、旧重复包装或未启用条件用例；仅可从Git历史回查
+07_135_bfv_reline_l4_n32768		retired	高N/高level、旧重复包装或未启用条件用例；仅可从Git历史回查
+07_136_bfv_modswitch_l4_n32768		retired	高N/高level、旧重复包装或未启用条件用例；仅可从Git历史回查
+07_137_bfv_rotate_l4_n32768		retired	高N/高level、旧重复包装或未启用条件用例；仅可从Git历史回查
+07_138_bgv_hadd_l3_n32768		retired	高N/高level、旧重复包装或未启用条件用例；仅可从Git历史回查
+07_139_bgv_hmul_reline_l3_n32768		retired	高N/高level、旧重复包装或未启用条件用例；仅可从Git历史回查
 07_13_bfv_hadd_l4_n4096		retired	高N/高level、旧重复包装或未启用条件用例；仅可从Git历史回查
+07_13_bgv_keyswitch_l3_n1024	07_13_bgv_keyswitch_l4_n1024	parameter-updated	输入level由3真实改为4，不继承旧参数通过/周期数据
+07_140_bgv_reline_l3_n32768		retired	高N/高level、旧重复包装或未启用条件用例；仅可从Git历史回查
+07_141_bgv_modswitch_l3_n32768		retired	高N/高level、旧重复包装或未启用条件用例；仅可从Git历史回查
+07_142_bgv_rotate_l3_n32768		retired	高N/高level、旧重复包装或未启用条件用例；仅可从Git历史回查
+07_143_ckks_keyswitch_l16_n32768		retired	高N/高level、旧重复包装或未启用条件用例；仅可从Git历史回查
+07_144_ckks_hmul_reline_l16_n32768		retired	高N/高level、旧重复包装或未启用条件用例；仅可从Git历史回查
+07_145_ckks_reline_l16_n32768		retired	高N/高level、旧重复包装或未启用条件用例；仅可从Git历史回查
+07_146_bfv_keyswitch_l16_n32768		retired	高N/高level、旧重复包装或未启用条件用例；仅可从Git历史回查
+07_147_bgv_keyswitch_l16_n32768		retired	高N/高level、旧重复包装或未启用条件用例；仅可从Git历史回查
+07_148_ckks_hadd_l16_n32768		retired	高N/高level、旧重复包装或未启用条件用例；仅可从Git历史回查
+07_149_ckks_rescale_l16_n32768		retired	高N/高level、旧重复包装或未启用条件用例；仅可从Git历史回查
 07_14_bfv_hmul_reline_l4_n4096		retired	高N/高level、旧重复包装或未启用条件用例；仅可从Git历史回查
+07_14_bgv_hadd_l3_n1024	07_14_bgv_hadd_l4_n1024	parameter-updated	输入level由3真实改为4，不继承旧参数通过/周期数据
+07_150_ckks_rotate_l16_n32768		retired	高N/高level、旧重复包装或未启用条件用例；仅可从Git历史回查
+07_151_bfv_hadd_l16_n32768		retired	高N/高level、旧重复包装或未启用条件用例；仅可从Git历史回查
+07_152_bfv_hmul_reline_l16_n32768		retired	高N/高level、旧重复包装或未启用条件用例；仅可从Git历史回查
+07_153_bfv_reline_l16_n32768		retired	高N/高level、旧重复包装或未启用条件用例；仅可从Git历史回查
+07_154_bfv_modswitch_l16_n32768		retired	高N/高level、旧重复包装或未启用条件用例；仅可从Git历史回查
+07_155_bfv_rotate_l16_n32768		retired	高N/高level、旧重复包装或未启用条件用例；仅可从Git历史回查
+07_156_bgv_hadd_l16_n32768		retired	高N/高level、旧重复包装或未启用条件用例；仅可从Git历史回查
+07_157_bgv_hmul_reline_l16_n32768		retired	高N/高level、旧重复包装或未启用条件用例；仅可从Git历史回查
+07_158_bgv_reline_l16_n32768		retired	高N/高level、旧重复包装或未启用条件用例；仅可从Git历史回查
+07_159_bgv_modswitch_l16_n32768		retired	高N/高level、旧重复包装或未启用条件用例；仅可从Git历史回查
 07_15_bfv_reline_l4_n4096		retired	高N/高level、旧重复包装或未启用条件用例；仅可从Git历史回查
+07_15_bgv_hmul_reline_l3_n1024	07_15_bgv_hmul_reline_l4_n1024	parameter-updated	输入level由3真实改为4，不继承旧参数通过/周期数据
+07_160_bgv_rotate_l16_n32768		retired	高N/高level、旧重复包装或未启用条件用例；仅可从Git历史回查
+07_161_ntt_l1_n65536		retired	高N/高level、旧重复包装或未启用条件用例；仅可从Git历史回查
+07_162_intt_l1_n65536		retired	高N/高level、旧重复包装或未启用条件用例；仅可从Git历史回查
+07_163_bconv_l4_n65536		retired	高N/高level、旧重复包装或未启用条件用例；仅可从Git历史回查
+07_164_ckks_keyswitch_l4_n65536		retired	高N/高level、旧重复包装或未启用条件用例；仅可从Git历史回查
+07_165_ckks_hmul_reline_l4_n65536		retired	高N/高level、旧重复包装或未启用条件用例；仅可从Git历史回查
+07_166_ckks_reline_l4_n65536		retired	高N/高level、旧重复包装或未启用条件用例；仅可从Git历史回查
+07_167_bfv_keyswitch_l4_n65536		retired	高N/高level、旧重复包装或未启用条件用例；仅可从Git历史回查
+07_168_bgv_keyswitch_l3_n65536		retired	高N/高level、旧重复包装或未启用条件用例；仅可从Git历史回查
+07_169_legacy_auto_l4_n65536		retired	高N/高level、旧重复包装或未启用条件用例；仅可从Git历史回查
 07_16_bfv_modswitch_l4_n4096		retired	高N/高level、旧重复包装或未启用条件用例；仅可从Git历史回查
+07_16_bgv_reline_l3_n1024	07_16_bgv_reline_l4_n1024	parameter-updated	输入level由3真实改为4，不继承旧参数通过/周期数据
+07_170_ckks_hadd_l4_n65536		retired	高N/高level、旧重复包装或未启用条件用例；仅可从Git历史回查
+07_171_ckks_rescale_l4_n65536		retired	高N/高level、旧重复包装或未启用条件用例；仅可从Git历史回查
+07_172_ckks_rotate_l4_n65536		retired	高N/高level、旧重复包装或未启用条件用例；仅可从Git历史回查
+07_173_bfv_hadd_l4_n65536		retired	高N/高level、旧重复包装或未启用条件用例；仅可从Git历史回查
+07_174_bfv_hmul_reline_l4_n65536		retired	高N/高level、旧重复包装或未启用条件用例；仅可从Git历史回查
+07_175_bfv_reline_l4_n65536		retired	高N/高level、旧重复包装或未启用条件用例；仅可从Git历史回查
+07_176_bfv_modswitch_l4_n65536		retired	高N/高level、旧重复包装或未启用条件用例；仅可从Git历史回查
+07_177_bfv_rotate_l4_n65536		retired	高N/高level、旧重复包装或未启用条件用例；仅可从Git历史回查
+07_178_bgv_hadd_l3_n65536		retired	高N/高level、旧重复包装或未启用条件用例；仅可从Git历史回查
+07_179_bgv_hmul_reline_l3_n65536		retired	高N/高level、旧重复包装或未启用条件用例；仅可从Git历史回查
 07_17_bfv_rotate_l4_n4096		retired	高N/高level、旧重复包装或未启用条件用例；仅可从Git历史回查
+07_17_bgv_modswitch_l3_n1024	07_17_bgv_modswitch_l4_n1024	parameter-updated	输入level由3真实改为4，不继承旧参数通过/周期数据
+07_180_bgv_reline_l3_n65536		retired	高N/高level、旧重复包装或未启用条件用例；仅可从Git历史回查
+07_181_bgv_modswitch_l3_n65536		retired	高N/高level、旧重复包装或未启用条件用例；仅可从Git历史回查
+07_182_bgv_rotate_l3_n65536		retired	高N/高level、旧重复包装或未启用条件用例；仅可从Git历史回查
+07_183_ckks_keyswitch_l16_n65536		retired	高N/高level、旧重复包装或未启用条件用例；仅可从Git历史回查
+07_184_ckks_hmul_reline_l16_n65536		retired	高N/高level、旧重复包装或未启用条件用例；仅可从Git历史回查
+07_185_ckks_reline_l16_n65536		retired	高N/高level、旧重复包装或未启用条件用例；仅可从Git历史回查
+07_186_bfv_keyswitch_l16_n65536		retired	高N/高level、旧重复包装或未启用条件用例；仅可从Git历史回查
+07_187_bgv_keyswitch_l16_n65536		retired	高N/高level、旧重复包装或未启用条件用例；仅可从Git历史回查
+07_188_ckks_hadd_l16_n65536		retired	高N/高level、旧重复包装或未启用条件用例；仅可从Git历史回查
+07_189_ckks_rescale_l16_n65536		retired	高N/高level、旧重复包装或未启用条件用例；仅可从Git历史回查
 07_18_bgv_hadd_l3_n4096		retired	高N/高level、旧重复包装或未启用条件用例；仅可从Git历史回查
+07_18_bgv_rotate_l3_n1024	07_18_bgv_rotate_l4_n1024	parameter-updated	输入level由3真实改为4，不继承旧参数通过/周期数据
+07_190_ckks_rotate_l16_n65536		retired	高N/高level、旧重复包装或未启用条件用例；仅可从Git历史回查
+07_191_bfv_hadd_l16_n65536		retired	高N/高level、旧重复包装或未启用条件用例；仅可从Git历史回查
+07_192_bfv_hmul_reline_l16_n65536		retired	高N/高level、旧重复包装或未启用条件用例；仅可从Git历史回查
+07_193_bfv_reline_l16_n65536		retired	高N/高level、旧重复包装或未启用条件用例；仅可从Git历史回查
+07_194_bfv_modswitch_l16_n65536		retired	高N/高level、旧重复包装或未启用条件用例；仅可从Git历史回查
+07_195_bfv_rotate_l16_n65536		retired	高N/高level、旧重复包装或未启用条件用例；仅可从Git历史回查
+07_196_bgv_hadd_l16_n65536		retired	高N/高level、旧重复包装或未启用条件用例；仅可从Git历史回查
+07_197_bgv_hmul_reline_l16_n65536		retired	高N/高level、旧重复包装或未启用条件用例；仅可从Git历史回查
+07_198_bgv_reline_l16_n65536		retired	高N/高level、旧重复包装或未启用条件用例；仅可从Git历史回查
+07_199_bgv_modswitch_l16_n65536		retired	高N/高level、旧重复包装或未启用条件用例；仅可从Git历史回查
 07_19_bgv_hmul_reline_l3_n4096		retired	高N/高level、旧重复包装或未启用条件用例；仅可从Git历史回查
+07_19_ckks_keyswitch_l4_n2048		removed-parameter	已删除该参数case及源码：N2048/level4；基点7b10ddea可回查
+07_200_bgv_rotate_l16_n65536		retired	高N/高level、旧重复包装或未启用条件用例；仅可从Git历史回查
 07_20_bgv_reline_l3_n4096		retired	高N/高level、旧重复包装或未启用条件用例；仅可从Git历史回查
+07_20_ckks_hadd_l4_n2048		removed-parameter	已删除该参数case及源码：N2048/level4；基点7b10ddea可回查
 07_21_bgv_modswitch_l3_n4096		retired	高N/高level、旧重复包装或未启用条件用例；仅可从Git历史回查
+07_21_ckks_hmul_reline_l4_n2048		removed-parameter	已删除该参数case及源码：N2048/level4；基点7b10ddea可回查
 07_22_bgv_rotate_l3_n4096		retired	高N/高level、旧重复包装或未启用条件用例；仅可从Git历史回查
+07_22_ckks_reline_l4_n2048		removed-parameter	已删除该参数case及源码：N2048/level4；基点7b10ddea可回查
 07_23_ckks_keyswitch_l16_n4096		retired	高N/高level、旧重复包装或未启用条件用例；仅可从Git历史回查
+07_23_ckks_rescale_l4_n2048		removed-parameter	已删除该参数case及源码：N2048/level4；基点7b10ddea可回查
 07_24_ckks_hmul_reline_l16_n4096		retired	高N/高level、旧重复包装或未启用条件用例；仅可从Git历史回查
+07_24_ckks_rotate_l4_n2048		removed-parameter	已删除该参数case及源码：N2048/level4；基点7b10ddea可回查
+07_25_bfv_keyswitch_l4_n2048		removed-parameter	已删除该参数case及源码：N2048/level4；基点7b10ddea可回查
 07_25_ckks_reline_l16_n4096		retired	高N/高level、旧重复包装或未启用条件用例；仅可从Git历史回查
+07_26_bfv_hadd_l4_n2048		removed-parameter	已删除该参数case及源码：N2048/level4；基点7b10ddea可回查
 07_26_bfv_keyswitch_l16_n4096		retired	高N/高level、旧重复包装或未启用条件用例；仅可从Git历史回查
+07_27_bfv_hmul_reline_l4_n2048		removed-parameter	已删除该参数case及源码：N2048/level4；基点7b10ddea可回查
 07_27_bgv_keyswitch_l16_n4096		retired	高N/高level、旧重复包装或未启用条件用例；仅可从Git历史回查
+07_28_bfv_reline_l4_n2048		removed-parameter	已删除该参数case及源码：N2048/level4；基点7b10ddea可回查
 07_28_ckks_hadd_l16_n4096		retired	高N/高level、旧重复包装或未启用条件用例；仅可从Git历史回查
+07_29_bfv_modswitch_l4_n2048		removed-parameter	已删除该参数case及源码：N2048/level4；基点7b10ddea可回查
 07_29_ckks_rescale_l16_n4096		retired	高N/高level、旧重复包装或未启用条件用例；仅可从Git历史回查
+07_30_bfv_rotate_l4_n2048		removed-parameter	已删除该参数case及源码：N2048/level4；基点7b10ddea可回查
 07_30_ckks_rotate_l16_n4096		retired	高N/高level、旧重复包装或未启用条件用例；仅可从Git历史回查
 07_31_bfv_hadd_l16_n4096		retired	高N/高level、旧重复包装或未启用条件用例；仅可从Git历史回查
+07_31_bgv_keyswitch_l3_n2048		removed-parameter	已删除该参数case及源码：N2048/level3；基点7b10ddea可回查
 07_32_bfv_hmul_reline_l16_n4096		retired	高N/高level、旧重复包装或未启用条件用例；仅可从Git历史回查
+07_32_bgv_hadd_l3_n2048		removed-parameter	已删除该参数case及源码：N2048/level3；基点7b10ddea可回查
 07_33_bfv_reline_l16_n4096		retired	高N/高level、旧重复包装或未启用条件用例；仅可从Git历史回查
+07_33_bgv_hmul_reline_l3_n2048		removed-parameter	已删除该参数case及源码：N2048/level3；基点7b10ddea可回查
 07_34_bfv_modswitch_l16_n4096		retired	高N/高level、旧重复包装或未启用条件用例；仅可从Git历史回查
+07_34_bgv_reline_l3_n2048		removed-parameter	已删除该参数case及源码：N2048/level3；基点7b10ddea可回查
 07_35_bfv_rotate_l16_n4096		retired	高N/高level、旧重复包装或未启用条件用例；仅可从Git历史回查
+07_35_bgv_modswitch_l3_n2048		removed-parameter	已删除该参数case及源码：N2048/level3；基点7b10ddea可回查
 07_36_bgv_hadd_l16_n4096		retired	高N/高level、旧重复包装或未启用条件用例；仅可从Git历史回查
+07_36_bgv_rotate_l3_n2048		removed-parameter	已删除该参数case及源码：N2048/level3；基点7b10ddea可回查
 07_37_bgv_hmul_reline_l16_n4096		retired	高N/高level、旧重复包装或未启用条件用例；仅可从Git历史回查
+07_37_ckks_keyswitch_l4_n4096		removed-parameter	已删除该参数case及源码：N4096/level4；基点7b10ddea可回查
 07_38_bgv_reline_l16_n4096		retired	高N/高level、旧重复包装或未启用条件用例；仅可从Git历史回查
+07_38_ckks_hadd_l4_n4096		removed-parameter	已删除该参数case及源码：N4096/level4；基点7b10ddea可回查
 07_39_bgv_modswitch_l16_n4096		retired	高N/高level、旧重复包装或未启用条件用例；仅可从Git历史回查
+07_39_ckks_hmul_reline_l4_n4096		removed-parameter	已删除该参数case及源码：N4096/level4；基点7b10ddea可回查
 07_40_bgv_rotate_l16_n4096		retired	高N/高level、旧重复包装或未启用条件用例；仅可从Git历史回查
+07_40_ckks_reline_l4_n4096		removed-parameter	已删除该参数case及源码：N4096/level4；基点7b10ddea可回查
+07_41_ckks_rescale_l4_n4096		removed-parameter	已删除该参数case及源码：N4096/level4；基点7b10ddea可回查
 07_41_ntt_l1_n8192		retired	高N/高level、旧重复包装或未启用条件用例；仅可从Git历史回查
+07_42_ckks_rotate_l4_n4096		removed-parameter	已删除该参数case及源码：N4096/level4；基点7b10ddea可回查
 07_42_intt_l1_n8192		retired	高N/高level、旧重复包装或未启用条件用例；仅可从Git历史回查
 07_43_bconv_l4_n8192		retired	高N/高level、旧重复包装或未启用条件用例；仅可从Git历史回查
+07_43_bfv_keyswitch_l4_n4096		removed-parameter	已删除该参数case及源码：N4096/level4；基点7b10ddea可回查
+07_44_bfv_hadd_l4_n4096		removed-parameter	已删除该参数case及源码：N4096/level4；基点7b10ddea可回查
 07_44_ckks_keyswitch_l4_n8192		retired	高N/高level、旧重复包装或未启用条件用例；仅可从Git历史回查
+07_45_bfv_hmul_reline_l4_n4096		removed-parameter	已删除该参数case及源码：N4096/level4；基点7b10ddea可回查
 07_45_ckks_hmul_reline_l4_n8192		retired	高N/高level、旧重复包装或未启用条件用例；仅可从Git历史回查
+07_46_bfv_reline_l4_n4096		removed-parameter	已删除该参数case及源码：N4096/level4；基点7b10ddea可回查
 07_46_ckks_reline_l4_n8192		retired	高N/高level、旧重复包装或未启用条件用例；仅可从Git历史回查
 07_47_bfv_keyswitch_l4_n8192		retired	高N/高level、旧重复包装或未启用条件用例；仅可从Git历史回查
+07_47_bfv_modswitch_l4_n4096		removed-parameter	已删除该参数case及源码：N4096/level4；基点7b10ddea可回查
+07_48_bfv_rotate_l4_n4096		removed-parameter	已删除该参数case及源码：N4096/level4；基点7b10ddea可回查
 07_48_bgv_keyswitch_l3_n8192		retired	高N/高level、旧重复包装或未启用条件用例；仅可从Git历史回查
+07_49_bgv_keyswitch_l3_n4096		removed-parameter	已删除该参数case及源码：N4096/level3；基点7b10ddea可回查
 07_49_legacy_auto_l4_n8192		retired	高N/高level、旧重复包装或未启用条件用例；仅可从Git历史回查
+07_50_bgv_hadd_l3_n4096		removed-parameter	已删除该参数case及源码：N4096/level3；基点7b10ddea可回查
 07_50_ckks_hadd_l4_n8192		retired	高N/高level、旧重复包装或未启用条件用例；仅可从Git历史回查
+07_51_bgv_hmul_reline_l3_n4096		removed-parameter	已删除该参数case及源码：N4096/level3；基点7b10ddea可回查
 07_51_ckks_rescale_l4_n8192		retired	高N/高level、旧重复包装或未启用条件用例；仅可从Git历史回查
+07_52_bgv_reline_l3_n4096		removed-parameter	已删除该参数case及源码：N4096/level3；基点7b10ddea可回查
 07_52_ckks_rotate_l4_n8192		retired	高N/高level、旧重复包装或未启用条件用例；仅可从Git历史回查
 07_53_bfv_hadd_l4_n8192		retired	高N/高level、旧重复包装或未启用条件用例；仅可从Git历史回查
+07_53_bgv_modswitch_l3_n4096		removed-parameter	已删除该参数case及源码：N4096/level3；基点7b10ddea可回查
 07_54_bfv_hmul_reline_l4_n8192		retired	高N/高level、旧重复包装或未启用条件用例；仅可从Git历史回查
+07_54_bgv_rotate_l3_n4096		removed-parameter	已删除该参数case及源码：N4096/level3；基点7b10ddea可回查
 07_55_bfv_reline_l4_n8192		retired	高N/高level、旧重复包装或未启用条件用例；仅可从Git历史回查
+07_55_ckks_keyswitch_l4_n8192	07_19_ckks_keyswitch_l4_n8192	retained	参数与程序保留，编号/路径顺排
 07_56_bfv_modswitch_l4_n8192		retired	高N/高level、旧重复包装或未启用条件用例；仅可从Git历史回查
+07_56_ckks_hadd_l4_n8192	07_20_ckks_hadd_l4_n8192	retained	参数与程序保留，编号/路径顺排
 07_57_bfv_rotate_l4_n8192		retired	高N/高level、旧重复包装或未启用条件用例；仅可从Git历史回查
+07_57_ckks_hmul_reline_l4_n8192	07_21_ckks_hmul_reline_l4_n8192	retained	参数与程序保留，编号/路径顺排
 07_58_bgv_hadd_l3_n8192		retired	高N/高level、旧重复包装或未启用条件用例；仅可从Git历史回查
+07_58_ckks_reline_l4_n8192	07_22_ckks_reline_l4_n8192	retained	参数与程序保留，编号/路径顺排
 07_59_bgv_hmul_reline_l3_n8192		retired	高N/高level、旧重复包装或未启用条件用例；仅可从Git历史回查
+07_59_ckks_rescale_l4_n8192	07_23_ckks_rescale_l4_n8192	retained	参数与程序保留，编号/路径顺排
 07_60_bgv_reline_l3_n8192		retired	高N/高level、旧重复包装或未启用条件用例；仅可从Git历史回查
+07_60_ckks_rotate_l4_n8192	07_24_ckks_rotate_l4_n8192	retained	参数与程序保留，编号/路径顺排
+07_61_bfv_keyswitch_l4_n8192	07_25_bfv_keyswitch_l4_n8192	retained	参数与程序保留，编号/路径顺排
 07_61_bgv_modswitch_l3_n8192		retired	高N/高level、旧重复包装或未启用条件用例；仅可从Git历史回查
+07_62_bfv_hadd_l4_n8192	07_26_bfv_hadd_l4_n8192	retained	参数与程序保留，编号/路径顺排
 07_62_bgv_rotate_l3_n8192		retired	高N/高level、旧重复包装或未启用条件用例；仅可从Git历史回查
+07_63_bfv_hmul_reline_l4_n8192	07_27_bfv_hmul_reline_l4_n8192	retained	参数与程序保留，编号/路径顺排
 07_63_ckks_keyswitch_l16_n8192		retired	高N/高level、旧重复包装或未启用条件用例；仅可从Git历史回查
+07_64_bfv_reline_l4_n8192	07_28_bfv_reline_l4_n8192	retained	参数与程序保留，编号/路径顺排
 07_64_ckks_hmul_reline_l16_n8192		retired	高N/高level、旧重复包装或未启用条件用例；仅可从Git历史回查
+07_65_bfv_modswitch_l4_n8192	07_29_bfv_modswitch_l4_n8192	retained	参数与程序保留，编号/路径顺排
 07_65_ckks_reline_l16_n8192		retired	高N/高level、旧重复包装或未启用条件用例；仅可从Git历史回查
 07_66_bfv_keyswitch_l16_n8192		retired	高N/高level、旧重复包装或未启用条件用例；仅可从Git历史回查
+07_66_bfv_rotate_l4_n8192	07_30_bfv_rotate_l4_n8192	retained	参数与程序保留，编号/路径顺排
 07_67_bgv_keyswitch_l16_n8192		retired	高N/高level、旧重复包装或未启用条件用例；仅可从Git历史回查
+07_67_bgv_keyswitch_l3_n8192	07_31_bgv_keyswitch_l4_n8192	parameter-updated	输入level由3真实改为4，不继承旧参数通过/周期数据
+07_68_bgv_hadd_l3_n8192	07_32_bgv_hadd_l4_n8192	parameter-updated	输入level由3真实改为4，不继承旧参数通过/周期数据
 07_68_ckks_hadd_l16_n8192		retired	高N/高level、旧重复包装或未启用条件用例；仅可从Git历史回查
+07_69_bgv_hmul_reline_l3_n8192	07_33_bgv_hmul_reline_l4_n8192	parameter-updated	输入level由3真实改为4，不继承旧参数通过/周期数据
 07_69_ckks_rescale_l16_n8192		retired	高N/高level、旧重复包装或未启用条件用例；仅可从Git历史回查
+07_70_bgv_reline_l3_n8192	07_34_bgv_reline_l4_n8192	parameter-updated	输入level由3真实改为4，不继承旧参数通过/周期数据
 07_70_ckks_rotate_l16_n8192		retired	高N/高level、旧重复包装或未启用条件用例；仅可从Git历史回查
 07_71_bfv_hadd_l16_n8192		retired	高N/高level、旧重复包装或未启用条件用例；仅可从Git历史回查
+07_71_bgv_modswitch_l3_n8192	07_35_bgv_modswitch_l4_n8192	parameter-updated	输入level由3真实改为4，不继承旧参数通过/周期数据
 07_72_bfv_hmul_reline_l16_n8192		retired	高N/高level、旧重复包装或未启用条件用例；仅可从Git历史回查
+07_72_bgv_rotate_l3_n8192	07_36_bgv_rotate_l4_n8192	parameter-updated	输入level由3真实改为4，不继承旧参数通过/周期数据
 07_73_bfv_reline_l16_n8192		retired	高N/高level、旧重复包装或未启用条件用例；仅可从Git历史回查
 07_74_bfv_modswitch_l16_n8192		retired	高N/高level、旧重复包装或未启用条件用例；仅可从Git历史回查
 07_75_bfv_rotate_l16_n8192		retired	高N/高level、旧重复包装或未启用条件用例；仅可从Git历史回查
@@ -238,104 +1014,3 @@ old_case_id	case_id	status	note
 07_97_bfv_rotate_l4_n16384		retired	高N/高level、旧重复包装或未启用条件用例；仅可从Git历史回查
 07_98_bgv_hadd_l3_n16384		retired	高N/高level、旧重复包装或未启用条件用例；仅可从Git历史回查
 07_99_bgv_hmul_reline_l3_n16384		retired	高N/高level、旧重复包装或未启用条件用例；仅可从Git历史回查
-07_100_bgv_reline_l3_n16384		retired	高N/高level、旧重复包装或未启用条件用例；仅可从Git历史回查
-07_101_bgv_modswitch_l3_n16384		retired	高N/高level、旧重复包装或未启用条件用例；仅可从Git历史回查
-07_102_bgv_rotate_l3_n16384		retired	高N/高level、旧重复包装或未启用条件用例；仅可从Git历史回查
-07_103_ckks_keyswitch_l16_n16384		retired	高N/高level、旧重复包装或未启用条件用例；仅可从Git历史回查
-07_104_ckks_hmul_reline_l16_n16384		retired	高N/高level、旧重复包装或未启用条件用例；仅可从Git历史回查
-07_105_ckks_reline_l16_n16384		retired	高N/高level、旧重复包装或未启用条件用例；仅可从Git历史回查
-07_106_bfv_keyswitch_l16_n16384		retired	高N/高level、旧重复包装或未启用条件用例；仅可从Git历史回查
-07_107_bgv_keyswitch_l16_n16384		retired	高N/高level、旧重复包装或未启用条件用例；仅可从Git历史回查
-07_108_ckks_hadd_l16_n16384		retired	高N/高level、旧重复包装或未启用条件用例；仅可从Git历史回查
-07_109_ckks_rescale_l16_n16384		retired	高N/高level、旧重复包装或未启用条件用例；仅可从Git历史回查
-07_110_ckks_rotate_l16_n16384		retired	高N/高level、旧重复包装或未启用条件用例；仅可从Git历史回查
-07_111_bfv_hadd_l16_n16384		retired	高N/高level、旧重复包装或未启用条件用例；仅可从Git历史回查
-07_112_bfv_hmul_reline_l16_n16384		retired	高N/高level、旧重复包装或未启用条件用例；仅可从Git历史回查
-07_113_bfv_reline_l16_n16384		retired	高N/高level、旧重复包装或未启用条件用例；仅可从Git历史回查
-07_114_bfv_modswitch_l16_n16384		retired	高N/高level、旧重复包装或未启用条件用例；仅可从Git历史回查
-07_115_bfv_rotate_l16_n16384		retired	高N/高level、旧重复包装或未启用条件用例；仅可从Git历史回查
-07_116_bgv_hadd_l16_n16384		retired	高N/高level、旧重复包装或未启用条件用例；仅可从Git历史回查
-07_117_bgv_hmul_reline_l16_n16384		retired	高N/高level、旧重复包装或未启用条件用例；仅可从Git历史回查
-07_118_bgv_reline_l16_n16384		retired	高N/高level、旧重复包装或未启用条件用例；仅可从Git历史回查
-07_119_bgv_modswitch_l16_n16384		retired	高N/高level、旧重复包装或未启用条件用例；仅可从Git历史回查
-07_120_bgv_rotate_l16_n16384		retired	高N/高level、旧重复包装或未启用条件用例；仅可从Git历史回查
-07_121_ntt_l1_n32768		retired	高N/高level、旧重复包装或未启用条件用例；仅可从Git历史回查
-07_122_intt_l1_n32768		retired	高N/高level、旧重复包装或未启用条件用例；仅可从Git历史回查
-07_123_bconv_l4_n32768		retired	高N/高level、旧重复包装或未启用条件用例；仅可从Git历史回查
-07_124_ckks_keyswitch_l4_n32768		retired	高N/高level、旧重复包装或未启用条件用例；仅可从Git历史回查
-07_125_ckks_hmul_reline_l4_n32768		retired	高N/高level、旧重复包装或未启用条件用例；仅可从Git历史回查
-07_126_ckks_reline_l4_n32768		retired	高N/高level、旧重复包装或未启用条件用例；仅可从Git历史回查
-07_127_bfv_keyswitch_l4_n32768		retired	高N/高level、旧重复包装或未启用条件用例；仅可从Git历史回查
-07_128_bgv_keyswitch_l3_n32768		retired	高N/高level、旧重复包装或未启用条件用例；仅可从Git历史回查
-07_129_legacy_auto_l4_n32768		retired	高N/高level、旧重复包装或未启用条件用例；仅可从Git历史回查
-07_130_ckks_hadd_l4_n32768		retired	高N/高level、旧重复包装或未启用条件用例；仅可从Git历史回查
-07_131_ckks_rescale_l4_n32768		retired	高N/高level、旧重复包装或未启用条件用例；仅可从Git历史回查
-07_132_ckks_rotate_l4_n32768		retired	高N/高level、旧重复包装或未启用条件用例；仅可从Git历史回查
-07_133_bfv_hadd_l4_n32768		retired	高N/高level、旧重复包装或未启用条件用例；仅可从Git历史回查
-07_134_bfv_hmul_reline_l4_n32768		retired	高N/高level、旧重复包装或未启用条件用例；仅可从Git历史回查
-07_135_bfv_reline_l4_n32768		retired	高N/高level、旧重复包装或未启用条件用例；仅可从Git历史回查
-07_136_bfv_modswitch_l4_n32768		retired	高N/高level、旧重复包装或未启用条件用例；仅可从Git历史回查
-07_137_bfv_rotate_l4_n32768		retired	高N/高level、旧重复包装或未启用条件用例；仅可从Git历史回查
-07_138_bgv_hadd_l3_n32768		retired	高N/高level、旧重复包装或未启用条件用例；仅可从Git历史回查
-07_139_bgv_hmul_reline_l3_n32768		retired	高N/高level、旧重复包装或未启用条件用例；仅可从Git历史回查
-07_140_bgv_reline_l3_n32768		retired	高N/高level、旧重复包装或未启用条件用例；仅可从Git历史回查
-07_141_bgv_modswitch_l3_n32768		retired	高N/高level、旧重复包装或未启用条件用例；仅可从Git历史回查
-07_142_bgv_rotate_l3_n32768		retired	高N/高level、旧重复包装或未启用条件用例；仅可从Git历史回查
-07_143_ckks_keyswitch_l16_n32768		retired	高N/高level、旧重复包装或未启用条件用例；仅可从Git历史回查
-07_144_ckks_hmul_reline_l16_n32768		retired	高N/高level、旧重复包装或未启用条件用例；仅可从Git历史回查
-07_145_ckks_reline_l16_n32768		retired	高N/高level、旧重复包装或未启用条件用例；仅可从Git历史回查
-07_146_bfv_keyswitch_l16_n32768		retired	高N/高level、旧重复包装或未启用条件用例；仅可从Git历史回查
-07_147_bgv_keyswitch_l16_n32768		retired	高N/高level、旧重复包装或未启用条件用例；仅可从Git历史回查
-07_148_ckks_hadd_l16_n32768		retired	高N/高level、旧重复包装或未启用条件用例；仅可从Git历史回查
-07_149_ckks_rescale_l16_n32768		retired	高N/高level、旧重复包装或未启用条件用例；仅可从Git历史回查
-07_150_ckks_rotate_l16_n32768		retired	高N/高level、旧重复包装或未启用条件用例；仅可从Git历史回查
-07_151_bfv_hadd_l16_n32768		retired	高N/高level、旧重复包装或未启用条件用例；仅可从Git历史回查
-07_152_bfv_hmul_reline_l16_n32768		retired	高N/高level、旧重复包装或未启用条件用例；仅可从Git历史回查
-07_153_bfv_reline_l16_n32768		retired	高N/高level、旧重复包装或未启用条件用例；仅可从Git历史回查
-07_154_bfv_modswitch_l16_n32768		retired	高N/高level、旧重复包装或未启用条件用例；仅可从Git历史回查
-07_155_bfv_rotate_l16_n32768		retired	高N/高level、旧重复包装或未启用条件用例；仅可从Git历史回查
-07_156_bgv_hadd_l16_n32768		retired	高N/高level、旧重复包装或未启用条件用例；仅可从Git历史回查
-07_157_bgv_hmul_reline_l16_n32768		retired	高N/高level、旧重复包装或未启用条件用例；仅可从Git历史回查
-07_158_bgv_reline_l16_n32768		retired	高N/高level、旧重复包装或未启用条件用例；仅可从Git历史回查
-07_159_bgv_modswitch_l16_n32768		retired	高N/高level、旧重复包装或未启用条件用例；仅可从Git历史回查
-07_160_bgv_rotate_l16_n32768		retired	高N/高level、旧重复包装或未启用条件用例；仅可从Git历史回查
-07_161_ntt_l1_n65536		retired	高N/高level、旧重复包装或未启用条件用例；仅可从Git历史回查
-07_162_intt_l1_n65536		retired	高N/高level、旧重复包装或未启用条件用例；仅可从Git历史回查
-07_163_bconv_l4_n65536		retired	高N/高level、旧重复包装或未启用条件用例；仅可从Git历史回查
-07_164_ckks_keyswitch_l4_n65536		retired	高N/高level、旧重复包装或未启用条件用例；仅可从Git历史回查
-07_165_ckks_hmul_reline_l4_n65536		retired	高N/高level、旧重复包装或未启用条件用例；仅可从Git历史回查
-07_166_ckks_reline_l4_n65536		retired	高N/高level、旧重复包装或未启用条件用例；仅可从Git历史回查
-07_167_bfv_keyswitch_l4_n65536		retired	高N/高level、旧重复包装或未启用条件用例；仅可从Git历史回查
-07_168_bgv_keyswitch_l3_n65536		retired	高N/高level、旧重复包装或未启用条件用例；仅可从Git历史回查
-07_169_legacy_auto_l4_n65536		retired	高N/高level、旧重复包装或未启用条件用例；仅可从Git历史回查
-07_170_ckks_hadd_l4_n65536		retired	高N/高level、旧重复包装或未启用条件用例；仅可从Git历史回查
-07_171_ckks_rescale_l4_n65536		retired	高N/高level、旧重复包装或未启用条件用例；仅可从Git历史回查
-07_172_ckks_rotate_l4_n65536		retired	高N/高level、旧重复包装或未启用条件用例；仅可从Git历史回查
-07_173_bfv_hadd_l4_n65536		retired	高N/高level、旧重复包装或未启用条件用例；仅可从Git历史回查
-07_174_bfv_hmul_reline_l4_n65536		retired	高N/高level、旧重复包装或未启用条件用例；仅可从Git历史回查
-07_175_bfv_reline_l4_n65536		retired	高N/高level、旧重复包装或未启用条件用例；仅可从Git历史回查
-07_176_bfv_modswitch_l4_n65536		retired	高N/高level、旧重复包装或未启用条件用例；仅可从Git历史回查
-07_177_bfv_rotate_l4_n65536		retired	高N/高level、旧重复包装或未启用条件用例；仅可从Git历史回查
-07_178_bgv_hadd_l3_n65536		retired	高N/高level、旧重复包装或未启用条件用例；仅可从Git历史回查
-07_179_bgv_hmul_reline_l3_n65536		retired	高N/高level、旧重复包装或未启用条件用例；仅可从Git历史回查
-07_180_bgv_reline_l3_n65536		retired	高N/高level、旧重复包装或未启用条件用例；仅可从Git历史回查
-07_181_bgv_modswitch_l3_n65536		retired	高N/高level、旧重复包装或未启用条件用例；仅可从Git历史回查
-07_182_bgv_rotate_l3_n65536		retired	高N/高level、旧重复包装或未启用条件用例；仅可从Git历史回查
-07_183_ckks_keyswitch_l16_n65536		retired	高N/高level、旧重复包装或未启用条件用例；仅可从Git历史回查
-07_184_ckks_hmul_reline_l16_n65536		retired	高N/高level、旧重复包装或未启用条件用例；仅可从Git历史回查
-07_185_ckks_reline_l16_n65536		retired	高N/高level、旧重复包装或未启用条件用例；仅可从Git历史回查
-07_186_bfv_keyswitch_l16_n65536		retired	高N/高level、旧重复包装或未启用条件用例；仅可从Git历史回查
-07_187_bgv_keyswitch_l16_n65536		retired	高N/高level、旧重复包装或未启用条件用例；仅可从Git历史回查
-07_188_ckks_hadd_l16_n65536		retired	高N/高level、旧重复包装或未启用条件用例；仅可从Git历史回查
-07_189_ckks_rescale_l16_n65536		retired	高N/高level、旧重复包装或未启用条件用例；仅可从Git历史回查
-07_190_ckks_rotate_l16_n65536		retired	高N/高level、旧重复包装或未启用条件用例；仅可从Git历史回查
-07_191_bfv_hadd_l16_n65536		retired	高N/高level、旧重复包装或未启用条件用例；仅可从Git历史回查
-07_192_bfv_hmul_reline_l16_n65536		retired	高N/高level、旧重复包装或未启用条件用例；仅可从Git历史回查
-07_193_bfv_reline_l16_n65536		retired	高N/高level、旧重复包装或未启用条件用例；仅可从Git历史回查
-07_194_bfv_modswitch_l16_n65536		retired	高N/高level、旧重复包装或未启用条件用例；仅可从Git历史回查
-07_195_bfv_rotate_l16_n65536		retired	高N/高level、旧重复包装或未启用条件用例；仅可从Git历史回查
-07_196_bgv_hadd_l16_n65536		retired	高N/高level、旧重复包装或未启用条件用例；仅可从Git历史回查
-07_197_bgv_hmul_reline_l16_n65536		retired	高N/高level、旧重复包装或未启用条件用例；仅可从Git历史回查
-07_198_bgv_reline_l16_n65536		retired	高N/高level、旧重复包装或未启用条件用例；仅可从Git历史回查
-07_199_bgv_modswitch_l16_n65536		retired	高N/高level、旧重复包装或未启用条件用例；仅可从Git历史回查
-07_200_bgv_rotate_l16_n65536		retired	高N/高level、旧重复包装或未启用条件用例；仅可从Git历史回查

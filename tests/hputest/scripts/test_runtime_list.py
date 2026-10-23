@@ -21,7 +21,7 @@ class RuntimeListTests(unittest.TestCase):
             output = directory / "must-not-be-created"
             command = ["build-runtime.py", "--am-home", str(runtime.ROOT.parents[1]),
                        "--producer", str(directory / "missing-producer"), "--output", str(output),
-                       "--list", "--group", "05", "--degree", "8192", "--level", "4", "--scheme", "ckks"]
+                       "--list", "--group", "05", "--degree", "1024", "--level", "4", "--scheme", "ckks"]
             stream = io.StringIO()
             with patch.object(runtime.sys, "argv", command), contextlib.redirect_stdout(stream), \
                     patch.object(runtime, "prepare_native", side_effect=AssertionError("native must not be touched")), \
@@ -32,9 +32,9 @@ class RuntimeListTests(unittest.TestCase):
             self.assertFalse(output.exists())
             rows = list(csv.DictReader(io.StringIO(stream.getvalue()), delimiter="\t"))
             expected = [row for row in runtime.catalog_specs() if row["suite"] == "default" and
-                        row["group"] == "05" and row["degree"] == 8192 and row["level"] == 4 and row["scheme"] == "ckks"]
+                        row["group"] == "05" and row["degree"] == 1024 and row["level"] == 4 and row["scheme"] == "ckks"]
             self.assertEqual([r["case_id"] for r in rows], [r["case_id"] for r in expected])
-            self.assertTrue(all(row["purpose"] and row["N"] == "8192" and row["level"] == "4" for row in rows))
+            self.assertTrue(all(row["purpose"] and row["N"] == "1024" and row["level"] == "4" for row in rows))
 
     def test_list_and_build_use_the_same_filter_and_api_selection(self):
         from types import SimpleNamespace
@@ -45,6 +45,16 @@ class RuntimeListTests(unittest.TestCase):
         self.assertEqual(listed, runtime.filtered_specs(args))
         self.assertEqual(len(listed), 1)
         self.assertEqual(listed[0]["suite"], "api")
+
+    def test_application_degree_filters_keep_n128_n4096_and_n8192(self):
+        from types import SimpleNamespace
+        for degree in (128, 4096, 8192):
+            args = SimpleNamespace(group="06", case=None, suite="all", degree=degree, level=None,
+                                   scheme=None, list=True)
+            with self.subTest(degree=degree):
+                rows = runtime.filtered_specs(args)
+                self.assertTrue(rows)
+                self.assertTrue(all(row["degree"] == degree for row in rows))
 
 
 if __name__ == "__main__":

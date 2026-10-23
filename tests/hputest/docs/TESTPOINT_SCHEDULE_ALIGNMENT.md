@@ -10,14 +10,14 @@
 |---|---|---:|---|
 | 配置、正常连接与数据通路 | `src/01_connection` | 8 | `01_01_mmio_rw`、`01_06_dma_loopback`等 |
 | 边界、RISC-V交叉与故障 | `src/02_boundary` | 16 | `02_01_window_bounds`、`02_11_cmd_burst_8`等；watchdog条件实验独立存放 |
-| 指令测试 | `src/03_instructions` | 189 | 9项保留定向，180项N/level矩阵；`03_001`至`03_189` |
-| 基本/组合算子 | `src/04_operators` | 120 | NTT/INTT/BConv与三算法KeySwitch的N/level矩阵 |
-| 算法库接口/参数回归 | `src/05_library` | 287 | 280项有效参数组合与7项CF/特殊旋转回归 |
+| 指令测试 | `src/03_instructions` | 9 | 仅N1024/level4；`03_01`至`03_09` |
+| 基本/组合算子 | `src/04_operators` | 6 | N1024/level4的NTT/INTT/BConv与三算法KeySwitch |
+| 算法库接口 | `src/05_library` | 15 | N1024/level4，三算法各五种操作 |
 | 应用测试 | `src/06_applications` | 8 | 直接使用上游完整应用；另6项API诊断按需构建 |
-| 性能测试 | `src/07_performance` | 72 | 四种N、三算法、六项操作，单ELF一轮计时 |
+| 性能测试 | `src/07_performance` | 36 | N1024/N8192、三算法、输入level4，单ELF一轮计时 |
 
-以上共700项，加`src/00_smoke`的9个冒烟和2个返回值探针，默认711项。
-不同参数组合不等于711种结构覆盖；是否需要monitor、负向预期或特殊结束方式，仍须查看清单`qualifier`。
+以上共98项，加`src/00_smoke`的9个冒烟和2个返回值探针，默认109项。
+用例数量不等于结构覆盖数量；是否需要monitor、负向预期或特殊结束方式，仍须查看清单`qualifier`。
 未实现/未接入项不发布占位二进制，不能因列入计划而标为完成。
 
 ## 2. 冒烟用例的当前名称

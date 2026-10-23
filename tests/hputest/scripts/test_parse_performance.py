@@ -11,11 +11,11 @@ from parse_performance import find_catalog, load_catalog, parse, summarize
 
 
 ROOT = Path(__file__).resolve().parents[1]
-CASE = "07_38_ckks_hadd_l4_n4096"
+CASE = "07_02_ckks_hadd_l4_n1024"
 REVISION = "unit-fixture-only;not-a-hardware-result"
 
 
-def record(case=CASE, variant="optimized", degree=4096, level=4, start=100, end=180, cycles=80):
+def record(case=CASE, variant="optimized", degree=1024, level=4, start=100, end=180, cycles=80):
     return (f"[HPU][NEWAPI-PERF] case={case} variant={variant} N={degree} level={level} "
             f"metric=issue_to_done_v2 start={start} end={end} cycles={cycles} verified=1\n")
 
@@ -56,7 +56,8 @@ class ParsePerformanceTests(unittest.TestCase):
         self.assertIsNone(result[0]["noopt_over_optimized"])
 
     def test_wrong_case_or_parameter_is_rejected(self):
-        for content in (record(case="unknown_l4_n4096"), record(level=16), record(degree=8192)):
+        for content in (record(case="unknown_l4_n4096"), record(level=16), record(degree=8192),
+                        record(case="07_38_ckks_hadd_l4_n4096", degree=4096)):
             with self.subTest(content=content), self.assertRaisesRegex(ValueError, "case/N/level"):
                 self.read(content)
 
@@ -91,7 +92,7 @@ class ParsePerformanceTests(unittest.TestCase):
         manifest = package / "cases.tsv"
         manifest.write_text((ROOT / "cases.tsv").read_text())
         self.assertEqual(find_catalog(package / "tools/parse_performance.py"), manifest)
-        self.assertEqual(load_catalog(manifest)[CASE], {"degree": 4096, "level": 4})
+        self.assertEqual(load_catalog(manifest)[CASE], {"degree": 1024, "level": 4})
 
     def test_cli_records_revision_and_leaves_absent_ratio_blank(self):
         self.log.write_text(record())

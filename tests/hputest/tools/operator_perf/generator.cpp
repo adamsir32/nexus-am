@@ -41,15 +41,15 @@ Options arguments(int argc, char **argv) {
     std::size_t used = 0;
     options.degree = std::stoul(argv[3], &used);
     if (used != std::string(argv[3]).size() ||
-        (options.degree != 1024 && options.degree != 2048 && options.degree != 4096 && options.degree != 8192))
-        throw std::invalid_argument("operator comparison supports N1024/N2048/N4096/N8192");
+        (options.degree != 1024 && options.degree != 8192))
+        throw std::invalid_argument("operator comparison supports N1024/N8192");
     if (options.scheme != "ckks" && options.scheme != "bfv" && options.scheme != "bgv")
         throw std::invalid_argument("SCHEME must be ckks, bfv or bgv");
     const std::array<std::string, 6> operations{{"keyswitch", "hadd", "hmul", "reline", "modswitch", "rotate"}};
     if (std::find(operations.begin(), operations.end(), options.operation) == operations.end())
         throw std::invalid_argument("unknown operator");
     if (options.profile != "baseline")
-        throw std::invalid_argument("1019 supports baseline only (input level <= 4)");
+        throw std::invalid_argument("operator comparison supports baseline only (input level = 4)");
     if (options.output.empty()) throw std::invalid_argument("output directory is empty");
     for (int i = 6; i < argc; ++i) {
         const std::string arg = argv[i];
@@ -169,7 +169,13 @@ std::string metadata(const Options &options, const Fixture &fixture,
         << ",\"producer_worktree_state\":" << quoted(HPU_FRONTEND_TREE_STATE)
         << ",\"baseline_inline_asm_commit\":" << quoted(HPU_BASELINE_INLINE_COMMIT)
         << ",\"baseline_modified_seal_tree\":" << quoted(HPU_BASELINE_SEAL_TREE)
-        << ",\"same_fixture_recipe\":true,\"same_seal_source\":true,"
+        << ",\"same_fixture_recipe\":" << (options.scheme != "bgv")
+        << ",\"baseline_parameters_equal\":" << (options.scheme != "bgv")
+        << ",\"baseline_input_level\":" << (options.scheme == "bgv" ? 3 : 4)
+        << ",\"parameter_change\":" << quoted(options.scheme == "bgv"
+            ? "BGV explicitly requests Q_RNS_COUNT=4: an independent fourth Q prime is added; the previous level-3 input, keys, golden and timing are not the same parameter baseline."
+            : "CKKS/BFV retain the original baseline Q4/P1 inputs.")
+        << ",\"same_seal_source\":true,"
         << "\"fixture_source\":\"tests/hputest/tools/common/fixture.hpp\","
         << "\"main_comparison_caveat\":" << quoted(options.operation == "hmul"
             ? "Frontend HMUL is explicit multiply+relinearize with two visible graph nodes; main CKKS also has two nodes, while main BFV/BGV use one fused multiply-relinearize node. Final oracle is identical; intermediate output and scheduling obligations may differ."
@@ -200,10 +206,12 @@ int main(int argc, char **argv) {
         may_record_failure = true;
         stage = "fixture";
         const bool kernel = options.operation == "keyswitch";
-        // 和现main及CPU基准直接共享Fixture，原level必须传0，不能传3/4。
+        // CKKS/BFV保留原baseline输入；BGV显式扩成Q4，旧Q3数据与golden不能复用。
         Fixture fixture(options.scheme, options.operation, options.degree, "", 30,
                         kernel ? 1 : static_cast<int>(options.degree / 4), kernel,
-                        0);
+                        options.scheme == "bgv" ? 4 : 0);
+        if (fixture.q_rns_count != 4)
+            throw std::runtime_error("performance fixture must have four active Q limbs");
         const auto stem = "frontend_" + options.scheme + '_' + options.operation + "_l" +
                           std::to_string(fixture.q_rns_count) + "_n" + std::to_string(options.degree);
         frontend::ApplicationBuilder application(*fixture.context);

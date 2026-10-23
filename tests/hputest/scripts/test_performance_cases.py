@@ -8,8 +8,7 @@ import unittest
 
 
 ROOT = Path(__file__).resolve().parents[1]
-DEGREE_DIRECTORIES = {"1024": "01_n1024", "2048": "02_n2048",
-                      "4096": "03_n4096", "8192": "04_n8192"}
+DEGREE_DIRECTORIES = {"1024": "01_n1024", "8192": "02_n8192"}
 
 
 def catalog():
@@ -21,13 +20,16 @@ def catalog():
 class PerformanceCaseTests(unittest.TestCase):
     def test_catalog_has_each_performance_operator_once_per_degree_scheme(self):
         cases = catalog()
-        expected = {(str(degree), str(3 if scheme == "bgv" else 4), scheme, operation)
-                    for degree in (1024, 2048, 4096, 8192)
+        expected = {(str(degree), "4", scheme, operation)
+                    for degree in (1024, 8192)
                     for scheme in ("ckks", "bfv", "bgv")
                     for operation in ("keyswitch", "hadd", "hmul", "reline", "modswitch", "rotate")}
         actual = {(r["degree"], r["level"], r["scheme"], r["operation"]) for r in cases}
         self.assertEqual(actual, expected)
         self.assertEqual(len(cases), len(actual))
+        self.assertEqual(len(cases), 36)
+        self.assertEqual([row["case_id"].split("_")[1] for row in cases],
+                         [f"{number:02d}" for number in range(1, 37)])
         for row in cases:
             expected_source = (f"src/07_performance/{DEGREE_DIRECTORIES[row['degree']]}/"
                                f"{row['case_id']}.c")
@@ -93,7 +95,7 @@ class PerformanceCaseTests(unittest.TestCase):
                 f"AM_HOME={ROOT / 'test/build-isolation'}", "CASE_ID=timing-probe", "CASE_SOURCE=probe.c",
                 "DATA_DIR=/probe", "PROGRAM_STEM=producer", "CASE_OBJ_DIR=/probe/objects",
                 "CASE_BINARY=/probe/output", "LOG_LEVEL=1", "WAIT_CYCLES=1024",
-                "CASE_DEGREE=4096", "CASE_LEVEL=4",
+                "CASE_DEGREE=1024", "CASE_LEVEL=4",
                 "--eval=performance-probe: ; @printf 'sources=%s\\nflags=%s\\n' '$(SRCS)' '$(CFLAGS)'"]
         regular = subprocess.check_output(args, text=True)
         timed = subprocess.check_output(args + ["PERFORMANCE=1", "CASE_MEM_BASE=0xc0000000"], text=True)

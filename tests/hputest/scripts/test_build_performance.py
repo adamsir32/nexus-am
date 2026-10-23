@@ -79,22 +79,22 @@ class BuildTests(unittest.TestCase):
         self.addCleanup(self.temp.cleanup)
         self.root = Path(self.temp.name)
 
-    def test_twelve_scopes_cover_72_cases_without_overlap(self):
-        rows = [row for degree in (1024, 2048, 4096, 8192) for profile in ("baseline",)
+    def test_six_scopes_cover_36_cases_without_overlap(self):
+        rows = [row for degree in (1024, 8192) for profile in ("baseline",)
                 for scheme in ("ckks", "bfv", "bgv") for row in build.select_specs(degree, profile, scheme)]
-        self.assertEqual(len(rows), 72)
-        self.assertEqual(len({row["case_id"] for row in rows}), 72)
+        self.assertEqual(len(rows), 36)
+        self.assertEqual(len({row["case_id"] for row in rows}), 36)
 
     def test_retired_profiles_and_larger_degrees_are_rejected(self):
-        for degree, profile in ((4096, "l16"), (8192, "l16"), (16384, "baseline")):
+        for degree, profile in ((2048, "baseline"), (4096, "baseline"), (8192, "l16"), (16384, "baseline")):
             with self.subTest(degree=degree, profile=profile):
-                with self.assertRaisesRegex(ValueError, "N<=8192 and level<=4"):
+                with self.assertRaisesRegex(ValueError, "N1024/N8192 and level=4"):
                     build.select_specs(degree, profile, "ckks")
 
     def test_case_paths_do_not_leak_to_recursive_am_make(self):
         args = SimpleNamespace(work=self.root, am_home=build.ROOT.parents[1], arch="riscv64-xs",
                                cross="riscv64-linux-gnu-", wait_cycles=999)
-        spec = {**build.select_specs(4096, "baseline", "ckks")[0], "variant": "optimized"}
+        spec = {**build.select_specs(1024, "baseline", "ckks")[0], "variant": "optimized"}
         recorded = []
         def stop(command, **kwargs):
             recorded.extend(command)

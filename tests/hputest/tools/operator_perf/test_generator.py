@@ -14,8 +14,8 @@ class OperatorGenerator(unittest.TestCase):
         self.addCleanup(self.temporary.cleanup)
         self.directory=Path(self.temporary.name)/'case'
 
-    def run_generator(self,scheme='ckks',operation='hadd',profile='baseline',extra=()):
-        return subprocess.run([str(ARGS.generator),scheme,operation,'4096',profile,str(self.directory),*extra],
+    def run_generator(self,scheme='ckks',operation='hadd',profile='baseline',extra=(),degree=1024):
+        return subprocess.run([str(ARGS.generator),scheme,operation,str(degree),profile,str(self.directory),*extra],
                               text=True,capture_output=True,check=False)
 
     def read_variants(self,native_package):
@@ -28,8 +28,11 @@ class OperatorGenerator(unittest.TestCase):
             self.assertEqual(metadata['variant'],variant)
             self.assertEqual(metadata['optimize_resources'],variant=='optimized')
             for field in ('verified','instruction_verified','fixture_words_equal','fixture_metadata_equal',
-                          'same_fixture_recipe','same_seal_source'):
+                          'same_seal_source'):
                 self.assertIs(metadata[field],True)
+            self.assertEqual(metadata['same_fixture_recipe'],metadata['scheme']!='bgv')
+            self.assertEqual(metadata['baseline_parameters_equal'],metadata['scheme']!='bgv')
+            self.assertEqual(metadata['baseline_input_level'],3 if metadata['scheme']=='bgv' else 4)
             self.assertIs(metadata['hardware_verified'],False)
             self.assertIs(metadata['hardware_contract_verified'],False)
             self.assertEqual(metadata['native_package_written'],native_package)
@@ -43,7 +46,7 @@ class OperatorGenerator(unittest.TestCase):
             self.assertEqual(metadata['ntt_table_abi']['stage_twiddle_format'],'hpu-twiddle-k8-v1')
             self.assertEqual(metadata['ntt_table_abi']['twiddle_chains'],8)
             self.assertEqual(metadata['ntt_table_abi']['stage_parameter_lines'],2)
-            self.assertEqual(metadata['seed'],['0x485055534348454d',4096,1,2,3,4,5,6])
+            self.assertEqual(metadata['seed'],['0x485055534348454d',1024,1,2,3,4,5,6])
             self.assertEqual((folder/'upstream').exists(),native_package)
             if native_package:
                 package=json.loads((folder/'upstream/package.json').read_text())
@@ -70,9 +73,9 @@ class OperatorGenerator(unittest.TestCase):
         result=self.run_generator()
         self.assertEqual(result.returncode,0,result.stderr)
         metadata=self.read_variants(native_package=True)
-        self.assertEqual(metadata['program_stem'],'frontend_ckks_hadd_l4_n4096')
-        self.assertEqual(metadata['Q'],[133881857,133963777,134012929,134111233])
-        self.assertEqual(metadata['P'],[134176769])
+        self.assertEqual(metadata['program_stem'],'frontend_ckks_hadd_l4_n1024')
+        self.assertEqual(metadata['Q'],[134072321,134111233,134176769,134203393])
+        self.assertEqual(metadata['P'],[134215681])
         self.assertEqual(metadata['input_scale'],2**30)
         self.assertEqual(metadata['node_operations'],['add'])
         # 生成器不得覆盖此前已验证的包。
@@ -81,17 +84,35 @@ class OperatorGenerator(unittest.TestCase):
         self.assertIn('refusing to overwrite',second.stderr)
         self.assertFalse((self.directory/'GENERATION_ERROR.json').exists())
 
-    def test_verify_only_keeps_strict_checks_without_native_images(self):
-        result=self.run_generator(scheme='bgv',extra=('--verify-only',))
+    def test_bgv_l4_has_four_actual_q_limbs_and_new_golden(self):
+        result=self.run_generator(scheme='bgv')
         self.assertEqual(result.returncode,0,result.stderr)
-        metadata=self.read_variants(native_package=False)
-        self.assertEqual(metadata['program_stem'],'frontend_bgv_hadd_l3_n4096')
-        self.assertEqual(len(metadata['Q']),3)
-        self.assertEqual(len(metadata['P']),1)
+        metadata=self.read_variants(native_package=True)
+        self.assertEqual(metadata['program_stem'],'frontend_bgv_hadd_l4_n1024')
+        self.assertEqual(metadata['level'],4)
+        self.assertEqual(metadata['input_Q_rns_count'],4)
+        self.assertEqual(metadata['output_Q_rns_count'],4)
+        self.assertEqual(metadata['Q'][:3],[2013265921,1811939329,469762049])
+        self.assertEqual(len(set(metadata['Q'])),4)
+        self.assertEqual(metadata['Q'][3].bit_length(),31)
+        self.assertEqual(metadata['Q'][3]%(2*metadata['N']),1)
+        self.assertNotIn(metadata['Q'][3],metadata['P'])
+        self.assertEqual(metadata['P'],[1224736769])
         self.assertEqual(metadata['plain_modulus'],65537)
         self.assertEqual(metadata['input_correction_factor'],1)
         self.assertEqual(metadata['right_correction_factor'],1)
         self.assertEqual(metadata['node_count'],1)
+        self.assertIs(metadata['same_fixture_recipe'],False)
+        self.assertIs(metadata['baseline_parameters_equal'],False)
+        self.assertIn('previous level-3',metadata['parameter_change'])
+
+    def test_removed_degrees_are_rejected_before_generation(self):
+        for degree in (2048,4096):
+            with self.subTest(degree=degree):
+                result=self.run_generator(degree=degree)
+                self.assertEqual(result.returncode,1)
+                self.assertIn('N1024/N8192',result.stderr)
+                self.assertFalse(self.directory.exists())
 
     def test_legacy_contract_probe_never_exports_unverified_success(self):
         result=self.run_generator(operation='modswitch',extra=('--verify-only','--ntt-contract=legacy-raw-stage'))

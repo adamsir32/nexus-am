@@ -6,25 +6,25 @@ from import_package import instruction_contract, package_profile
 
 class InstructionReceiverTests(unittest.TestCase):
     def setUp(self):
-        self.spec = dict(case_id="03_010_padd_l1_n128", kind="instruction", profile="instruction",
-                         operation="padd", scheme="raw", degree=128, level=1,
-                         program_stem="instruction_padd_l1_n128", memory_base="0x87000000",
+        self.spec = dict(case_id="03_01_padd_l4_n1024", kind="instruction", profile="instruction",
+                         operation="padd", scheme="raw", degree=1024, level=4,
+                         program_stem="instruction_padd_l4_n1024", memory_base="0x87000000",
                          minimum_ram_bytes=268435456)
-        q = [2013265921]
+        q = [2013265921, 1811939329, 469762049, 998244353]
         self.parameters = dict(test_layer="instruction", encrypted=False, plain_modulus=0,
-                               input_rns_components=1, context_moduli=q, key_moduli=q,
+                               input_rns_components=4, context_moduli=q, key_moduli=q,
                                levels=[{"moduli": q}])
         self.graph = dict(test_layer="instruction", component_semantics="scenario_not_ciphertext",
                           component_count=4, terminal_psync_count=1, timing_verified=False,
                           irq_rearm_verified=False, operations=[{"kind": "padd"}],
-                          scenario_outputs=[dict(component=i, modulus_id=0, scenario=f"padd/{i}")
-                                            for i in range(4)])
+                          scenario_outputs=[dict(component=i, modulus_id=j, scenario=f"padd/{i}")
+                                            for i in range(4) for j in range(4)])
         self.report = {key: True for key in ("oracle_verified", "golden_matches_oracle", "model_verified",
                        "raw_physical_words_equal", "readonly_and_guard_verified", "host_instruction_model_verified")}
         self.report.update(test_layer="instruction", overall_status="pass",
                            oracle="independent_u64_modular_and_C_stage_golden",
                            host_instruction_model=dict(required=True, verified=True, status="pass",
-                               ntt_contract="legacy_raw_stage", hardware_contract_verified=False, compared_words=512),
+                               ntt_contract="legacy_raw_stage", hardware_contract_verified=False, compared_words=16384),
                            instruction_execution_verified=False, rtl_verified=False, hardware_verified=False)
 
     def check(self):
@@ -33,7 +33,7 @@ class InstructionReceiverTests(unittest.TestCase):
     def test_raw_identity_and_independent_oracle_contract_are_explicit(self):
         package_profile(self.spec)
         moduli, scenarios = self.check()
-        self.assertEqual((moduli, len(scenarios)), ([2013265921], 4))
+        self.assertEqual((moduli, len(scenarios)), ([2013265921, 1811939329, 469762049, 998244353], 16))
 
     def test_encrypted_alias_or_fake_optimizer_report_is_rejected(self):
         self.parameters["encrypted"] = True

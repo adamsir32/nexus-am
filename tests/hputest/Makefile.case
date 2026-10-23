@@ -40,7 +40,7 @@ $(error HPU_DUMP_RESULTS=1 requires HPU_LOG_LEVEL=2)
 endif
 endif
 
-# 此入口只编译原有44项定向测试；参数矩阵统一走Makefile.native.case。
+# 此入口只编译原有00～02共35项定向测试；03～07走Makefile.native.case。
 LOWLEVEL_GROUP := $(firstword $(subst _, ,$(CASE_ID)))
 ifeq ($(LOWLEVEL_GROUP),00)
 EXPECTED_SOURCE := $(TEST_ROOT)/src/00_smoke/$(CASE_ID).c
@@ -48,12 +48,8 @@ else ifeq ($(LOWLEVEL_GROUP),01)
 EXPECTED_SOURCE := $(TEST_ROOT)/src/01_connection/$(CASE_ID).c
 else ifeq ($(LOWLEVEL_GROUP),02)
 EXPECTED_SOURCE := $(TEST_ROOT)/src/02_boundary/$(CASE_ID).c
-else ifneq ($(filter 03_001_padd 03_002_psub 03_003_pmul 03_004_pmac \
-                      03_005_pntt 03_006_pintt 03_007_pmodld \
-                      03_008_psync 03_009_pfree,$(CASE_ID)),)
-EXPECTED_SOURCE := $(TEST_ROOT)/src/03_instructions/directed/$(CASE_ID).c
 else
-$(error CASE_ID is not a supported directed 00/01/02/03 testcase)
+$(error CASE_ID is not a supported directed 00/01/02 testcase)
 endif
 ifneq ($(abspath $(CASE_SOURCE)),$(EXPECTED_SOURCE))
 $(error CASE_SOURCE must match the canonical directed source for CASE_ID)
@@ -95,12 +91,6 @@ ifeq ($(strip $(HPU_IT_RUNTIME_SRCS)),)
 $(error missing directed IT runtime sources)
 endif
 SRCS += $(HPU_IT_RUNTIME_SRCS) $(TEST_ROOT)/src/common/hpu_rns_fixture.S
-ifneq ($(filter 03_005_pntt 03_006_pintt,$(CASE_ID)),)
-SRCS += $(TEST_ROOT)/src/common/it_stage_twiddle.S
-endif
-ifeq ($(CASE_ID),03_008_psync)
-SRCS += $(TEST_ROOT)/src/common/hpu_irq.c
-endif
 endif
 
 ifeq ($(HPU_LOG_LEVEL),0)
@@ -147,7 +137,3 @@ $(HPU_DST_DIR)/$(TEST_ROOT)/src/common/hpu_rns_fixture.o: \
 $(HPU_DST_DIR)/$(TEST_ROOT)/src/common/hpu_mm_fixture.o: \
   $(INLINE_ASM_MM_ROOT)/test_data/hardware/images/expected.u32.bin \
   $(INLINE_ASM_MM_ROOT)/test_data/hardware/constants/mod_ctx.u32.bin
-$(HPU_DST_DIR)/$(TEST_ROOT)/src/common/it_stage_twiddle.o: \
-  $(foreach direction,ntt intt,$(foreach stage,00 01 11,\
-    $(HPU_GENERATED_ROOT)/instruction-data/$(direction)_stage_$(stage).u32.bin \
-    $(HPU_GENERATED_ROOT)/instruction-data/$(direction)_stage_$(stage)_full.u32.bin))

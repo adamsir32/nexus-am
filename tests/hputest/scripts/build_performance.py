@@ -21,8 +21,8 @@ def output(command):
 
 def select_specs(degree, profile, scheme, case_id=None):
     """07也只读取统一cases.tsv；筛选不引入独立构建或发布流水线。"""
-    require(degree in (1024, 2048, 4096, 8192) and profile == "baseline",
-            "07 requires N<=8192 and level<=4")
+    require(degree in (1024, 8192) and profile == "baseline",
+            "07 requires N1024/N8192 and level=4")
     with (ROOT / "cases.tsv").open(newline="") as stream:
         rows = list(csv.DictReader(stream, delimiter="\t"))
     result = []
@@ -33,7 +33,7 @@ def select_specs(degree, profile, scheme, case_id=None):
         for key in ("degree", "level", "minimum_ram_bytes"):
             row[key] = int(row[key])
         relative = Path(row["source"])
-        degree_directory = {1024: "01_n1024", 2048: "02_n2048", 4096: "03_n4096", 8192: "04_n8192"}
+        degree_directory = {1024: "01_n1024", 8192: "02_n8192"}
         require(row["degree"] in degree_directory and
                 relative == Path("src/07_performance") / degree_directory[row["degree"]] / (row["case_id"] + ".c") and
                 (ROOT / relative).is_file(),

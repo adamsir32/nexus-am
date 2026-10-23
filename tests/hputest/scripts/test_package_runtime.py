@@ -25,6 +25,8 @@ class RuntimePackageTests(unittest.TestCase):
         self.output = self.directory / "delivery/hpu.zip"
 
     def case(self, group="00", case_id="00_01_probe", producer="legacy", degree="", level=""):
+        if group[:2] in ("03", "04", "05") and degree == level == "":
+            degree, level = "1024", "4"
         row = dict(group=group, case_id=case_id, producer=producer, degree=degree, level=level)
         for key, suffix in (("elf", ".elf"), ("bin", ".bin")):
             row[key] = f"artifact/optimized/minimal/{case_id}/{case_id}{suffix}"
@@ -48,8 +50,8 @@ class RuntimePackageTests(unittest.TestCase):
 
     def test_only_explicit_elf_and_bin_are_exported_once_by_group(self):
         rows = [self.case(f"0{group}", f"0{group}_01_probe") for group in range(7)]
-        rows += [self.case("07_performance", f"07_{number}_ckks_l4_n{degree}", "frontend", str(degree), "4")
-                 for number, degree in enumerate((1024, 2048, 4096, 8192), 1)]
+        rows += [self.case("07_performance", f"07_{number:02}_ckks_l4_n{degree}", "frontend", str(degree), "4")
+                 for number, degree in enumerate((1024, 8192), 1)]
         frontend = self.roots["frontend"]
         for name in ("case.c", "golden.bin", "old_l16_n65536.elf", "report.json", "program.inst32"):
             (frontend / name).write_text("must not ship")
@@ -59,11 +61,11 @@ class RuntimePackageTests(unittest.TestCase):
             for suffix in (".elf", ".bin"):
                 (ignored / ("07_1_ckks_l4_n1024" + suffix)).write_text("extra variant")
         archive, count = self.package(rows)
-        self.assertEqual(count, 11)
+        self.assertEqual(count, 9)
         with zipfile.ZipFile(archive) as zipped:
             self.assertEqual(zipped.namelist(), sorted(f"{row['case_id'][:2]}/{row['case_id']}{suffix}"
                                                      for row in rows for suffix in (".elf", ".bin")))
-            self.assertEqual(zipped.read("07/07_1_ckks_l4_n1024.bin"), b"runtime-bin")
+            self.assertEqual(zipped.read("07/07_01_ckks_l4_n1024.bin"), b"runtime-bin")
 
     def test_missing_bin_does_not_publish_partial_archive(self):
         row = self.case()
@@ -78,12 +80,20 @@ class RuntimePackageTests(unittest.TestCase):
             self.package([row, row])
 
     def test_07_larger_degrees_and_retired_l16_are_rejected(self):
-        for degree, level in ((16384, 4), (65536, 4), (4096, 16)):
+        for degree, level in ((2048, 4), (4096, 4), (16384, 4), (65536, 4), (1024, 3), (8192, 16)):
             with self.subTest(degree=degree, level=level):
                 row = self.case("07", "07_01_probe", "frontend", str(degree), str(level))
                 with self.assertRaisesRegex(ValueError, "07 requires"):
                     self.package([row])
         self.assertFalse(self.output.exists())
+
+    def test_03_to_05_reject_retired_scales_and_levels(self):
+        for group in ("03", "04", "05"):
+            for degree, level in ((128, 4), (1024, 1), (4096, 4), (8192, 4)):
+                with self.subTest(group=group, degree=degree, level=level):
+                    row = self.case(group, group + "_01_probe", degree=str(degree), level=str(level))
+                    with self.assertRaisesRegex(ValueError, "03～05 require N1024/L4"):
+                        self.package([row])
 
     def test_group_mismatch_and_undeclared_producer_are_rejected(self):
         row = self.case()

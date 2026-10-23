@@ -12,7 +12,7 @@ import zipfile
 
 
 FIELDS = ("group", "case_id", "producer", "elf", "bin", "degree", "level")
-CASE_ID = re.compile(r"0[0-7]_[A-Za-z0-9_]+\Z")
+CASE_ID = re.compile(r"0[0-7]_\d{2}_[A-Za-z0-9_]+\Z")
 GROUP = re.compile(r"(0[0-7])(?:_[A-Za-z0-9_]+)?\Z")
 
 
@@ -72,10 +72,13 @@ def select_files(rows, roots):
         require(identity not in identities, f"duplicate runtime case: {identity}")
         identities.add(identity)
         require(row["producer"] in roots, f"{identity}: unknown producer: {row['producer']}")
-        if group == "07":
+        if group in ("03", "04", "05"):
+            require(row["degree"] == "1024" and row["level"] == "4",
+                    f"{identity}: 03～05 require N1024/L4")
+        elif group == "07":
             require(row["degree"].isdigit() and row["level"].isdigit() and
-                    int(row["degree"]) in (1024, 2048, 4096, 8192) and 1 <= int(row["level"]) <= 4,
-                    f"{identity}: 07 requires N1024/2048/4096/8192 and level<=4")
+                    int(row["degree"]) in (1024, 8192) and int(row["level"]) == 4,
+                    f"{identity}: 07 requires N1024/N8192 and level=4")
         for key, suffix in (("elf", ".elf"), ("bin", ".bin")):
             source = runtime_file(roots[row["producer"]], row[key], identity, suffix)
             require(source not in sources, f"runtime source reused by multiple cases: {source}")

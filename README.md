@@ -2,8 +2,8 @@
 
 默认分支名为`master`；HPU活动源码、唯一清单和依赖统一在[tests/hputest](tests/hputest/README.md)，inline-asm固定为`3ab94da`。默认下载只有一个`hpu.zip`，按00～07分目录，仅含ELF和BIN。旧workload路径只保留Makefile兼容入口。
 
-- 默认711项；03～05覆盖N128/1024/2048/4096/8192和输入level1～4，原03定向及05特殊回归保留。
-- 07保留72项代表参数的端到端cycle测试；另有6项可选顶层API回归。见[性能说明](tests/hputest/docs/PERFORMANCE.md)。
+- 默认109项；03～05仅保留N1024、输入level4，其它参数用例及源码已移除，00～02与06保持不变。
+- 07保留N1024/N8192、三算法全部level4的36项端到端cycle测试；另有6项可选顶层API回归。见[性能说明](tests/hputest/docs/PERFORMANCE.md)。
 - 高N、高level、重复归档和旧生成链已从当前源码树删除，历史从Git回查，不再另留archive副本。实验另放`tests/hpu-experiments/`。见[源码审阅](tests/hputest/docs/SOURCE_REVIEW.md)。
 
 上述交付的状态为`BUILD_READY_NOT_IT_PASS`，不表示真实RTL/ST或硬件已通过。下方原有AM/CPU构建说明保留。

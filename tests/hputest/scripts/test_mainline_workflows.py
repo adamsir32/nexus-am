@@ -90,7 +90,9 @@ class MainlineWorkflowTests(unittest.TestCase):
         with (ROOT / "cases.tsv").open() as stream:
             rows = list(csv.DictReader(stream, delimiter="\t"))
         performance = [row for row in rows if row["kind"] == "performance"]
-        for degree, scheme in itertools.product(("1024", "2048", "4096", "8192"), ("ckks", "bfv", "bgv")):
+        self.assertEqual(len(performance), 36)
+        self.assertTrue(all(row["level"] == "4" for row in performance))
+        for degree, scheme in itertools.product(("1024", "8192"), ("ckks", "bfv", "bgv")):
             selected = [row for row in performance if (row["degree"], row["scheme"]) == (degree, scheme)]
             self.assertEqual(len(selected), 6)
         api = [row for row in rows if row["suite"] == "api"]

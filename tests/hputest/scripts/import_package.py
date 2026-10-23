@@ -57,8 +57,10 @@ def package_profile(spec):
     scheme, degree, level = spec["scheme"], int(spec["degree"]), int(spec["level"])
     kind, profile = spec.get("kind"), spec.get("profile")
     require(degree in DEGREES and 1 <= level <= 4, "unsupported degree/level")
-    require(re.fullmatch(r"0[3-7]_\d{2,3}_[a-z0-9_]+", spec["case_id"]) is not None,
+    require(re.fullmatch(r"0[3-7]_\d{2}_[a-z0-9_]+", spec["case_id"]) is not None,
             "unsupported native case identity")
+    if spec["case_id"][:2] in ("03", "04", "05"):
+        require((degree, level) == (1024, 4), "03～05 require N1024/L4")
     stem = spec["program_stem"]
     require(re.fullmatch(r"[a-z][a-z0-9_]+", stem) is not None, "unsafe functional stem")
     if kind == "instruction":
@@ -80,12 +82,12 @@ def package_profile(spec):
                     stem == f'{spec["operation"]}_l{level}_n{degree}',
                     "primitive identity/parameters mismatch")
     elif kind == "performance":
-        require(spec["case_id"].startswith("07_") and degree in (1024, 2048, 4096, 8192) and
+        require(spec["case_id"].startswith("07_") and degree in (1024, 8192) and
                 scheme in ("ckks", "bfv", "bgv"), "unsupported 07 scheme/degree")
         operation, variant = spec["operation"], spec["variant"]
         require(operation in ("keyswitch", "hadd", "hmul", "reline", "modswitch", "rotate"),
                 "unsupported 07 operator")
-        require(level == (3 if scheme == "bgv" else 4), "unsupported 07 level")
+        require(level == 4, "unsupported 07 level: requires L4 for every scheme")
         require(variant in ("optimized", "noopt"), "unsupported resource variant")
         require(stem == f"frontend_{scheme}_{operation}_l{level}_n{degree}", "explicit program stem mismatch")
     else:
@@ -297,6 +299,16 @@ def exported_steps(graph):
     return selected
 
 
+def validate_operation_levels(spec, parameters, operations):
+    """单算子的输出层由输入L和运算推导，不能仅相信包内任意parms_id。"""
+    source = parameters["levels"][0]["moduli"]
+    expected_level = int(spec["level"]) - int(spec["operation"] == "modswitch")
+    contexts = {tuple(level["parms_id"]): level["moduli"] for level in parameters["levels"]}
+    require(expected_level > 0 and all(contexts.get(tuple(op.get("parms_id", ()))) == source[:expected_level]
+                                     for op in operations),
+            "operator output Q-RNS context differs from the derived level")
+
+
 def import_package(source, destination, spec, commit, verify_existing=False):
     package = read_json(source / "package.json")
     scheme = "ckks" if spec.get("kind") == "instruction" or spec.get("profile") == "primitive" else spec["scheme"]
@@ -336,6 +348,7 @@ def import_package(source, destination, spec, commit, verify_existing=False):
         if spec.get("profile") in ("kernel", "library", "regression"):
             require([row["kind"] for row in operations] == expected_operations(scheme, spec["operation"]),
                     "functional operation graph differs from the requested operator")
+            validate_operation_levels(spec, parameters, operations)
         if spec.get("expected_operations"):
             require([row["kind"] for row in operations] == spec["expected_operations"],
                     "functional graph differs from its declared coverage")
@@ -344,6 +357,7 @@ def import_package(source, destination, spec, commit, verify_existing=False):
                 "07 operation graph differs from the requested operator")
         require(len(parameters["levels"][0]["moduli"]) == int(spec["level"]),
                 "07 input Q-RNS count differs from level")
+        validate_operation_levels(spec, parameters, operations)
     allocations = read_rows(files["line_map"])
     memory_abi = read_json(files["memory_abi"])
     validate_isa_contract(memory_abi)

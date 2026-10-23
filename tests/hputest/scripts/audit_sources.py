@@ -12,7 +12,7 @@ import subprocess
 
 OWNED_ROOTS = ("tests/hputest/", "tests/hpu_frontend_workload/")
 EXCLUDED_PARTS = {"third_party", "vendor", "external", "experiments"}
-CASE_ID = re.compile(r"(0[0-7])_(\d{2,3})_([a-z][a-z0-9_]*)\Z")
+CASE_ID = re.compile(r"(0[0-7])_(\d{2})_([a-z][a-z0-9_]*)\Z")
 CASE_SOURCE = re.compile(r"(?:0[0-7]_\d{2,3}_|HPU_IT_)", re.I)
 SOURCE_SUFFIXES = {".c", ".cpp", ".h", ".hpp", ".S", ".asm", ".sv", ".py", ".sh", ".mk"}
 TEXT_SUFFIXES = SOURCE_SUFFIXES | {".md", ".tsv", ".json", ".txt", ".yml"}
@@ -76,8 +76,8 @@ def validate_catalogs(repo, root, catalogs, files):
                     if not 0 <= degree <= 8192 or not 0 <= level <= 4:
                         raise ValueError("N>8192或L>4，或参数为负")
                     if group in ("03", "04", "05"):
-                        if degree not in (128, 1024, 2048, 4096, 8192) or not 1 <= level <= 4:
-                            raise ValueError("03～05必须明确填写有效N和L")
+                        if (degree, level) != (1024, 4):
+                            raise ValueError("03～05仅接受N1024/L4")
                         key = (group, row.get("profile", ""))
                         current = (degree, level)
                         if key in ordering and current < ordering[key]:
@@ -85,6 +85,10 @@ def validate_catalogs(repo, root, catalogs, files):
                         ordering[key] = current
                         if row.get("operation") in REDUCTIONS and level == 1:
                             errors.append(f"{where}: L1不能执行下一level降级操作")
+                    elif group == "07" and (degree not in (1024, 8192) or level != 4):
+                        raise ValueError("07仅接受N1024/N8192且L4")
+                    if row.get("kind") == "lowlevel" and group not in ("00", "01", "02"):
+                        raise ValueError("低层定向仅保留00～02")
                     source = source_path(repo, root, row["source"]).as_posix()
                 except (ValueError, TypeError) as error:
                     errors.append(f"{where}: {error}")

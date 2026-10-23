@@ -51,6 +51,8 @@ class RuntimeBuildTests(unittest.TestCase):
     def test_default_schedules_canonical_suite_and_only_one_package(self):
         low, functional, perf, native, run = self.invoke_main([], self.directory / "default")
         expected = [row for row in runtime.catalog_specs() if row["suite"] == "default"]
+        self.assertEqual(len(expected), 109)
+        self.assertEqual(sum(r["kind"] == "lowlevel" for r in expected), 35)
         self.assertEqual(len(low.call_args.args[1]), sum(r["kind"] == "lowlevel" for r in expected))
         self.assertEqual(functional.call_count, sum(r["kind"] in ("native", "instruction") for r in expected))
         self.assertEqual(perf.call_count, sum(r["kind"] == "performance" for r in expected))
@@ -63,6 +65,20 @@ class RuntimeBuildTests(unittest.TestCase):
         self.assertEqual(run.call_count, 1)
         self.assertIn("--check-tree", run.call_args.args[0])
         self.assertEqual(Path(run.call_args.args[0][-1]).name, "hpu.zip")
+
+    def test_retired_parameters_and_old_directed_03_are_rejected_even_for_listing(self):
+        original = runtime.read_catalog(runtime.ROOT / "cases.tsv")
+        for group in ("03", "04", "05", "07"):
+            template = next(row for row in original if row["group"] == group)
+            retired = ((128, 4), (2048, 4), (4096, 4), (1024, 3)) if group != "07" else ((2048, 4), (4096, 4), (8192, 3))
+            for degree, level in retired:
+                row = {**template, "degree": str(degree), "level": str(level)}
+                with self.subTest(group=group, degree=degree, level=level), \
+                        patch.object(runtime, "read_catalog", return_value=[row]), self.assertRaisesRegex(ValueError, "仅接受"):
+                    runtime.catalog_specs(validate_sources=False)
+        directed = {**next(row for row in original if row["group"] == "03"), "kind": "lowlevel"}
+        with patch.object(runtime, "read_catalog", return_value=[directed]), self.assertRaisesRegex(ValueError, "原生用例"):
+            runtime.catalog_specs(validate_sources=False)
 
     def test_group_and_case_filters_never_schedule_other_groups(self):
         scenarios = [(["--group", "00"], 11, 0, 0),

@@ -48,7 +48,7 @@ int main(int argc, char **argv) {
     const char *case_name = strcmp(mode, "numbered") == 0
         ? "03_01_padd.c"
         : strcmp(mode, "numbered-three") == 0
-        ? "tests/hputest/src/03_instructions/directed/03_005_pntt.c"
+        ? "03_005_generic_helper.c" /* 字符串解析兼容测试，不保留旧定向case。 */
         : strcmp(mode, "numbered-four-invalid") == 0
         ? "03_0005_pntt.c" : "CASE";
     int rc = progress_begin(strcmp(mode, "badid") == 0 ? NULL : case_name, count);

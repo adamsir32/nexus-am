@@ -50,9 +50,9 @@ test:
 	python3 -m unittest discover -s scripts -p 'test_*.py'
 
 help:
-	@printf '%s\n' 'all：711项默认用例，导出一个hpu.zip（ELF+BIN）' \
-	  'group GROUP=03 N=8192 LEVEL=4：筛选功能参数' \
-	  'one CASE_ID=03_010_padd_l1_n128：只编一项' \
+	@printf '%s\n' 'all：109项默认用例，导出一个hpu.zip（ELF+BIN）' \
+	  'group GROUP=03 N=1024 LEVEL=4：筛选功能用例' \
+	  'one CASE_ID=03_01_padd_l4_n1024：只编一项' \
 	  'list：只读清单，不生成文件；可按GROUP/N/LEVEL/SCHEME筛选' \
 	  'performance：07组最高层性能；api：6项可选顶层API诊断' \
 	  'silent：关闭UART；test/audit：契约单测与源码/清单检查' \

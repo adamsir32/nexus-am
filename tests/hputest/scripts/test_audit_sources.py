@@ -25,35 +25,52 @@ class SourceAuditTests(unittest.TestCase):
         files = {str(self.root / row["source"]) for row in rows} | set(extra)
         return validate_catalogs(self.repo, self.root, [self.catalog], files)[2]
 
-    def row(self, number, degree=128, level=1, profile="library", operation="hadd"):
+    def row(self, number, degree=1024, level=4, profile="library", operation="hadd"):
         return {"group": "05", "case_id": f"05_{number:02}_ckks_{operation}_n{degree}_l{level}",
                 "source": f"src/group_{number}.c", "scheme": "ckks", "operation": operation,
                 "degree": degree, "level": level, "profile": profile,
                 "program_stem": f"ckks_{operation}_n{degree}_l{level}"}
 
-    def test_three_digit_ids_with_separate_sources_are_valid(self):
+    def test_two_digit_ids_with_separate_sources_are_valid_and_three_digits_are_rejected(self):
         rows = []
-        for number in range(1, 101):
+        for number in range(1, 16):
             row = self.row(number)
             row["operation"] = f"directed_{number}"
             row["program_stem"] = f"program_{number}"
             rows.append(row)
         self.assertEqual(self.check(rows), [])
+        row = self.row(100)
+        self.assertTrue(any("非法case_id" in error for error in self.check([row])))
 
     def test_shared_main_is_rejected_even_when_parameters_differ(self):
-        first, second = self.row(1, 128, 1), self.row(2, 128, 2)
+        first, second = self.row(1), self.row(2, operation="hmul")
         second["source"] = first["source"]
         self.assertTrue(any("不能复用" in error for error in self.check([first, second])))
 
-    def test_profiles_have_independent_degree_level_order(self):
-        self.assertEqual(self.check([self.row(1, 8192, 4), self.row(2, 128, 1, "regression")]), [])
-        errors = self.check([self.row(1, 8192, 4), self.row(2, 128, 1)])
-        self.assertTrue(any("N/L未按" in error for error in errors))
+    def test_retired_parameters_are_rejected_independently_of_profile(self):
+        for profile in ("library", "regression"):
+            for degree, level in ((128, 4), (1024, 1), (2048, 4), (4096, 4), (8192, 4)):
+                with self.subTest(profile=profile, degree=degree, level=level):
+                    errors = self.check([self.row(1, degree, level, profile)])
+                    self.assertTrue(any("N1024/L4" in error for error in errors))
+
+    def test_two_performance_scales_are_l4_but_application_scales_are_preserved(self):
+        for degree, level in ((1024, 4), (8192, 4), (2048, 4), (4096, 4), (1024, 3)):
+            row = self.row(1, degree, level)
+            row.update(group="07", case_id=row["case_id"].replace("05_", "07_", 1))
+            with self.subTest(group="07", degree=degree, level=level):
+                errors = self.check([row])
+                self.assertEqual(bool(errors), (degree, level) not in ((1024, 4), (8192, 4)))
+        for degree in (128, 4096, 8192):
+            row = self.row(1, degree, 3, "application")
+            row.update(group="06", case_id=row["case_id"].replace("05_", "06_", 1))
+            with self.subTest(group="06", degree=degree):
+                self.assertEqual(self.check([row]), [])
 
     def test_holes_duplicates_large_parameters_and_l1_drop_are_rejected(self):
         scenarios = ([self.row(2)], [self.row(1), self.row(2)],
                      [self.row(1, 16384)], [self.row(1, 8192, 16)],
-                     [self.row(1, operation="modswitch")])
+                     [self.row(1, level=1, operation="modswitch")])
         for rows in scenarios:
             with self.subTest(rows=rows):
                 self.assertTrue(self.check(rows))

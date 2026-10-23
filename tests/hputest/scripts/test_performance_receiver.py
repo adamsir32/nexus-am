@@ -5,12 +5,13 @@ import tempfile
 import unittest
 
 from build_performance import validate_fixture
-from import_package import NTT_ABI, expected_operations, package_profile, store_or_verify, validate_capacity
+from import_package import (NTT_ABI, expected_operations, package_profile, store_or_verify,
+                            validate_capacity, validate_operation_levels)
 
 
 def specification(level=4):
-    return {"case_id": "07_39_ckks_hmul_reline_l4_n4096", "kind": "performance", "profile": "baseline", "scheme": "ckks", "degree": 4096, "operation": "hmul", "level": level,
-            "variant": "optimized", "program_stem": f"frontend_ckks_hmul_l{level}_n4096",
+    return {"case_id": "07_03_ckks_hmul_reline_l4_n1024", "kind": "performance", "profile": "baseline", "scheme": "ckks", "degree": 1024, "operation": "hmul", "level": level,
+            "variant": "optimized", "program_stem": f"frontend_ckks_hmul_l{level}_n1024",
             "memory_base": "0xc0000000" if level == 16 else "0x90000000",
             "minimum_ram_bytes": 2147483648 if level == 16 else 536870912}
 
@@ -39,6 +40,19 @@ class PerformanceReceiverTests(unittest.TestCase):
         self.assertEqual(expected_operations("bfv", "hmul"), ["multiply", "relinearize"])
         self.assertEqual(expected_operations("ckks", "modswitch"), ["rescale"])
 
+    def test_every_scheme_requires_l4_and_modswitch_derives_l3_output(self):
+        for scheme in ("ckks", "bfv", "bgv"):
+            spec = {**specification(), "scheme": scheme, "operation": "modswitch",
+                    "program_stem": f"frontend_{scheme}_modswitch_l4_n1024"}
+            package_profile(spec)
+            with self.assertRaisesRegex(ValueError, "unsupported 07 level"):
+                package_profile({**spec, "level": 3})
+            parameters = {"levels": [{"parms_id": [4], "moduli": [17, 19, 23, 29]},
+                                      {"parms_id": [3], "moduli": [17, 19, 23]}]}
+            validate_operation_levels(spec, parameters, [{"parms_id": [3]}])
+            with self.assertRaisesRegex(ValueError, "derived level"):
+                validate_operation_levels(spec, parameters, [{"parms_id": [4]}])
+
     def test_cached_binary_is_verified_without_rewriting(self):
         with tempfile.TemporaryDirectory(prefix="frontend-perf-cache-test-") as temporary:
             path = Path(temporary) / "image.bin"
@@ -55,6 +69,8 @@ class PerformanceReceiverTests(unittest.TestCase):
                    "fixture_metadata_equal": True, "native_package_written": True, "hardware_verified": False,
                    "ntt_contract": "natural_coefficient_boundaries", "ntt_table_abi": NTT_ABI,
                    "node_operations": ["multiply", "relinearize"], "Q": [17, 19, 23, 29], "P": [31]}
+        fixture.update(same_fixture_recipe=False, same_seal_source=True, baseline_input_level=3,
+                       baseline_parameters_equal=False)
         with tempfile.TemporaryDirectory(prefix="frontend-perf-fixture-test-") as temporary:
             path = Path(temporary) / "PERF_FIXTURE.json"
             path.write_text(json.dumps(fixture))

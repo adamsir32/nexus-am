@@ -9,17 +9,13 @@ import unittest
 
 
 ROOT = Path(__file__).resolve().parents[1]
-DEGREE_DIRECTORIES = {128: "01_n128", 1024: "02_n1024", 2048: "03_n2048",
-                      4096: "04_n4096", 8192: "05_n8192"}
 GROUP_DIRECTORIES = {"03": "03_instructions", "04": "04_operators", "05": "05_library"}
 
 
 def expected_source(row):
     if row["group"] == "06":
         return Path("src/06_applications") / (row["case_id"] + ".c")
-    directory = ("06_parameter_regression" if row["profile"] == "regression"
-                 else DEGREE_DIRECTORIES[int(row["degree"])])
-    return Path("src") / GROUP_DIRECTORIES[row["group"]] / directory / (row["case_id"] + ".c")
+    return Path("src") / GROUP_DIRECTORIES[row["group"]] / (row["case_id"] + ".c")
 
 
 class SeparatedFunctionalTests(unittest.TestCase):
@@ -35,7 +31,9 @@ class SeparatedFunctionalTests(unittest.TestCase):
             yield row, path, (ROOT / path).read_text()
 
     def test_every_case_has_a_unique_named_main_and_catalog_source(self):
-        self.assertEqual(len(self.rows), 601)
+        self.assertEqual(len(self.rows), 44)
+        self.assertEqual([sum(row["group"] == group for row in self.rows)
+                          for group in ("03", "04", "05", "06")], [9, 6, 15, 14])
         self.assertEqual(len({str(expected_source(row)) for row in self.rows}), len(self.rows))
         for row, path, source in self.sources():
             with self.subTest(case=row["case_id"]):

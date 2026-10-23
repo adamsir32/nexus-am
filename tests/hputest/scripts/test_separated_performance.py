@@ -19,7 +19,11 @@ def cases():
 class SeparatedPerformanceTests(unittest.TestCase):
     def test_every_case_has_unique_complete_source_and_failure_location(self):
         rows = cases()
-        self.assertEqual(len(rows), 72)
+        self.assertEqual(len(rows), 36)
+        self.assertEqual({row["degree"] for row in rows}, {"1024", "8192"})
+        self.assertEqual({row["level"] for row in rows}, {"4"})
+        self.assertEqual([row["case_id"].split("_")[1] for row in rows],
+                         [f"{number:02d}" for number in range(1, 37)])
         self.assertEqual(len({row["source"] for row in rows}), len(rows))
         for row in rows:
             with self.subTest(case=row["case_id"]):

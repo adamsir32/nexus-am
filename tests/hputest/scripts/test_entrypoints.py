@@ -79,6 +79,15 @@ class UnifiedEntrypointTests(unittest.TestCase):
         self.assertNotIn("WORKLOAD_RUN", text)
         self.assertNotIn("WORKLOAD_VALIDATE", text)
 
+    def test_legacy_directed_03_cannot_reenter_lowlevel_makefile(self):
+        result = subprocess.run([
+            "make", "--no-print-directory", "-n", "-C", str(ROOT), "-f", "Makefile.case", "image",
+            f"AM_HOME={ROOT.parents[1]}", "CASE_ID=03_001_padd", "CASE_SOURCE=removed-directed.c",
+            "HPU_DST_DIR=unused-probe", "CASE_BINARY=unused-probe"],
+            text=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("not a supported directed 00/01/02 testcase", result.stderr)
+
 
 if __name__ == "__main__":
     unittest.main()

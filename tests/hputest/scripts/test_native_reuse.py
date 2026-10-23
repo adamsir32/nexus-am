@@ -28,9 +28,9 @@ class NativeReuseTests(unittest.TestCase):
             native_build=self.root / "native", output=self.root / "fresh", arch="riscv64-xs",
             cross="riscv64-linux-gnu-", wait_cycles=25000000, suite="default", variant="optimized",
             log_level=1, reuse_native_from=self.source, resume=False)
-        self.spec = dict(case_id="05_001_ckks_hadd_l1_n128", group="05", kind="native", profile="library",
-                         scheme="ckks", operation="hadd", degree=128, level=1, program_stem="seal_ckks_hadd_l1_n128",
-                         source="src/05_library/01_n128/05_001_ckks_hadd_l1_n128.c", qualifier="software-self-check",
+        self.spec = dict(case_id="05_01_ckks_hadd_l4_n1024", group="05", kind="native", profile="library",
+                         scheme="ckks", operation="hadd", degree=1024, level=4, program_stem="seal_ckks_hadd_l4_n1024",
+                         source="src/05_library/05_01_ckks_hadd_l4_n1024.c", qualifier="software-self-check",
                          memory_base="0x87000000", minimum_ram_bytes=268435456)
         self.main_key = "tests/hputest/" + self.spec["source"]
         self.recipe = {self.main_key: "main unchanged", str(Path(self.main_key).with_suffix(".asm")): "asm unchanged"}
@@ -41,7 +41,7 @@ class NativeReuseTests(unittest.TestCase):
         (self.source / "hpu.zip").write_bytes(b"completed bundle fixture")
         identity = self.spec["case_id"]
         self.row = dict(group="05", case_id=identity, producer="runtime", elf=f"05/{identity}.elf",
-                        bin=f"05/{identity}.bin", degree="128", level="1", qualifier="software-self-check")
+                        bin=f"05/{identity}.bin", degree="1024", level="4", qualifier="software-self-check")
         with (self.source / "runtime-cases.tsv").open("w", newline="") as stream:
             writer = csv.DictWriter(stream, fieldnames=runtime.FIELDS, delimiter="\t")
             writer.writeheader()

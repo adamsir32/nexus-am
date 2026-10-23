@@ -26,8 +26,9 @@ def selected_cases(root):
     # kind明确区分定向C用例和新的03指令矩阵，不凭旧编号范围猜测归属。
     with (root / "cases.tsv").open(newline="", encoding="utf-8") as stream:
         cases = [row for row in csv.DictReader(stream, delimiter="\t") if row["kind"] == "lowlevel"]
-    require(cases and len({row["case_id"] for row in cases}) == len(cases),
-            "低层清单为空或case_id重复")
+    require(len(cases) == 35 and len({row["case_id"] for row in cases}) == 35 and
+            all(row["group"] in ("00", "01", "02") for row in cases),
+            "低层清单必须为00～02共35项，不接受旧03定向用例")
     return cases
 
 

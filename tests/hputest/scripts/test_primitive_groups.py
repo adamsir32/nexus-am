@@ -11,8 +11,8 @@ ROOT = Path(__file__).resolve().parents[1]
 
 
 class PrimitiveGroupTests(unittest.TestCase):
-    def specification(self, operation="bconv", degree=4096, level=4):
-        return dict(case_id=f"04_001_{operation}_l{level}_n{degree}", kind="native", profile="primitive",
+    def specification(self, operation="bconv", degree=1024, level=4):
+        return dict(case_id=f"04_01_{operation}_l{level}_n{degree}", kind="native", profile="primitive",
                     scheme="raw", operation=operation, degree=degree, level=level,
                     program_stem=f"{operation}_l{level}_n{degree}", memory_base="0x87000000",
                     minimum_ram_bytes=268435456)
@@ -24,7 +24,7 @@ class PrimitiveGroupTests(unittest.TestCase):
     def test_catalog_primitive_matrix_has_all_degrees_and_levels(self):
         with (ROOT / "cases.tsv").open() as stream:
             rows = [row for row in csv.DictReader(stream, delimiter="\t") if row["profile"] == "primitive"]
-        expected = set(itertools.product(("bconv", "ntt", "intt"), (128, 1024, 2048, 4096, 8192), range(1, 5)))
+        expected = {(operation, 1024, 4) for operation in ("bconv", "ntt", "intt")}
         actual = {(r["operation"], int(r["degree"]), int(r["level"])) for r in rows}
         self.assertEqual(actual, expected)
         self.assertEqual(len(rows), len(actual))
@@ -32,7 +32,7 @@ class PrimitiveGroupTests(unittest.TestCase):
     def test_primitive_identity_rejects_other_layers_schemes_and_mismatched_stems(self):
         spec = self.specification()
         package_profile(spec)
-        for key, value in (("case_id", "05_001_ckks_hadd_l4_n4096"), ("scheme", "bfv"),
+        for key, value in (("case_id", "05_01_ckks_hadd_l4_n1024"), ("scheme", "bfv"),
                            ("program_stem", "some_other_kernel")):
             with self.subTest(key=key), self.assertRaisesRegex(ValueError, "primitive identity"):
                 package_profile({**spec, key: value})
@@ -52,11 +52,11 @@ class PrimitiveGroupTests(unittest.TestCase):
     def test_unsupported_l1_library_operations_are_rejected_at_the_receiver_boundary(self):
         for scheme, operation in (("ckks", "modswitch"), ("bfv", "modswitch"),
                                   ("bgv", "modswitch"), ("bfv", "hmul")):
-            spec = dict(case_id=f"05_001_{scheme}_{operation}_l1_n128", kind="native", profile="library",
+            spec = dict(case_id=f"05_01_{scheme}_{operation}_l1_n128", kind="native", profile="library",
                         scheme=scheme, operation=operation, degree=128, level=1,
                         program_stem=f"seal_{scheme}_{operation}_n128", memory_base="0x87000000",
                         minimum_ram_bytes=268435456)
-            with self.subTest(scheme=scheme, operation=operation), self.assertRaisesRegex(ValueError, "level >= 2"):
+            with self.subTest(scheme=scheme, operation=operation), self.assertRaisesRegex(ValueError, "N1024/L4"):
                 package_profile(spec)
 
     def test_ntt_intt_check_every_q_limb_and_opposite_output_domains(self):

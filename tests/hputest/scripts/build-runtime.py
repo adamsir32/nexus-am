@@ -79,7 +79,7 @@ def target_recipe(args, low_specs, groups, perf):
         paths.extend(baseline / row["source"] for row in low_specs if row.get("source"))
         paths.extend(baseline / name for name in ("Makefile.case", "scripts/build-lowlevel.py",
                      "scripts/prepare-lowlevel.py", "src/common/hpu_rns_fixture.S",
-                     "src/common/hpu_mm_fixture.S", "src/common/hpu_irq.c", "src/common/it_stage_twiddle.S"))
+                     "src/common/hpu_mm_fixture.S", "src/common/hpu_irq.c"))
         paths.extend((baseline / "runtime").glob("*.c"))
     if groups or perf:
         paths.extend(ROOT / name for name in ("Makefile.native.case", "scripts/import_package.py", "scripts/performance_adapter.py", "scripts/case_program.py",
@@ -207,7 +207,7 @@ def prepare_native_reuse(args, groups, perf):
     for spec in groups + perf:
         case_id = spec["case_id"]
         require(spec["kind"] in ("instruction", "native", "performance") and
-                re.fullmatch(r"0[3-7]_\d{2,3}_[a-z0-9_]+", case_id) is not None and
+                re.fullmatch(r"0[3-7]_\d{2}_[a-z0-9_]+", case_id) is not None and
                 by_id.get(case_id) == spec, f"native复用的用例参数不同：{case_id}")
         expected = dict(group=case_id[:2], case_id=case_id, producer="runtime",
                         elf=f"{case_id[:2]}/{case_id}.elf", bin=f"{case_id[:2]}/{case_id}.bin",
@@ -266,12 +266,29 @@ def catalog_specs(validate_sources=True):
             row[key] = int(row[key] or 0)
         require(row["kind"] in ("lowlevel", "instruction", "native", "performance") and
                 row["suite"] in ("default", "api"), "清单kind/suite无效")
+        group = row["group"]
+        require(re.fullmatch(r"0[0-7]_\d{2}_[a-z0-9_]+", row["case_id"]) is not None and
+                row["case_id"][:2] == group, "清单必须使用组内两位编号")
+        if group in ("00", "01", "02"):
+            require(row["kind"] == "lowlevel", "00～02必须为原低层用例")
+        elif group in ("03", "04", "05"):
+            require((row["degree"], row["level"]) == (1024, 4) and
+                    row["kind"] == ("instruction" if group == "03" else "native"),
+                    "03～05仅接受N1024/L4原生用例")
+        elif group == "07":
+            require(row["kind"] == "performance" and row["degree"] in (1024, 8192) and row["level"] == 4,
+                    "07仅接受N1024/N8192且L4性能用例")
+        else:
+            require(row["kind"] == "native", "06必须为原生应用用例")
         source = Path(row["source"])
         require(not source.is_absolute() and ".." not in source.parts and
                 (not validate_sources or (ROOT / source).is_file()),
                 "清单source缺失或越出项目")
         require(row["kind"] == "lowlevel" or source.name == row["case_id"] + ".c",
                 "每个原生用例必须使用同名独立C源码")
+        if group in ("03", "04", "05"):
+            directory = {"03": "03_instructions", "04": "04_operators", "05": "05_library"}[group]
+            require(source == Path("src") / directory / (row["case_id"] + ".c"), "03～05源码必须直接位于组目录")
         require(0 <= row["degree"] <= 8192 and 0 <= row["level"] <= 4,
                 "清单N/L超过当前交付范围")
     return rows
