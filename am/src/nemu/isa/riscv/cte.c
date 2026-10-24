@@ -7,6 +7,12 @@ static _Context* (*custom_soft_handler)(_Event, _Context*) = NULL;
 static _Context* (*custom_timer_handler)(_Event, _Context*) = NULL;
 static _Context* (*custom_external_handler)(_Event, _Context*) = NULL;
 static _Context* (*custom_secall_handler)(_Event, _Context*) = NULL;
+static int cte_initialized;
+
+#if __riscv_xlen == 64
+/* 只有这个固定入口允许S态请求M态重新武装外部中断。 */
+extern void __am_irq_rearm(void);
+#endif
 
 void __am_get_cur_as(_Context *c);
 void __am_switch(_Context *c);
@@ -43,7 +49,9 @@ _Context* __am_irq_SSIP_handler(_Event *ev, _Context *c) {
     custom_soft_handler(*ev, c);
   }
   // machine mode will clear stip
-  asm volatile("csrs mie, 0");
+#if __riscv_xlen == 64
+  __am_irq_rearm();
+#endif
   // printf("SSIP handler finished\n");
   return c;
 }
@@ -64,7 +72,9 @@ _Context* __am_irq_STIP_handler(_Event *ev, _Context *c) {
     custom_timer_handler(*ev, c);
   }
   // machine mode will clear stip
-  asm volatile("csrs mie, 0");
+#if __riscv_xlen == 64
+  __am_irq_rearm();
+#endif
   // printf("STIP handler finished\n");
   return c;
 }
@@ -82,6 +92,10 @@ _Context* __am_irq_SEIP_handler(_Event *ev, _Context *c) {
   // printf("inside irq SEIP handler\n");
   if (custom_external_handler != NULL)
     custom_external_handler(*ev, c);
+#if __riscv_xlen == 64
+  /* 用户处理函数已撤销设备电平并完成PLIC claim后，再允许下一轮转发。 */
+  __am_irq_rearm();
+#endif
   return c;
 }
 
@@ -206,18 +220,11 @@ void irq_handler_reg(uintptr_t code, _Context*(*handler)(_Event*, _Context*)) {
 }
 
 int _cte_init(_Context *(*handler)(_Event ev, _Context *ctx)) {
-  // initialize exception entry
-  asm volatile("csrw stvec, %0" : : "r"(__am_asm_trap));
+  (void)handler; /* 此AM端口使用显式handler_reg接口。 */
+  /* 首次调用后已降到S态；不能再次写M态CSR，也不能清除已注册处理函数。 */
+  if (cte_initialized) return 0;
 
-  asm volatile("csrw sscratch, zero");
-
-  // cte init handler has no effect for now
-
-#if __riscv_xlen == 64
-  // printf("CTE64 inited\n");
-  extern void __am_init_cte64();
-  __am_init_cte64();
-#endif
+  /* 先准备注册表，再安装入口、开放机器中断和进入S态。 */
   for (int i = 0; i < INTERRUPT_CAUSE_SIZE; i++) {
     irq_handler_reg(INTR_BIT | i, __am_irq_default_handler);
     // interrupt_handler[i] = __am_irq_default_handler;
@@ -232,6 +239,14 @@ int _cte_init(_Context *(*handler)(_Event ev, _Context *ctx)) {
   interrupt_handler[SCAUSE_STIP] = __am_irq_STIP_handler;
   interrupt_handler[SCAUSE_SEIP] = __am_irq_SEIP_handler;
   exception_handler[SCAUSE_SECALL] = __am_irq_SECALL_handler;
+
+  asm volatile("csrw stvec, %0" : : "r"(__am_asm_trap) : "memory");
+  asm volatile("csrw sscratch, zero" : : : "memory");
+  cte_initialized = 1;
+#if __riscv_xlen == 64
+  extern void __am_init_cte64(void);
+  __am_init_cte64();
+#endif
 
   return 0;
 }

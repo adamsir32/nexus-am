@@ -10,8 +10,9 @@ from performance_adapter import validate_source
 
 GUARD_LINES = 64
 NTT_ABI = {
-    "version": 3, "coefficient_order": "natural", "pre_twist_order": "natural",
-    "post_factor_order": "natural", "stage_twiddle_order": "reference_loader_batch_lane",
+    "version": 4, "coefficient_order": "bit_reversed", "external_coefficient_order": "natural",
+    "pre_twist_order": "bit_reversed", "post_factor_order": "bit_reversed",
+    "stage_twiddle_order": "reference_loader_batch_lane",
     "stage_twiddle_format": "hpu-twiddle-k8-v1", "twiddle_chains": 8,
     "stage_parameter_lines": 2,
     "online_pmul_format": "hpu-pmul-online-k8-v1", "online_pmul_parameter_lines": 2,
@@ -188,15 +189,15 @@ def validate_host(report):
             "frontend oracle/model/equivalence not verified")
     model = report.get("host_instruction_model", {})
     require(model.get("status") == "pass" and model.get("required") is True and
-            model.get("verified") is True and model.get("ntt_contract") == "natural_coefficient_boundaries",
-            "strict natural-boundary instruction verification required")
+            model.get("verified") is True and model.get("ntt_contract") == "raw_bit_reversed_coefficients",
+            "strict raw-stage bit-reversed instruction verification required")
     require(model.get("hardware_contract_verified") is False and all(report.get(k) is False for k in
             ("instruction_execution_verified", "rtl_verified", "hardware_verified")),
             "host package must not claim hardware execution")
 
 
 def validate_ntt_contract(parameters, memory_abi, allocations, degree):
-    require(parameters.get("ntt_table_abi") == NTT_ABI, "online K=8 NTT/PMUL table ABI v3 required")
+    require(parameters.get("ntt_table_abi") == NTT_ABI, "online K=8 NTT/PMUL table ABI v4 required")
     require(all(memory_abi.get(key) == NTT_ABI[key] for key in
                 ("stage_twiddle_format", "twiddle_chains", "stage_parameter_lines",
                  "online_pmul_format", "online_pmul_parameter_lines", "online_pmul_mode",
@@ -230,7 +231,7 @@ def primitive_outputs(spec, parameters, operations):
     require(operation in ("ntt", "intt") and len(moduli) == level + 1,
             "04 transform requires its complete QL/P1 modulus table")
     return {index: moduli[index] for index in range(level)}, (
-        "coefficient" if operation == "intt" else "canonical_ntt_physical")
+        "coefficient_bit_reversed" if operation == "intt" else "canonical_ntt_physical")
 
 
 def instruction_contract(spec, parameters, graph, report):
@@ -391,7 +392,7 @@ def import_package(source, destination, spec, commit, verify_existing=False):
         levels = {}
     else:
         levels = {tuple(level["parms_id"]): level["moduli"] for level in parameters["levels"]}
-        output_domain = "coefficient" if scheme == "bfv" else "canonical_ntt_physical"
+        output_domain = "coefficient_bit_reversed" if scheme == "bfv" else "canonical_ntt_physical"
     by_span = {(int(row["line_offset"]), int(row["line_count"])): row for row in allocations}
     golden, outputs, order = bytearray(), [], []
     for row in read_rows(files["golden_manifest"]):

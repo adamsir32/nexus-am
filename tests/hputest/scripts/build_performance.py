@@ -9,6 +9,8 @@ from import_package import NTT_ABI, expected_operations, package_profile, read_j
 
 ROOT = Path(__file__).resolve().parents[1]
 OPS = ("keyswitch", "hadd", "hmul", "reline", "modswitch", "rotate")
+METRIC = "issue_to_irq_done_v1"
+COMPLETION = "plic_irq"
 
 
 def run(command, **kwargs):
@@ -39,7 +41,7 @@ def select_specs(degree, profile, scheme, case_id=None):
                 (ROOT / relative).is_file(),
                 "invalid case source")
         package_profile({**row, "variant": "optimized"})
-        require(row["metric"] == "issue_to_done_v2", "unknown measurement contract")
+        require(row["metric"] == METRIC, "unknown measurement contract: IRQ and polling results cannot be mixed")
         if row["degree"] == degree and row["scheme"] == scheme and (
                 case_id is None or row["case_id"] == case_id):
             result.append(row)
@@ -50,6 +52,7 @@ def select_specs(degree, profile, scheme, case_id=None):
 
 
 def validate_fixture(path, spec, pin):
+    require(spec.get("metric") == METRIC, "unknown measurement contract: IRQ and polling results cannot be mixed")
     fixture = read_json(path)
     for key in ("scheme", "operation", "degree", "level", "variant", "program_stem"):
         require(fixture.get(key) == spec[key], f"fixture identity differs: {key}")
@@ -59,7 +62,7 @@ def validate_fixture(path, spec, pin):
                 ("verified", "instruction_verified", "fixture_words_equal", "fixture_metadata_equal", "native_package_written")),
             "fixture/native instruction model has not passed")
     require(fixture.get("hardware_verified") is False and
-            fixture.get("ntt_contract") == "natural_coefficient_boundaries" and
+            fixture.get("ntt_contract") == "raw_bit_reversed_coefficients" and
             fixture.get("ntt_table_abi") == NTT_ABI, "fixture NTT/hardware contract differs")
     require(fixture.get("node_operations") == expected_operations(spec["scheme"], spec["operation"]),
             "fixture operator graph differs")
@@ -90,9 +93,15 @@ def disassembled_functions(text):
 
 
 def verify_success_timing(main, stem):
-    """沿main控制流检查所有case_pass路径；GCC可复制失败路径的停止rdcycle。"""
-    wanted = ("hpu_validate_" + stem, "perf_cycle_read", "hpu_run_" + stem,
-              "performance_wait", "perf_cycle_read", "check_results", "check_memory")
+    """逐条PASS路径证明IRQ武装、计时和ISR终态；允许失败路径提前close。"""
+    wanted = ("hpu_validate_" + stem, "irq_reset_events", "irq_reset_events=0",
+              "irq_open", "irq_open=0", "irq_event_count", "irq_event_count=0",
+              "irq_handler_count", "irq_handler_count=0", "perf_cycle_read",
+              "hpu_run_" + stem, "performance_wait", "perf_cycle_read", "irq_close",
+              "irq_event_count", "irq_event_count=1", "irq_handler_count", "irq_handler_count=1",
+              "read:CSR_IRQ", "read:CSR_STATUS", "read:CSR_FAULT", "check_results", "check_memory")
+    relevant = set(wanted)
+    csr_names = {0x0800001c: "CSR_IRQ", 0x08000014: "CSR_STATUS", 0x08000018: "CSR_FAULT"}
     instructions = {}
     for line in main.splitlines():
         match = re.match(r"^\s*([0-9a-f]+):\s+[0-9a-f]{4,8}\s+([\w.]+)(?:\s+(.*))?$", line)
@@ -103,10 +112,11 @@ def verify_success_timing(main, stem):
     following = dict(zip(addresses, addresses[1:] + [None]))
     branches = {"beq", "bne", "blt", "bltu", "bge", "bgeu", "beqz", "bnez",
                 "bgtz", "blez", "bltz", "bgez", "bgtu", "bleu", "bgt", "ble"}
-    pending, seen, passed = [(addresses[0], (), False)], set(), 0
+    # 常量传播只识别MMIO地址和返回值检查；不模拟CPU或放宽未知间接跳转。
+    pending, seen, passed = [(addresses[0], (), False, (("zero", 0),))], set(), 0
     while pending:
-        address, events, forbidden = pending.pop()
-        state = (address, events, forbidden)
+        address, events, forbidden, known = pending.pop()
+        state = (address, events, forbidden, known)
         if state in seen:
             continue
         seen.add(state)
@@ -115,13 +125,40 @@ def verify_success_timing(main, stem):
         label = re.search(r"([0-9a-f]+)\s+<([^>]+)>", operands)
         destination = int(label[1], 16) if label else None
         symbol = label[2].split("+", 1)[0] if label else ""
+        registers = dict(known)
+        arguments = operands.split("#", 1)[0].replace(",", " ").split()
+
+        def append_path(target, next_events=events, next_registers=None):
+            values = registers if next_registers is None else next_registers
+            pending.append((target, next_events, forbidden, tuple(sorted(values.items()))))
+
+        def refine(left, right, equal):
+            values = dict(registers)
+            if isinstance(left, int) and isinstance(right, tuple):
+                left, right = right, left
+            if equal and isinstance(left, tuple) and isinstance(right, int):
+                # GCC可保存已验证event_count到s0，再拿它与handler_count比较。
+                values = {name: right if value == left else value for name, value in values.items()}
+            return values
+
+        def checked(path_events, left, right, equal):
+            if isinstance(left, int) and isinstance(right, tuple):
+                left, right = right, left
+            if isinstance(left, tuple) and isinstance(right, int) and equal:
+                function = left[0]
+                expected = 0 if function in ("irq_open", "irq_reset_events") else (
+                    1 if path_events.count("perf_cycle_read") == 2 else 0)
+                if right == expected:
+                    return path_events + (f"{function}={expected}",)
+            return path_events
 
         def finish(target):
             nonlocal passed
             if target in ("case_fail", "case_fail_at"):
                 return
             require(target == "case_pass", "unresolved main exit")
-            require(events == wanted and not forbidden, "preflight/issue/wait/cycle/check ordering differs on a PASS path")
+            require(events == wanted and not forbidden,
+                    f"preflight/issue/wait/cycle/check ordering differs on a PASS path: events={events}, forbidden={forbidden}")
             passed += 1
 
         if opcode in ("jal", "jalr"):
@@ -129,24 +166,70 @@ def verify_success_timing(main, stem):
             if symbol in ("case_pass", "case_fail", "case_fail_at"):
                 finish(symbol)
                 continue
-            if events.count("perf_cycle_read") == 1 and symbol not in (wanted[2], "performance_wait", "perf_cycle_read"):
+            if events.count("perf_cycle_read") == 1 and symbol not in ("hpu_run_" + stem, "performance_wait", "perf_cycle_read"):
                 forbidden = True
-            if symbol in wanted:
+            if events.count("perf_cycle_read") == 2 and symbol in ("clear_completion", "csr_write"):
+                forbidden = True
+            if symbol == "csr_read" and events.count("perf_cycle_read") == 2:
+                require(registers.get("a0") in csr_names, "unresolved terminal CSR read")
+                events += ("read:" + csr_names[registers["a0"]],)
+            if symbol in relevant:
                 events += (symbol,)
+            # 遵循ABI，不能把跨函数调用后已失效的a/t寄存器当作MMIO基址。
+            for register in ("ra", *(f"a{i}" for i in range(8)), *(f"t{i}" for i in range(7))):
+                registers.pop(register, None)
+            if symbol in ("irq_open", "irq_reset_events", "irq_event_count", "irq_handler_count"):
+                registers["a0"] = (symbol, address)
         elif opcode in ("j", "tail"):
             require(label is not None, "unresolved main jump")
             if destination not in instructions:
                 finish(symbol)
                 continue
-            pending.append((destination, events, forbidden))
+            append_path(destination, events)
             continue
         elif opcode in branches:
             require(label is not None and destination in instructions, "unresolved main branch")
-            pending.append((destination, events, forbidden))
+            if opcode in ("beq", "bne", "beqz", "bnez"):
+                left = registers.get(arguments[0])
+                right = 0 if opcode.endswith("z") else registers.get(arguments[1])
+                is_equal = opcode in ("beq", "beqz")
+                if isinstance(left, int) and isinstance(right, int):
+                    if (left == right) == is_equal:
+                        append_path(destination, events)
+                        continue
+                else:
+                    append_path(destination, checked(events, left, right, is_equal), refine(left, right, is_equal))
+                    events = checked(events, left, right, not is_equal)
+                    registers = refine(left, right, not is_equal)
+            else:
+                append_path(destination, events)
         elif opcode in ("ret", "jr"):
             raise ValueError("main return bypasses explicit PASS/FAIL reporting")
+        else:
+            value = None
+            if opcode in ("li", "lui"):
+                value = int(arguments[1], 0) << (12 if opcode == "lui" else 0)
+            elif opcode == "mv":
+                value = registers.get(arguments[1])
+            elif opcode in ("addi", "addiw", "slli") and isinstance(registers.get(arguments[1]), int):
+                left, immediate = registers[arguments[1]], int(arguments[2], 0)
+                value = left << immediate if opcode == "slli" else left + immediate
+            if opcode in ("lw", "lwu", "ld", "sw", "sd"):
+                memory = re.fullmatch(r"(-?\d+)\((\w+)\)", arguments[1])
+                base = registers.get(memory[2]) if memory else None
+                target = base + int(memory[1]) if isinstance(base, int) else None
+                if events.count("perf_cycle_read") == 2 and target in csr_names:
+                    if opcode in ("sw", "sd"):
+                        forbidden = True
+                    else:
+                        events += ("read:" + csr_names[target],)
+            if arguments and opcode not in ("sw", "sd", "sb", "sh", "fence", "fence.i", "nop"):
+                registers.pop(arguments[0], None)
+                if value is not None:
+                    registers[arguments[0]] = value
+            registers["zero"] = 0
         require(following[address] is not None, "main control flow falls outside function")
-        pending.append((following[address], events, forbidden))
+        append_path(following[address], events)
     require(passed > 0, "no proven case_pass path")
 
 
@@ -162,7 +245,19 @@ def verify_timing(text, stem):
         require(not any(token in body for token in ("trace_issue", "_preflight", "hpu_validate_")),
                 "preflight/trace leaked into timed function")
     wait = functions.get("performance_wait", "")
-    require(wait and not any(token in wait for token in ("printf", "phase_mark")), "wait path contains UART/phase logging")
+    wait_paths = [wait]
+    if "<irq_poll>" not in wait:
+        # 共享等待实现允许唯一的wait_program委托，不把包装函数误判成无ISR观察。
+        calls = [name for name in re.findall(r"\b(?:jal|jalr|j|tail)\b[^\n]*<([^>]+)>", wait)
+                 if name.split("+", 1)[0] != "performance_wait"]
+        require(calls == ["wait_program"], "wait path has no sole wait_program delegate")
+        wait_paths.append(functions.get("wait_program", ""))
+    require(wait_paths[-1] and "<irq_poll>" in wait_paths[-1],
+            "wait path does not observe the real ISR completion flag")
+    require(not any(token in body for body in wait_paths for token in
+                    ("printf", "phase_mark", "prepare_image", "hpu_validate_", "check_results", "check_memory",
+                     "irq_open", "irq_close", "irq_clear", "irq_diagnose", "clear_completion", "csr_write")),
+            "wait path contains UART/phase logging, preparation, validation or IRQ mutation")
     for name, body in functions.items():
         if name.startswith(("hpu_validate_" + stem, "hpu_program_" + stem + "_preflight")):
             require(not hpu_words(body), "preflight issues HPU instructions")
@@ -249,6 +344,7 @@ def build_case(args, spec, data, meta, mode):
     if mode == "silent":
         run(["python3", args.am_home / "tests/hputest/scripts/verify-silent-elf.py", "--elf", elf, "--cross-compile", args.cross])
     return {**meta, "mode": mode, "wait_cycle_budget": args.wait_cycles,
+            "metric": METRIC, "completion": COMPLETION,
             "elf_instruction_words_verified": True, "embedded_data_verified": True, "timing_verified": True,
             "elf": str(elf.relative_to(args.work)), "bin": str(binfile.relative_to(args.work)),
             "disassembly": str(disassembly.relative_to(args.work)), "measured_cycles": None}

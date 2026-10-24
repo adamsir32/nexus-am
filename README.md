@@ -1,6 +1,6 @@
 # 当前HPU交付入口
 
-默认分支名为`master`；HPU活动源码、唯一清单和依赖统一在[tests/hputest](tests/hputest/README.md)，inline-asm固定为`3ab94da`。默认下载只有一个`hpu.zip`，按00～07分目录，仅含ELF和BIN。旧workload路径只保留Makefile兼容入口。
+默认分支名为`master`；HPU活动源码、唯一清单和依赖统一在[tests/hputest](tests/hputest/README.md)，inline-asm固定为`cfee951`。默认下载只有一个`hpu.zip`，按00～07分目录，仅含ELF和BIN。旧workload路径只保留Makefile兼容入口。
 
 - 默认109项；03～05仅保留N1024、输入level4，其它参数用例及源码已移除，00～02与06保持不变。
 - 07保留N1024/N8192、三算法全部level4的36项端到端cycle测试；另有6项可选顶层API回归。见[性能说明](tests/hputest/docs/PERFORMANCE.md)。

@@ -78,8 +78,12 @@ class ReceiverTests(unittest.TestCase):
         report.update({key: False for key in ("instruction_execution_verified", "rtl_verified", "hardware_verified")})
         report.update(overall_status="pass", host_instruction_model={
             "status": "pass", "required": True, "verified": True,
-            "ntt_contract": "natural_coefficient_boundaries", "hardware_contract_verified": False})
+            "ntt_contract": "raw_bit_reversed_coefficients", "hardware_contract_verified": False})
         validate_host(report)
+        natural = copy.deepcopy(report)
+        natural["host_instruction_model"]["ntt_contract"] = "natural_coefficient_boundaries"
+        with self.assertRaisesRegex(ValueError, "raw-stage bit-reversed"):
+            validate_host(natural)
         broken = copy.deepcopy(report)
         broken["host_instruction_model"]["required"] = False
         with self.assertRaisesRegex(ValueError, "strict"):

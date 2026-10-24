@@ -8,6 +8,7 @@
 #include <algorithm>
 #include <array>
 #include <filesystem>
+#include <fstream>
 #include <iostream>
 #include <limits>
 #include <sstream>
@@ -69,6 +70,10 @@ Options arguments(int argc, char **argv) {
     }
     if (result.output.empty() || fs::exists(result.output) || fs::is_symlink(result.output))
         throw std::invalid_argument("output must be a new nonempty path");
+    const auto prefixes = fs::path(result.output.string() + ".psync-prefixes");
+    if (result.operation == "psync" && !result.verify_only &&
+        (fs::exists(prefixes) || fs::is_symlink(prefixes)))
+        throw std::invalid_argument("PSYNC prefixes output must be a new path");
     return result;
 }
 
@@ -80,6 +85,15 @@ std::uint32_t power(std::uint32_t base, std::uint64_t exponent, std::uint32_t q)
         exponent >>= 1;
     }
     return static_cast<std::uint32_t>(result);
+}
+
+std::size_t bit_reverse_index(std::size_t value, std::size_t degree) {
+    std::size_t result = 0;
+    for (; degree > 1; degree >>= 1) {
+        result = (result << 1) | (value & 1);
+        value >>= 1;
+    }
+    return result;
 }
 
 Words input(std::size_t n, std::uint32_t q, unsigned profile, bool right = false) {
@@ -111,12 +125,27 @@ std::string quoted(const std::string &text) {
 
 struct Binding { std::string allocation; runtime::HpuMemSpan span; };
 
+struct SynchronizationScenario {
+    unsigned modulus_id;
+    Binding dma_input, dma_output, compute_a, compute_b, compute_output;
+    std::size_t dma_output_index, compute_output_index;
+};
+
+struct PsyncPrefix {
+    std::string name, stem, assembly, header, source, words;
+    int component = -1;
+    std::vector<hpu::EncodedInstruction> instructions;
+    std::vector<Binding> bindings;
+    std::size_t compared_words = 0, unchanged_words = 0;
+};
+
 struct Generator {
     const Options &options;
     runtime::HpuMemImage image{1ULL << 20};
     delivery::ApplicationPackageRequest request;
     std::vector<Binding> bindings;
     std::vector<std::string> scenarios;
+    std::vector<SynchronizationScenario> synchronization_scenarios;
     std::size_t serial = 0;
 
     explicit Generator(const Options &value) : options(value) {
@@ -221,14 +250,14 @@ struct Generator {
                     const auto c = variant == 8 ? 1U : power(static_cast<std::uint32_t>(options.degree), q - 2ULL, q);
                     const auto ratio = variant == 8 ? psi : power(psi, q - 2ULL, q);
                     const auto name = "tables/q" + std::to_string(layer) + (variant == 8 ? "/pre_twist" : "/post_untwist_scale");
-                    image.add(name, hpu::model::pack_online_pmul_parameters(c, ratio, q, options.degree),
+                    image.add(name, hpu::model::pack_bit_reversed_online_pmul_parameters(c, ratio, q, options.degree),
                               runtime::AllocationKind::twiddle);
                     load(62, name, false, true);
                     emit(hpu::pmul_online(dst, 0, 62));
-                    std::uint64_t factor = c;
                     for (std::size_t i = 0; i < golden.size(); ++i) {
+                        // 独立指数oracle逐物理地址核对，不能只改ABI标签或沿用自然序公比。
+                        const auto factor = std::uint64_t(c) * power(ratio, bit_reverse_index(i, options.degree), q) % q;
                         golden[i] = static_cast<std::uint32_t>(std::uint64_t(a[i]) * factor % q);
-                        factor = factor * ratio % q;
                     }
                     free(62);
                     scenario += variant == 8 ? "/online-pre" : "/online-post-inplace";
@@ -323,13 +352,185 @@ struct Generator {
         const auto a = input(options.degree, moduli[layer], 0);
         const auto b = input(options.degree, moduli[layer], 0, true);
         load_input(0, a, "dma-a");
+        const auto dma_input = bindings.back();
         store(0, a, 0, layer, "psync/dma-prefix");
-        load_input(0, a, "compute-a"); load_input(1, b, "compute-b");
+        const auto dma_output = bindings.back();
+        const auto dma_output_index = request.outputs.size() - 1;
+        load_input(0, a, "compute-a");
+        const auto compute_a = bindings.back();
+        load_input(1, b, "compute-b");
+        const auto compute_b = bindings.back();
         emit(hpu::pmul(2, 0, 1));
         Words golden(options.degree);
         for (std::size_t i = 0; i < golden.size(); ++i)
             golden[i] = static_cast<std::uint32_t>(std::uint64_t(a[i]) * b[i] % moduli[layer]);
-        store(2, golden, 1, layer, "psync/compute-prefix"); free(0); free(1);
+        store(2, golden, 1, layer, "psync/compute-prefix");
+        synchronization_scenarios.push_back({layer, dma_input, dma_output, compute_a, compute_b,
+            bindings.back(), dma_output_index, request.outputs.size() - 1});
+        free(0); free(1);
+    }
+
+    std::vector<PsyncPrefix> make_psync_prefixes() const {
+        if (options.operation != "psync") return {};
+        if (synchronization_scenarios.size() != options.level)
+            throw std::logic_error("PSYNC prefix scenario/RNS count differs");
+        // 接收器的运行态把全部output置毒；原始base image不作修改。
+        runtime::HpuMemImage initial(image.capacity_lines());
+        for (const auto &allocation : image.allocations()) {
+            const auto begin = image.words().begin() + allocation.span.line_offset * 64;
+            Words words(begin, begin + allocation.word_count);
+            if (allocation.kind == runtime::AllocationKind::output)
+                std::fill(words.begin(), words.end(), UINT32_C(0xffffffff));
+            const auto copied = initial.add(allocation.id, words, allocation.kind, allocation.read_only);
+            if (copied.span.line_offset != allocation.span.line_offset ||
+                copied.span.line_count != allocation.span.line_count)
+                throw std::logic_error("PSYNC prefix changed the base allocation layout");
+        }
+        std::vector<PsyncPrefix> result;
+        for (const auto &name : {std::string("idle"), std::string("dma"), std::string("compute")}) {
+            PsyncPrefix prefix;
+            prefix.name = name;
+            prefix.stem = request.program.stem + '_' + name;
+            prefix.component = name == "dma" ? 0 : name == "compute" ? 1 : -1;
+            auto emit = [&](const std::string &assembly) {
+                const auto encoded = hpu::assemble_source(assembly);
+                if (encoded.size() != 1) throw std::logic_error("PSYNC prefix helper must emit one instruction");
+                prefix.instructions.push_back(encoded.front());
+                prefix.assembly += encoded.front().normalized_asm + '\n';
+            };
+            auto load = [&](unsigned object, const Binding &binding, bool modulus = false) {
+                emit(hpu::dload(object, modulus ? hpu::DataType::mod_ctx : hpu::DataType::poly,
+                    modulus ? hpu::DloadFlag::small_bank : hpu::DloadFlag::regular_bank,
+                    hpu::CachePolicy::no_allocate));
+                prefix.bindings.push_back(binding);
+            };
+            auto store = [&](unsigned object, const Binding &binding) {
+                emit(hpu::dstore(object, 1));
+                prefix.bindings.push_back(binding);
+            };
+            if (name == "compute") load(63, bindings.front(), true);
+            for (const auto &scenario : synchronization_scenarios) {
+                if (name == "dma") {
+                    load(0, scenario.dma_input);
+                    store(0, scenario.dma_output);
+                } else if (name == "compute") {
+                    emit(hpu::pmodld(scenario.modulus_id));
+                    load(0, scenario.compute_a);
+                    load(1, scenario.compute_b);
+                    emit(hpu::pmul(2, 0, 1));
+                    store(2, scenario.compute_output);
+                    emit(hpu::pfree(0));
+                    emit(hpu::pfree(1));
+                }
+            }
+            if (name == "compute") emit(hpu::pfree(63));
+            emit(hpu::psync());
+
+            std::vector<runtime::HpuMemSpan> spans;
+            std::vector<hpu::ExecutableDmaSpan> fixed;
+            for (const auto &binding : prefix.bindings) {
+                spans.push_back(binding.span);
+                fixed.push_back({binding.span.line_offset, binding.span.line_count});
+            }
+            hpu::model::InstructionExecutionOptions model_options;
+            model_options.ntt_contract = hpu::model::InstructionNttContract::legacy_raw_stage;
+            const auto execution = hpu::model::execute_instructions(prefix.instructions, spans, initial, model_options);
+            if (!execution.report.completed() || execution.words.size() != initial.words().size())
+                throw std::runtime_error("PSYNC " + name + " prefix execution failed: " + execution.report.message);
+            std::vector<hpu::model::InstructionMemoryExpectation> expected;
+            std::vector<bool> writable(initial.words().size(), false);
+            for (const auto &output : request.outputs) {
+                if (prefix.component < 0 || output.component != static_cast<unsigned>(prefix.component)) continue;
+                expected.push_back({output.object_id, output.destination, output.golden_words});
+                const auto begin = output.destination.line_offset * 64;
+                std::fill(writable.begin() + begin, writable.begin() + begin + output.word_count, true);
+            }
+            if (!expected.empty()) {
+                if (expected.size() != options.level) throw std::logic_error("PSYNC prefix omitted an RNS output");
+                const auto compared = hpu::model::compare_instruction_memory(execution, expected);
+                if (!compared.verified)
+                    throw std::runtime_error("PSYNC " + name + " prefix differs from base golden: " + compared.message);
+                prefix.compared_words = compared.compared_words;
+            }
+            for (std::size_t i = 0; i < writable.size(); ++i) {
+                if (writable[i]) continue;
+                if (execution.words[i] != initial.words()[i])
+                    throw std::runtime_error("PSYNC " + name + " prefix changed readonly/guard/unselected output word " + std::to_string(i));
+                ++prefix.unchanged_words;
+            }
+            prefix.header = hpu::render_executable_header(prefix.stem, fixed.size());
+            const std::string marker = "#ifdef __cplusplus\n}\n#endif\n\n#endif\n";
+            const auto at = prefix.header.find(marker);
+            if (at == std::string::npos) throw std::logic_error("unexpected PSYNC prefix header template");
+            prefix.header.insert(at, "int hpu_run_" + prefix.stem + "(void);\n\n");
+            const auto dynamic_declaration = "int hpu_program_" + prefix.stem
+                + "(const hpu_dma_span_t *spans, size_t span_count);\n\n";
+            const auto dynamic_at = prefix.header.find(dynamic_declaration);
+            if (dynamic_at == std::string::npos) throw std::logic_error("unexpected PSYNC dynamic declaration");
+            prefix.header.erase(dynamic_at, dynamic_declaration.size());
+            const auto rendered = hpu::render_fixed_executable_source(prefix.stem, prefix.instructions,
+                image.capacity_lines(), fixed);
+            // Sidecar只导出原样fixed入口；无DMA的dynamic入口含无用长度数组，
+            // 不参与发令且无法通过-Werror，不能靠抑制诊断保留它。
+            const auto suffix = rendered.find(fixed.empty()
+                ? "\n/* Fixed spans validated at generation;"
+                : "\nstatic const hpu_dma_span_t hpu_program_" + prefix.stem + "_resolved_spans[]");
+            if (suffix == std::string::npos) throw std::logic_error("unexpected official fixed executable template");
+            prefix.source = "#include \"" + prefix.stem + ".h\"\n" + rendered.substr(suffix);
+            for (const auto &instruction : prefix.instructions) {
+                for (unsigned bit = 32; bit > 0; --bit)
+                    prefix.words += ((instruction.word >> (bit - 1)) & 1) ? '1' : '0';
+                prefix.words += '\n';
+            }
+            result.push_back(std::move(prefix));
+        }
+        return result;
+    }
+
+    void write_psync_prefixes(const std::vector<PsyncPrefix> &prefixes) const {
+        if (prefixes.empty()) return;
+        const auto root = fs::path(options.output.string() + ".psync-prefixes");
+        if (!fs::create_directory(root)) throw std::runtime_error("refusing to overwrite PSYNC prefixes");
+        auto write = [&](const std::string &name, const std::string &contents) {
+            std::ofstream stream(root / name, std::ios::binary);
+            stream << contents;
+            if (!stream) throw std::runtime_error("cannot write PSYNC prefix file " + name);
+        };
+        std::ostringstream manifest;
+        manifest << "{\"schema\":\"hpu-psync-prefixes\",\"schema_version\":1,\"producer_commit\":\""
+            << HPU_FRONTEND_COMMIT << "\",\"base_program_stem\":\"" << request.program.stem
+            << "\",\"degree\":" << options.degree << ",\"level\":" << options.level
+            << ",\"source_format\":\"upstream_fixed_entry_only\",\"initial_output_poison\":4294967295,"
+               "\"verified\":true,\"model_verified\":true,"
+               "\"read_only_guard_verified\":true,\"hardware_verified\":false,\"prefixes\":[";
+        for (std::size_t index = 0; index < prefixes.size(); ++index) {
+            const auto &prefix = prefixes[index];
+            write(prefix.stem + ".asm", prefix.assembly);
+            write(prefix.stem + ".h", prefix.header);
+            write(prefix.stem + ".c", prefix.source);
+            write(prefix.stem + ".inst32", prefix.words);
+            if (index) manifest << ',';
+            manifest << "{\"name\":\"" << prefix.name << "\",\"entry\":\"hpu_run_" << prefix.stem
+                << "\",\"asm_file\":\"" << prefix.stem << ".asm\",\"source_file\":\"" << prefix.stem
+                << ".c\",\"header_file\":\"" << prefix.stem << ".h\",\"words_file\":\"" << prefix.stem
+                << ".inst32\",\"expected_components\":[";
+            if (prefix.component >= 0) manifest << prefix.component;
+            manifest << "],\"instruction_count\":" << prefix.instructions.size()
+                << ",\"compared_output_words\":" << prefix.compared_words
+                << ",\"unchanged_words\":" << prefix.unchanged_words
+                << ",\"verified\":true,\"model_verified\":true,\"read_only_guard_verified\":true,\"dma_spans\":[";
+            const auto relocations = hpu::collect_dma_relocations(prefix.instructions);
+            for (std::size_t dma = 0; dma < prefix.bindings.size(); ++dma) {
+                if (dma) manifest << ',';
+                const auto &binding = prefix.bindings[dma];
+                manifest << "{\"instruction_index\":" << relocations.at(dma).instruction_index
+                    << ",\"allocation_id\":\"" << binding.allocation << "\",\"line_offset\":"
+                    << binding.span.line_offset << ",\"line_count\":" << binding.span.line_count << '}';
+            }
+            manifest << "]}";
+        }
+        manifest << "]}\n";
+        write("manifest.json", manifest.str());
     }
 
     void finish() {
@@ -388,8 +589,9 @@ struct Generator {
         }
         request.program.resolved_dma_manifest = manifest.str();
         const Words qs(moduli.begin(), moduli.begin() + options.level);
-        const std::string abi = "{\"version\":3,\"coefficient_order\":\"natural\",\"pre_twist_order\":\"natural\","
-            "\"post_factor_order\":\"natural\",\"stage_twiddle_order\":\"reference_loader_batch_lane\","
+        const std::string abi = "{\"version\":4,\"coefficient_order\":\"bit_reversed\",\"external_coefficient_order\":\"natural\","
+            "\"pre_twist_order\":\"bit_reversed\",\"post_factor_order\":\"bit_reversed\","
+            "\"stage_twiddle_order\":\"reference_loader_batch_lane\","
             "\"stage_twiddle_format\":\"hpu-twiddle-k8-v1\",\"twiddle_chains\":8,\"stage_parameter_lines\":2,"
             "\"online_pmul_format\":\"hpu-pmul-online-k8-v1\",\"online_pmul_parameter_lines\":2,"
             "\"online_pmul_mode\":1,\"online_pmul_parameter_bank_mask\":32,"
@@ -432,7 +634,11 @@ struct Generator {
             + std::to_string(comparison.compared_words) + "},\"instruction_execution_verified\":false,"
             "\"rtl_verified\":false,\"hardware_verified\":false}";
         delivery::validate_application_package_request(request);
-        if (!options.verify_only) delivery::write_application_package(options.output, request);
+        const auto prefixes = make_psync_prefixes();
+        if (!options.verify_only) {
+            delivery::write_application_package(options.output, request);
+            write_psync_prefixes(prefixes);
+        }
         std::cout << request.case_name << " actual_rns_components=" << options.level
             << " independent_golden=PASS host_instruction_model=PASS readonly_guard=PASS"
             << " output_limbs=" << request.outputs.size() << " hardware=NOT_VERIFIED\n";

@@ -9,15 +9,16 @@ import re
 import statistics
 
 
-METRIC = "issue_to_done_v2"
+METRIC = "issue_to_irq_done_v1"
+COMPLETION = "plic_irq"
 MARKER = "[HPU][NEWAPI-PERF]"
 PATTERN = re.compile(
     r"\[HPU\]\[NEWAPI-PERF\] case=([A-Za-z0-9_]+) variant=(optimized|noopt) "
-    r"N=(1024|2048|4096|8192) level=(\d+) metric=issue_to_done_v2 "
+    r"N=(\d+) level=(\d+) metric=issue_to_irq_done_v1 completion=plic_irq "
     r"start=(\d+) end=(\d+) cycles=(\d+) verified=1$")
-SAMPLE_FIELDS = ["case_id", "variant", "degree", "level", "metric", "start", "end",
+SAMPLE_FIELDS = ["case_id", "variant", "degree", "level", "metric", "completion", "start", "end",
                  "cycles", "log", "line", "revision"]
-SUMMARY_FIELDS = ["case_id", "variant", "degree", "level", "metric", "rounds",
+SUMMARY_FIELDS = ["case_id", "variant", "degree", "level", "metric", "completion", "rounds",
                   "average_cycles", "minimum_cycles", "maximum_cycles", "spread_cycles",
                   "noopt_over_optimized", "revision"]
 
@@ -43,7 +44,7 @@ def load_catalog(path):
             if not name or name in result or row["metric"] != METRIC:
                 raise ValueError(f"duplicate or invalid performance catalog entry: {name}")
             degree, level = int(row["degree"]), int(row["level"])
-            if degree not in (1024, 2048, 4096, 8192) or not 1 <= level <= 4 or not name.endswith(f"_l{level}_n{degree}"):
+            if degree not in (1024, 8192) or level != 4 or not name.endswith(f"_l{level}_n{degree}"):
                 raise ValueError(f"inconsistent performance catalog parameters: {name}")
             result[name] = dict(degree=degree, level=level)
     if not result:
@@ -60,6 +61,8 @@ def parse(logs, catalog, revision):
             for line_number, line in enumerate(stream, 1):
                 if MARKER + " " not in line:
                     continue
+                if "metric=issue_to_done" in line:
+                    raise ValueError(f"{path}:{line_number}: retired polling metric; IRQ and polling results cannot be mixed")
                 match = PATTERN.search(line.strip())
                 if match is None:
                     raise ValueError(f"{path}:{line_number}: invalid, unverified or incomplete NEWAPI-PERF record")
@@ -71,7 +74,7 @@ def parse(logs, catalog, revision):
                         ((end - start) & ((1 << 64) - 1)) != cycles:
                     raise ValueError(f"{path}:{line_number}: inconsistent unsigned 64-bit cycle endpoints")
                 samples.append(dict(case_id=name, variant=variant, degree=degree, level=level,
-                                    metric=METRIC, start=start, end=end, cycles=cycles,
+                                    metric=METRIC, completion=COMPLETION, start=start, end=end, cycles=cycles,
                                     log=str(path), line=line_number, revision=revision))
     if not samples:
         raise ValueError("no verified NEWAPI-PERF samples")
@@ -88,19 +91,21 @@ def summarize(samples):
             group = groups.get((name, variant))
             if not group:
                 continue
-            metadata = {(r["degree"], r["level"], r["metric"], r["revision"]) for r in group}
+            metadata = {(r["degree"], r["level"], r["metric"], r["completion"], r["revision"]) for r in group}
             if len(metadata) != 1:
                 raise ValueError(f"mixed parameters or revisions in one sample group: {name}/{variant}")
+            if any(row["metric"] != METRIC or row["completion"] != COMPLETION for row in group):
+                raise ValueError("only real PLIC IRQ completion samples are accepted")
             values = [row["cycles"] for row in group]
             ratio = None
             other = groups.get((name, "noopt"))
             if variant == "optimized" and other:
-                other_metadata = {(r["degree"], r["level"], r["metric"], r["revision"]) for r in other}
+                other_metadata = {(r["degree"], r["level"], r["metric"], r["completion"], r["revision"]) for r in other}
                 if other_metadata != metadata:
                     raise ValueError(f"optimized/noopt comparison has different parameters or revisions: {name}")
                 ratio = statistics.mean(row["cycles"] for row in other) / statistics.mean(values)
             result.append(dict(case_id=name, variant=variant, degree=group[0]["degree"],
-                               level=group[0]["level"], metric=METRIC, rounds=len(values),
+                               level=group[0]["level"], metric=METRIC, completion=COMPLETION, rounds=len(values),
                                average_cycles=statistics.mean(values), minimum_cycles=min(values),
                                maximum_cycles=max(values), spread_cycles=max(values) - min(values),
                                noopt_over_optimized=ratio, revision=group[0]["revision"]))

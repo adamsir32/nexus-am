@@ -17,7 +17,7 @@ REVISION = "unit-fixture-only;not-a-hardware-result"
 
 def record(case=CASE, variant="optimized", degree=1024, level=4, start=100, end=180, cycles=80):
     return (f"[HPU][NEWAPI-PERF] case={case} variant={variant} N={degree} level={level} "
-            f"metric=issue_to_done_v2 start={start} end={end} cycles={cycles} verified=1\n")
+            f"metric=issue_to_irq_done_v1 completion=plic_irq start={start} end={end} cycles={cycles} verified=1\n")
 
 
 class ParsePerformanceTests(unittest.TestCase):
@@ -44,6 +44,7 @@ class ParsePerformanceTests(unittest.TestCase):
         self.assertEqual(noopt["average_cycles"], 200)
         self.assertIsNone(noopt["noopt_over_optimized"])
         self.assertTrue(all(row["revision"] == REVISION for row in samples + result))
+        self.assertTrue(all(row["completion"] == "plic_irq" for row in samples + result))
         self.assertEqual(samples[0]["line"], 3)
 
     def test_missing_variant_does_not_create_samples_or_zero_ratio(self):
@@ -61,6 +62,10 @@ class ParsePerformanceTests(unittest.TestCase):
             with self.subTest(content=content), self.assertRaisesRegex(ValueError, "case/N/level"):
                 self.read(content)
 
+    def test_both_current_n_sizes_keep_level4(self):
+        samples = self.read(record() + record(case="07_20_ckks_hadd_l4_n8192", degree=8192))
+        self.assertEqual([(row["degree"], row["level"]) for row in samples], [(1024, 4), (8192, 4)])
+
     def test_unsigned_endpoints_wrap_and_reject_invalid_differences(self):
         samples = self.read(record(start=(1 << 64) - 4, end=6, cycles=10))
         self.assertEqual(samples[0]["cycles"], 10)
@@ -71,13 +76,21 @@ class ParsePerformanceTests(unittest.TestCase):
 
     def test_incomplete_unverified_or_old_metric_is_not_accepted(self):
         for content in (record().replace("verified=1", "verified=0"),
-                        record().replace("issue_to_done_v2", "issue_to_done"),
+                        record().replace("issue_to_irq_done_v1", "unknown_metric"),
+                        record().replace("completion=plic_irq", "completion=mmio_poll"),
+                        record().replace(" completion=plic_irq", ""),
                         record().replace("variant=optimized", "variant=unknown"),
                         record().replace(" cycles=80 verified=1", "")):
             with self.subTest(content=content), self.assertRaisesRegex(ValueError, "incomplete"):
                 self.read(content)
         with self.assertRaisesRegex(ValueError, "no verified"):
             self.read("[HPU][NEWAPI-PERF][START] not a completed measurement\n")
+
+    def test_retired_polling_samples_are_explicitly_rejected_even_in_a_mixed_log(self):
+        old = record().replace("issue_to_irq_done_v1 completion=plic_irq", "issue_to_done_v2")
+        for content in (old, record() + old):
+            with self.subTest(content=content), self.assertRaisesRegex(ValueError, "retired polling metric"):
+                self.read(content)
 
     def test_mixed_revision_is_not_compared(self):
         samples = self.read(record() + record(variant="noopt"))
@@ -105,9 +118,12 @@ class ParsePerformanceTests(unittest.TestCase):
         self.assertEqual(len(rows), 1)
         self.assertEqual(rows[0]["noopt_over_optimized"], "")
         self.assertEqual(rows[0]["revision"], REVISION)
+        self.assertEqual(rows[0]["completion"], "plic_irq")
+        self.assertEqual(rows[0]["metric"], "issue_to_irq_done_v1")
         with (output / "samples.csv").open() as stream:
             sample = next(csv.DictReader(stream))
         self.assertEqual(sample["log"], str(self.log))
+        self.assertEqual(sample["completion"], "plic_irq")
 
 
 if __name__ == "__main__":

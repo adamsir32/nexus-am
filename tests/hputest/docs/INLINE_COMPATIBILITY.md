@@ -1,16 +1,18 @@
 # Inline-asm兼容性
 
-固定依赖仍为`feature/operator-resource-management@3ab94da16abce89b7e9b74f4e7fcd93604dea495`，不是自动跟踪main；本轮不改SDK或RTL。
+固定依赖为`feature/operator-resource-management@cfee951e4056660e521d55a3535d82335a49bb08`，不是自动跟踪main；本轮跟进上游布局修复，不改SDK或RTL。
 
 当前默认交付109项，具体范围以`cases.tsv`为准。03～05为N1024/level4；07为N1024/N8192、三算法全level4；00～02与06保持原配置。独立C与旁侧ASM相互对应，不可混用不同批次机器码、DMA、内存镜像和golden。
 
 ## 仍需匹配的接口
 
 - 64对象ISA，计算/控制物理opcode为0x5B，DMA为0x2B。
-- NTT ABI v3：stage及pre/post模板均为两行；post已包含N⁻¹。
+- NTT ABI v4：系数域每个RNS分量物理下标j保存自然下标BR_N(j)，pre/post在线模板按上游专用U/V/R packer生成，不能沿用自然顺序镜像。stage及pre/post模板仍均为两行；post已包含N⁻¹。
 - 对象PMUL mode=1为online模式；立即数64/192/255不能误判为该模式。
 - 完整导出结果必须全部检查；SSA留在片上的内部值不能被误当成漏检最终结果。
-- 07参数检查在计时前，固定发令路径和x11复用保持，计时包含DMA与完成轮询。
+- 03～07以末尾PSYNC的CPU外部中断完成，配置COMMIT及显式MMIO测试仍可轮询。07参数及IRQ配置在计时前，固定发令路径和x11复用保持，计时包含DMA和实际中断服务。
+
+本次机器编码与旁侧ASM未变，但输入、在线因子、物理布局和golden均须重新生成；禁止用旧镜像搭配新ABI。03_08有官方fixed-entry三种前序片段及各两轮IRQ回归，不能以同一条完整计算程序重复六次替代。
 
 BGV性能从Q3改为Q4，原L3周期数不能直接继承或作为同参数加速比较。其metadata会标记与旧基线参数不相等；CKKS/BFV仍使用原L4配方。所有方案仍要求独立golden和软件模型精确通过，不降低检查标准。
 

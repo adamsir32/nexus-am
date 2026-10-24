@@ -21,8 +21,9 @@ using Words = std::vector<std::uint32_t>;
 
 namespace {
 const std::string ntt_abi =
-    std::string("{\"version\":3,\"coefficient_order\":\"natural\",\"pre_twist_order\":\"natural\","
-    "\"post_factor_order\":\"natural\",\"stage_twiddle_order\":\"reference_loader_batch_lane\","
+    std::string("{\"version\":4,\"coefficient_order\":\"bit_reversed\",\"external_coefficient_order\":\"natural\","
+    "\"pre_twist_order\":\"bit_reversed\",\"post_factor_order\":\"bit_reversed\","
+    "\"stage_twiddle_order\":\"reference_loader_batch_lane\","
     "\"stage_twiddle_format\":\"hpu-twiddle-k8-v1\",\"twiddle_chains\":8,\"stage_parameter_lines\":2,"
     "\"online_pmul_format\":\"") + hpu::model::kOnlinePmulParameterFormat +
     "\",\"online_pmul_parameter_lines\":" + std::to_string(hpu::model::kOnlinePmulParameterLines) +
@@ -157,13 +158,15 @@ void transform(const std::string &operation, std::size_t degree, std::size_t lev
         if (hpu::model::negacyclic_forward(coefficients, modulus, table.canonical_psi) != physical)
             throw std::runtime_error("independent SEAL NTT layout comparison failed");
         const auto suffix = "/q" + std::to_string(limb);
-        inputs.push_back(image.add("input/x" + suffix, inverse ? physical : coefficients,
+        // 原SEAL数学oracle保持自然序；只有实际系数DMA和对应输出按每个RNS分量独立BR。
+        const auto coefficient_physical = hpu::model::bit_reverse_coefficients(coefficients);
+        inputs.push_back(image.add("input/x" + suffix, inverse ? physical : coefficient_physical,
                                    runtime::AllocationKind::constant).span);
         results.push_back(image.reserve("output/result" + suffix, degree,
                                         runtime::AllocationKind::output).span);
         request.outputs.push_back({"step_0", 0, static_cast<std::uint8_t>(limb), modulus,
-            inverse ? delivery::OutputDomain::coefficient : delivery::OutputDomain::canonical_ntt_physical,
-            results.back(), degree, inverse ? coefficients : physical});
+            inverse ? delivery::OutputDomain::coefficient_bit_reversed : delivery::OutputDomain::canonical_ntt_physical,
+            results.back(), degree, inverse ? coefficient_physical : physical});
     }
     image.trim_capacity_to_used_lines();
 

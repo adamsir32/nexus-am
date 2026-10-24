@@ -2,7 +2,7 @@
 
 活动源码、依赖和构建只保留本目录一份。[cases.tsv](cases.tsv)是唯一清单。默认交付一个`hpu.zip`，按00～07分组，只含ELF和BIN；源码和完整指令直接在GitHub本目录查看。
 
-inline-asm固定在[producer.json](producer.json)：`feature/operator-resource-management@3ab94da`，不修改RTL。
+inline-asm固定在[producer.json](producer.json)：`feature/operator-resource-management@cfee951`，包含系数/在线因子布局修复，不修改RTL。
 
 ## 当前分组
 
@@ -20,7 +20,7 @@ inline-asm固定在[producer.json](producer.json)：`feature/operator-resource-m
 
 level始终是输入Q基的RNS分量数，不是SEAL chain_index，也不包含特殊P。降层后的输出可以少一个Q；例如输入level4的Rescale/ModSwitch输出通常为level3。
 
-03～05已删除其它N/level的用例及其C/ASM，不再保留原N4096定向或特殊参数回归。07仅留两个N；BGV从旧level3真实改为level4，重新生成模数、数据、指令与golden，不能沿用旧L3的通过记录或性能数字。00～02及06不因此改动。
+03～05已删除其它N/level的用例及其C/ASM，不再保留原N4096定向或特殊参数回归。07仅留两个N；BGV从旧level3真实改为level4，重新生成模数、数据、指令与golden，不能沿用旧L3的通过记录或性能数字。00～02保留原测试源码，06保留原参数但与03～07一起恢复CPU中断完成检查。
 
 ## 源码与编号
 
@@ -58,6 +58,8 @@ make -C tests/hputest silent OUTPUT_ROOT=/disk/hpu/silent
 
 `make test`运行契约测试，`make audit`核对独立入口、编号、参数范围、重复语义和源码引用。算法库参考仍为inline-asm自带modified-SEAL，原始结果逐word比较，不以近似解密相等掩盖错误。
 
-07的`issue_to_done_v2`包含CPU发令、DMA、HPU计算和完成轮询，不含准备、参数检查、golden/guard比较及UART，详见[性能口径](docs/PERFORMANCE.md)。
+03～07默认以末尾一次PSYNC触发真实CPU外部中断完成；仅显式MMIO用例保留纯轮询。03_08额外验证空闲/DMA/计算各两轮，中间rearm和跨close/open后CTE仍只初始化一次。
 
-构建、软件模型和ELF检查不是RTL/FPGA通过。新版程序仍需匹配64对象、NTT ABI v3及在线PMUL mode=1的RTL。`00_01`故意无限保持，`00_11`故意返回1，不能要求所有ELF都返回0。Poseidon/watchdog条件实验仍在`tests/hpu-experiments`，不进入默认包。
+07的`issue_to_irq_done_v1`包含CPU发令、DMA、HPU计算、中断服务及CPU观察完成的开销，不含准备、IRQ配置、参数检查、golden/guard比较及UART，详见[性能口径](docs/PERFORMANCE.md)。旧`issue_to_done_v2`为MMIO完成口径，不与新结果混用。
+
+构建、软件模型和ELF检查不是RTL/FPGA通过。新版程序仍需匹配64对象、NTT ABI v4及在线PMUL mode=1的RTL。`00_01`故意无限保持，`00_11`故意返回1，不能要求所有ELF都返回0。Poseidon/watchdog条件实验仍在`tests/hpu-experiments`，不进入默认包。

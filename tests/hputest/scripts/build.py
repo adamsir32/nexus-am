@@ -56,9 +56,13 @@ def build_case(args, spec, data, meta, mode):
          f"LOG_LEVEL={int(mode != 'silent')}", f"WAIT_CYCLES={args.wait_cycles}",
          f"CASE_OBJ_DIR={objects}", f"CASE_BINARY={binary}"])
     run([args.cross + "strip", "--strip-debug", str(binary) + ".elf"])
-    actual_words = verify_elf(Path(str(binary) + ".elf"), args.cross, meta)
-    expected_words = [int(word, 2) for word in (data / (meta["program_stem"] + ".inst32")).read_text().split()]
-    require(actual_words == expected_words, "ELF HPU words differ from native package")
+    if "psync_prefixes" in meta:
+        from psync_prefixes import verify_prefix_elf
+        verify_prefix_elf(Path(str(binary) + ".elf"), data, meta["psync_prefixes"], args.cross)
+    else:
+        actual_words = verify_elf(Path(str(binary) + ".elf"), args.cross, meta)
+        expected_words = [int(word, 2) for word in (data / (meta["program_stem"] + ".inst32")).read_text().split()]
+        require(actual_words == expected_words, "ELF HPU words differ from native package")
     if mode == "silent":
         run(["python3", args.am_home / "tests/hputest/scripts/verify-silent-elf.py",
              "--elf", str(binary) + ".elf", "--cross-compile", args.cross])

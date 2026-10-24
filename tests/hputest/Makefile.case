@@ -21,6 +21,7 @@ $(error use HPU_DST_DIR, not DST_DIR; recursive AM builds must keep their own pa
 endif
 
 TEST_ROOT := $(CURDIR)
+export LINKNAN_HPU_IT := 1
 INLINE_ASM_ROOT ?= $(TEST_ROOT)/third_party/inline-asm
 HPU_GENERATED_ROOT ?= $(TEST_ROOT)/build/generated
 HPU_DUMP_RESULTS ?= 0

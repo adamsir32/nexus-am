@@ -15,6 +15,7 @@ import build as functional
 import build_performance as performance
 from import_package import import_package, read_json, require
 from case_program import case_program_path, verify_case_program
+from psync_prefixes import is_psync_case, prepare_prefixes, verify_prefix_elf
 
 ROOT = Path(__file__).resolve().parents[1]
 FIELDS = ("group", "case_id", "producer", "elf", "bin", "degree", "level", "qualifier")
@@ -71,6 +72,8 @@ def target_recipe(args, low_specs, groups, perf):
     for directory in (args.am_home / "am/src/xs", args.am_home / "libs/klib/src"):
         paths.extend(path for path in directory.rglob("*")
                      if path.is_file() and path.suffix in (".c", ".h", ".S", ".ld"))
+    paths.extend(args.am_home / "am/src/nemu/isa/riscv" / name
+                 for name in ("cte.c", "cte64.c", "mtime.S"))
     paths.extend((args.am_home / "am/include").glob("*.h"))
     paths.append(args.am_home / "am/include/arch/riscv64-xs.h")
     paths.extend((args.am_home / "libs/klib/include").glob("*.h"))
@@ -83,12 +86,16 @@ def target_recipe(args, low_specs, groups, perf):
         paths.extend((baseline / "runtime").glob("*.c"))
     if groups or perf:
         paths.extend(ROOT / name for name in ("Makefile.native.case", "scripts/import_package.py", "scripts/performance_adapter.py", "scripts/case_program.py",
+                     "scripts/psync_prefixes.py", "src/common/hpu_irq.c",
                      "runtime/native/fixture.S", "runtime/native/image.c", "runtime/native/wait.c", "runtime/native/check.c"))
         paths.extend((ROOT / "include").glob("*.h"))
         for row in groups + perf:
             paths.append(ROOT / row["source"])
             program_spec = {**row, "variant": getattr(args, "variant", "optimized")} if row["kind"] == "performance" else row
             paths.append(ROOT / case_program_path(program_spec))
+            if is_psync_case(row):
+                paths.extend((ROOT / row["source"]).with_suffix(f".{state}.asm")
+                             for state in ("idle", "dma", "compute"))
             paths.extend(native_sources(row))
     if groups:
         paths.append(ROOT / "scripts/build.py")
@@ -249,9 +256,13 @@ def reuse_native_case(args, spec, plan):
                 f"复用反汇编与实际ELF不同：{case_id}")
         performance.verify_elf(elf, disassembly, data, meta, args.cross)
     else:
-        actual = functional.verify_elf(elf, args.cross, meta)
-        expected = [int(word, 2) for word in (data / (spec["program_stem"] + ".inst32")).read_text().split()]
-        require(actual == expected, f"复用ELF机器字不同：{case_id}")
+        if is_psync_case(spec):
+            prefix_meta = prepare_prefixes(package, data, spec, plan["producer_commit"], verify_existing=True)
+            verify_prefix_elf(elf, data, prefix_meta, args.cross)
+        else:
+            actual = functional.verify_elf(elf, args.cross, meta)
+            expected = [int(word, 2) for word in (data / (spec["program_stem"] + ".inst32")).read_text().split()]
+            require(actual == expected, f"复用ELF机器字不同：{case_id}")
         performance.verify_embedded(elf, data, spec, args.cross)
     if mode == "silent":
         run([sys.executable, ROOT / "scripts/verify-silent-elf.py", "--elf", elf, "--cross-compile", args.cross])
@@ -382,6 +393,8 @@ def build_functional(args, spec, pin, validator):
     verify_case_program(source, spec)
     data = args.output / "generated/functional" / spec["case_id"]
     meta = import_package(source, data, spec, pin, verify_existing=True)
+    if is_psync_case(spec):
+        meta["psync_prefixes"] = prepare_prefixes(source, data, spec, pin)
     context = SimpleNamespace(**vars(args))
     context.output = args.output / "functional-build"
     context.packages = args.output / "packages/functional"

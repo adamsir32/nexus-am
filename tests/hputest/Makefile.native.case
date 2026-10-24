@@ -15,6 +15,7 @@ $(error CASE_BINARY is required)
 endif
 
 ROOT := $(CURDIR)
+export LINKNAN_HPU_IT := 1
 BASELINE := $(AM_HOME)/tests/hputest
 NAME := $(CASE_ID)
 # Keep per-case paths local to this make process. Command-line variables are
@@ -23,6 +24,7 @@ DST_DIR := $(CASE_OBJ_DIR)
 BINARY := $(CASE_BINARY)
 SRCS := $(CASE_SOURCE) $(ROOT)/runtime/native/fixture.S \
         $(ROOT)/runtime/native/image.c $(ROOT)/runtime/native/wait.c $(ROOT)/runtime/native/check.c \
+        $(ROOT)/src/common/hpu_irq.c \
         $(DATA_DIR)/layout.c
 ifeq ($(PERFORMANCE),1)
 ifndef CASE_MEM_BASE
@@ -43,11 +45,15 @@ CFLAGS += -DMEM_BASE=$(CASE_MEM_BASE)ULL \
           -DCASE_DEGREE=$(CASE_DEGREE)U -DCASE_LEVEL=$(CASE_LEVEL)U
 else
 SRCS += $(DATA_DIR)/$(PROGRAM_STEM).c
+ifeq ($(CASE_ID),03_08_psync_l4_n1024)
+# 三个官方fixed入口分别覆盖空闲、DMA和计算前序；不是把完整程序重复六次。
+SRCS += $(foreach state,idle dma compute,$(DATA_DIR)/$(PROGRAM_STEM)_$(state).c)
+endif
 endif
 INC_DIR += $(ROOT)/include $(DATA_DIR) $(BASELINE)/include
 ASFLAGS += -Wa,-I$(DATA_DIR)
 CFLAGS += -Wall -Wextra -Werror -ffunction-sections -fdata-sections \
-          -DLINKNAN_HPU_IT=1 -DHPU_LOG_LEVEL=$(LOG_LEVEL) \
+          -DLINKNAN_HPU_IT=1 -DHPU_NATIVE_IRQ=1 -DHPU_LOG_LEVEL=$(LOG_LEVEL) \
           -DWAIT_CYCLES=$(WAIT_CYCLES) -include hpu/log.h \
           -ffile-prefix-map=$(AM_HOME)=nexus-am \
           -ffile-prefix-map=$(DATA_DIR)=frontend-data/$(CASE_ID)

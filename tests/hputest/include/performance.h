@@ -3,7 +3,7 @@
 
 #include <hpu/perf.h>
 
-/* 仅等待本段程序的末尾PSYNC；不清IRQ、不打印、不执行结果自检。 */
+/* 等待末尾PSYNC的真实CPU中断及VALID/空闲；不补清IRQ、不打印、不做结果自检。 */
 int performance_wait(void);
 
 #endif

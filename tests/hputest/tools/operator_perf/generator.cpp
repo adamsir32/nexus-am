@@ -18,7 +18,7 @@ struct Options {
     bool verify_only = false;
     bool optimized_only = false;
     hpu::model::InstructionNttContract contract =
-        hpu::model::InstructionNttContract::natural_coefficient_boundaries;
+        hpu::model::InstructionNttContract::raw_bit_reversed_coefficients;
 };
 
 std::string quoted(const std::string &value) {

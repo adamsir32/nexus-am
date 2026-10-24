@@ -63,7 +63,7 @@ class PrimitiveGroupTests(unittest.TestCase):
         for level in range(1, 5):
             q = [133881857, 133963777, 134012929, 134111233][:level]
             parameters = {"key_moduli": q + [134176769], "levels": [{"moduli": q}]}
-            for operation, domain in (("ntt", "canonical_ntt_physical"), ("intt", "coefficient")):
+            for operation, domain in (("ntt", "canonical_ntt_physical"), ("intt", "coefficient_bit_reversed")):
                 actual = primitive_outputs(self.specification(operation, level=level), parameters,
                                            self.operations(operation))
                 self.assertEqual(actual, (dict(enumerate(q)), domain))

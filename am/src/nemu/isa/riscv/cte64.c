@@ -1,14 +1,38 @@
 #include <riscv.h>
 #include <nemu.h>
+#include <stddef.h>
 extern void __am_timervec(void);
 
 #if defined(__ARCH_RISCV64_XS) && defined(LINKNAN_HPU_IT)
 #include <xs.h>
 #endif
 
-static void init_machine_exception() {
-  // set M-mode exception entry
-  asm volatile("csrw mtvec, %0" : : "r"(__am_timervec));
+/* 前两项供timer使用，后三项供所有机器trap保存a1/a2/a3。 */
+static struct {
+  uintptr_t compare_address;
+  uintptr_t interval;
+  uintptr_t saved[3];
+} machine_trap_context __attribute__((aligned(16)));
+
+volatile uintptr_t __am_machine_trap_fault[3];
+
+_Static_assert(sizeof(uintptr_t) == 8, "mtime.S使用RV64保存区布局");
+_Static_assert(offsetof(typeof(machine_trap_context), saved) == 16,
+               "mtime.S保存寄存器偏移必须为16/24/32");
+
+void __am_machine_timer_config(uintptr_t compare_address, uintptr_t interval) {
+  machine_trap_context.compare_address = compare_address;
+  machine_trap_context.interval = interval;
+}
+
+void __am_machine_timer_interval(uintptr_t interval) {
+  machine_trap_context.interval = interval;
+}
+
+static void init_machine_exception(void) {
+  /* mscratch始终指向真实、对齐的保存区；不能依赖init_timer()的副作用。 */
+  asm volatile("csrw mscratch, %0" : : "r"(&machine_trap_context) : "memory");
+  asm volatile("csrw mtvec, %0" : : "r"(__am_timervec) : "memory");
 }
 
 int g_config_disable_timer = 0; // dirty hack of __am_init_cte64(), to be refactored
@@ -26,6 +50,10 @@ static void init_eip() {
 }
 
 void __am_init_cte64() {
+  /* 注册表已准备好；保存区安装前仍禁止机器中断进入。 */
+  asm volatile("csrc mstatus, %0" : : "r"((uintptr_t)(1U << 3)) : "memory");
+  asm volatile("csrc mie, %0" : : "r"((uintptr_t)0x8a2U) : "memory");
+  init_machine_exception();
   // set delegation (do not deleg illegal instruction exception)
   asm volatile("csrw mideleg, %0" : : "r"(0xffff));
   asm volatile("csrw medeleg, %0" : : "r"(0xfffb));
@@ -35,6 +63,7 @@ void __am_init_cte64() {
   // asm volatile("csrw pmpcfg2, %0" : : "r"(31));
   
   init_pmp();
+#if !defined(LINKNAN_HPU_IT)
 #if defined(__ARCH_RISCV64_NOOP) || defined(__ARCH_RISCV32_NOOP) || defined(__ARCH_RISCV64_XS)
   // protect 0x90000000 + 0x10000 for test purpose
   enable_pmp(1, 0x90000000, 0x10000, 0, 0); // !rw
@@ -51,8 +80,13 @@ void __am_init_cte64() {
 #else
   // invalid arch
 #endif
+#endif /* CPU PMP定向测试的禁止区不能覆盖HPU的DDR窗口。 */
 
-  init_machine_exception();
+#if defined(LINKNAN_HPU_IT)
+  /* 后续目标程序在S态读取cycle；必须在仍处于M态时开放访问。 */
+  asm volatile("csrs mcounteren, %0" : : "r"((uintptr_t)1U) : "memory");
+#endif
+
   if(!g_config_disable_timer){
     init_timer();
     enable_timer();

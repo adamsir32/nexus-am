@@ -2,7 +2,9 @@
 import json
 import os
 from pathlib import Path
+import shutil
 import struct
+import subprocess
 import tempfile
 from types import SimpleNamespace
 import unittest
@@ -14,25 +16,47 @@ import build_performance as build
 STEM = "probe"
 CFG = """00001000 <main>:
     1000: 000000ef jal 2000 <hpu_validate_probe>
-    1004: 00000063 bnez a0,1034 <main+0x34>
-    1008: 000000ef jal 2100 <perf_cycle_read>
-    100c: 000000ef jal 2200 <hpu_run_probe>
-    1010: 00000063 beqz a0,1020 <main+0x20>
-    1014: 000000ef jal 2100 <perf_cycle_read>
-    1018: 0000006f j 3000 <case_fail>
-    1020: 000000ef jal 2300 <performance_wait>
-    1024: 000000ef jal 2100 <perf_cycle_read>
-    1028: 000000ef jal 2400 <check_results>
-    102c: 000000ef jal 2500 <check_memory>
-    1030: 0000006f j 3100 <case_pass>
-    1034: 0000006f j 3000 <case_fail>
+    1004: 00000063 bnez a0,1090 <main+0x90>
+    1008: 000000ef jal 2600 <irq_reset_events>
+    100c: 00000063 bnez a0,1090 <main+0x90>
+    1010: 000000ef jal 2700 <irq_open>
+    1014: 00000063 bnez a0,1080 <main+0x80>
+    1018: 000000ef jal 2800 <irq_event_count>
+    101c: 00000063 bnez a0,1080 <main+0x80>
+    1020: 000000ef jal 2900 <irq_handler_count>
+    1024: 00000063 bnez a0,1080 <main+0x80>
+    1028: 000000ef jal 2100 <perf_cycle_read>
+    102c: 000000ef jal 2200 <hpu_run_probe>
+    1030: 00000063 beqz a0,1040 <main+0x40>
+    1034: 000000ef jal 2100 <perf_cycle_read>
+    1038: 000000ef jal 2a00 <irq_close>
+    103c: 0000006f j 3000 <case_fail>
+    1040: 000000ef jal 2300 <performance_wait>
+    1044: 000000ef jal 2100 <perf_cycle_read>
+    1048: 000000ef jal 2a00 <irq_close>
+    104c: 000000ef jal 2800 <irq_event_count>
+    1050: 00000413 li s0,1
+    1054: 00000063 bne a0,s0,1090 <main+0x90>
+    1058: 000000ef jal 2900 <irq_handler_count>
+    105c: 00000063 bne a0,s0,1090 <main+0x90>
+    1060: 080004b7 lui s1,0x8000
+    1064: 00000003 lwu a5,28(s1)
+    1068: 00000003 lwu a5,20(s1)
+    106c: 00000003 lwu a5,24(s1)
+    1070: 000000ef jal 2400 <check_results>
+    1074: 000000ef jal 2500 <check_memory>
+    1078: 0000006f j 3100 <case_pass>
+    1080: 000000ef jal 2a00 <irq_close>
+    1084: 0000006f j 3000 <case_fail>
+    1090: 0000006f j 3000 <case_fail>
 00002000 <hpu_validate_probe>:
     2000: 00008067 ret
 00002200 <hpu_run_probe>:
     2200: 7000005b .word 0x7000005b
     2204: 00008067 ret
 00002300 <performance_wait>:
-    2300: 00008067 ret
+    2300: 000000ef jal 2b00 <irq_poll>
+    2304: 00008067 ret
 """
 
 
@@ -44,26 +68,26 @@ class TimingTests(unittest.TestCase):
         build.verify_timing(CFG, STEM)
 
     def test_pass_path_cannot_skip_wait(self):
-        broken = CFG.replace("1010: 00000063 beqz a0,1020", "1010: 00000063 beqz a0,1024")
+        broken = CFG.replace("1030: 00000063 beqz a0,1040", "1030: 00000063 beqz a0,1044")
         with self.assertRaisesRegex(ValueError, "ordering differs"):
             build.verify_timing(broken, STEM)
 
     def test_a_second_pass_path_cannot_bypass_the_measurement(self):
-        broken = CFG.replace("1004: 00000063 bnez a0,1034", "1004: 00000063 bnez a0,1030")
+        broken = CFG.replace("1004: 00000063 bnez a0,1090", "1004: 00000063 bnez a0,1078")
         with self.assertRaisesRegex(ValueError, "ordering differs"):
             build.verify_timing(broken, STEM)
 
     def test_logging_between_issue_and_stop_is_rejected(self):
-        broken = CFG.replace("1020: 000000ef jal 2300 <performance_wait>",
-                             "1020: 000000ef jal 2300 <performance_wait>\n"
-                             "1022: 000000ef jal 3200 <printf_>")
+        broken = CFG.replace("1040: 000000ef jal 2300 <performance_wait>",
+                             "1040: 000000ef jal 2300 <performance_wait>\n"
+                             "1042: 000000ef jal 3200 <printf_>")
         with self.assertRaisesRegex(ValueError, "ordering differs"):
             build.verify_timing(broken, STEM)
 
     def test_extra_cycle_on_success_is_rejected(self):
-        broken = CFG.replace("1028: 000000ef jal 2400 <check_results>",
-                             "1026: 000000ef jal 2100 <perf_cycle_read>\n"
-                             "1028: 000000ef jal 2400 <check_results>")
+        broken = CFG.replace("1070: 000000ef jal 2400 <check_results>",
+                             "106e: 000000ef jal 2100 <perf_cycle_read>\n"
+                             "1070: 000000ef jal 2400 <check_results>")
         with self.assertRaisesRegex(ValueError, "ordering differs"):
             build.verify_timing(broken, STEM)
 
@@ -71,6 +95,106 @@ class TimingTests(unittest.TestCase):
         broken = CFG.replace("2000: 00008067 ret", "2000: 7000005b .word 0x7000005b")
         with self.assertRaisesRegex(ValueError, "preflight issues"):
             build.verify_timing(broken, STEM)
+
+    def test_missing_or_unchecked_irq_arm_is_rejected(self):
+        for broken in (CFG.replace("1010: 000000ef jal 2700 <irq_open>", "1010: 00000013 nop"),
+                       CFG.replace("1014: 00000063 bnez a0,1080 <main+0x80>", "1014: 00000013 nop")):
+            with self.subTest(broken=broken), self.assertRaisesRegex(ValueError, "ordering differs"):
+                build.verify_timing(broken, STEM)
+
+    def test_irq_arm_inside_timing_window_is_rejected(self):
+        broken = CFG.replace("1010: 000000ef jal 2700 <irq_open>",
+                             "1010: 000000ef jal 2100 <perf_cycle_read>").replace(
+                                 "1028: 000000ef jal 2100 <perf_cycle_read>",
+                                 "1028: 000000ef jal 2700 <irq_open>")
+        with self.assertRaisesRegex(ValueError, "ordering differs"):
+            build.verify_timing(broken, STEM)
+
+    def test_close_before_stop_and_missing_isr_terminal_checks_are_rejected(self):
+        cases = [CFG.replace("1040: 000000ef jal 2300 <performance_wait>",
+                             "1040: 000000ef jal 2a00 <irq_close>"),
+                 CFG.replace("1058: 000000ef jal 2900 <irq_handler_count>", "1058: 00000013 nop"),
+                 CFG.replace("1068: 00000003 lwu a5,20(s1)", "1068: 00000013 nop"),
+                 CFG.replace("1064: 00000003 lwu a5,28(s1)", "1064: 00000023 sw a5,28(s1)")]
+        for broken in cases:
+            with self.subTest(broken=broken), self.assertRaisesRegex(ValueError, "ordering differs"):
+                build.verify_timing(broken, STEM)
+
+    def test_failure_arm_cleanup_is_not_mistaken_for_timed_close(self):
+        # CFG中1080是arm/旧计数检查失败的close，不经过start，也不能到PASS。
+        build.verify_timing(CFG, STEM)
+
+    def test_wait_must_observe_isr_and_cannot_clear_or_print(self):
+        for replacement in ("2300: 00000013 nop",
+                            "2300: 000000ef jal 2b00 <clear_completion>",
+                            "2300: 000000ef jal 2b00 <irq_diagnose>"):
+            broken = CFG.replace("2300: 000000ef jal 2b00 <irq_poll>", replacement)
+            with self.subTest(replacement=replacement), self.assertRaisesRegex(ValueError, "wait path"):
+                build.verify_timing(broken, STEM)
+
+    def test_unique_shared_wait_delegate_preserves_the_isr_gate(self):
+        delegated = CFG.replace("2300: 000000ef jal 2b00 <irq_poll>\n    2304: 00008067 ret",
+                                "2300: 0000006f j 2c00 <wait_program>\n"
+                                "00002c00 <wait_program>:\n"
+                                "    2c00: 000000ef jal 2b00 <irq_poll>\n"
+                                "    2c04: 00008067 ret")
+        build.verify_timing(delegated, STEM)
+        for broken in (delegated.replace("2c00: 000000ef jal 2b00 <irq_poll>",
+                                         "2c00: 000000ef jal 2b00 <clear_completion>"),
+                       delegated.replace("2300: 0000006f j 2c00 <wait_program>",
+                                         "2300: 000000ef jal 2d00 <untracked_work>\n"
+                                         "    2304: 0000006f j 2c00 <wait_program>")):
+            with self.subTest(broken=broken), self.assertRaisesRegex(ValueError, "wait path"):
+                build.verify_timing(broken, STEM)
+
+    def test_actual_main_cross_compilation_keeps_irq_timing_contract(self):
+        """只交叉编译真实main+最小链接桩，核查GCC控制流，不构建AM或声称硬件通过。"""
+        compiler = shutil.which("riscv64-linux-gnu-gcc")
+        if compiler is None:
+            self.skipTest("no RV64 cross compiler")
+        with tempfile.TemporaryDirectory(prefix="perf-main-cfg-") as temporary:
+            directory = Path(temporary)
+            (directory / "layout.h").write_text(
+                '#define CASE_ID "07_02_ckks_hadd_l4_n1024"\n'
+                '#define SCHEDULE_PROFILE "optimized"\n'
+                '#define DEGREE 1024U\n#define LEVEL 4U\n#define WINDOW_LINES 128U\n'
+                '#define IMAGE_LINES 128U\n#define GOLDEN_WORDS 64U\n'
+                '#define INSTRUCTION_COUNT 1U\n#define DMA_COUNT 0U\n')
+            stem = "frontend_ckks_hadd_l4_n1024"
+            (directory / "program.h").write_text(
+                f'int hpu_validate_{stem}(void);\nint hpu_run_{stem}(void);\n')
+            (directory / "stubs.c").write_text(
+                '#include <workload.h>\n#include <performance.h>\n#include <hpu/irq.h>\n'
+                'volatile struct workload_progress workload_trace;\n'
+                'void perf_cycle_enable(void) {}\nuint64_t perf_cycle_read(void) { return 0; }\n'
+                'void phase_mark(unsigned p) {(void)p;}\nvoid prepare_image(void) {}\n'
+                'int clear_completion(void) {return 0;}\n'
+                'int expect_csr(uintptr_t a, uint32_t b) {(void)a; (void)b; return 0;}\n'
+                'int wait_window(void) {return 0;}\nint irq_reset_events(void) {return 0;}\n'
+                'int irq_open(void) {return 0;}\nvoid irq_close(void) {}\n'
+                'uint32_t irq_event_count(void) {return 0;}\n'
+                'uint32_t irq_handler_count(void) {return 0;}\n'
+                'void irq_diagnose(const char *p, unsigned n) {(void)p; (void)n;}\n'
+                'int performance_wait(void) {return irq_poll();}\nint check_results(void) {return 0;}\n'
+                'volatile int stub_irq_flag;\n'
+                '__attribute__((noinline)) int irq_poll(void) {return stub_irq_flag;}\n'
+                'int check_memory(void) {return 0;}\nint case_pass(void) {return 0;}\n'
+                'int case_fail_at(const char *p, unsigned n) {(void)p; (void)n; return 1;}\n'
+                f'int hpu_validate_{stem}(void) {{return 0;}}\n'
+                f'int hpu_run_{stem}(void) {{return 0;}}\n')
+            am = build.ROOT.parents[1]
+            source = build.ROOT / "src/07_performance/01_n1024/07_02_ckks_hadd_l4_n1024.c"
+            elf = directory / "main.elf"
+            subprocess.run([compiler, "-O2", "-std=gnu11", "-Wall", "-Wextra", "-Werror",
+                            "-march=rv64gc", "-mabi=lp64d", "-mcmodel=medany", "-fno-pic",
+                            "-no-pie", "-nostdlib", "-static", "-fno-builtin", "-DHPU_LOG_LEVEL=0",
+                            "-DMEM_BASE=0x90000000ULL", '-DARCH_H="arch/riscv64-xs.h"',
+                            f"-I{directory}", f"-I{build.ROOT / 'include'}",
+                            f"-I{am / 'am'}", f"-I{am / 'am/include'}",
+                            f"-I{am / 'libs/klib/include'}", "-Wl,-Ttext=0x80000000", "-Wl,-e,main",
+                            str(source), str(directory / "stubs.c"), "-o", str(elf)], check=True)
+            text = subprocess.check_output(["riscv64-linux-gnu-objdump", "-d", str(elf)], text=True)
+            build.verify_timing(text, stem)
 
 
 class BuildTests(unittest.TestCase):

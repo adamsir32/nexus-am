@@ -147,7 +147,7 @@ def prepare(directory, stem):
         f'#include "{stem}.h"\n/* 必须在起始cycle前执行；只检查参数，不发HPU指令。 */\n'
         f'int hpu_validate_{stem}(void);\n')
     (directory / "PERF_ADAPTATION.json").write_text(json.dumps(dict(
-        schema_version=1, metric="issue_to_done_v2", program_stem=stem,
+        schema_version=1, metric="issue_to_irq_done_v1", completion="plic_irq", program_stem=stem,
         instruction_count=count, instruction_words_unchanged=True,
         native_fixed_entry_unchanged=True, dma_length_reuse="upstream_single_asm",
         preflight_emits_hpu=False, timed_parameter_checks=False,

@@ -16,7 +16,7 @@ level指输入Q分量数4，不含P，也不是chain_index。降层操作输出�
 
 04只验证基本算子与KeySwitch核心；05验收完整密文库操作，不能因共享指令链混为一组。原N128/N2048/N4096/N8192及不同level、特殊CF/step1回归已按要求删除源码，不保留占位。
 
-算法/rounded-P沿用固定上游实现。末尾一次PSYNC、MMIO完成/BUSY检查、全部输出及只读区/guard检查不变。软件模型和构建通过不代表RTL/FPGA通过。
+算法/rounded-P沿用固定上游实现。末尾一次PSYNC→CPU外部中断，ISR清电平并完成PLIC claim；主程序确认一次真实事件、VALID/非BUSY/无fault，再检查全部输出及只读区/guard。不能只读MMIO完成电平替代中断检查。软件模型和构建通过不代表RTL/FPGA通过。
 
 ```bash
 make -C tests/hputest group GROUP=05 OUTPUT_ROOT=/disk/hpu/library

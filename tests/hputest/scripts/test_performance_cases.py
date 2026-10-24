@@ -60,20 +60,34 @@ class PerformanceCaseTests(unittest.TestCase):
                 end = text.index("cycle_end = perf_cycle_read();")
                 self.assertLess(text.index(validator), text.index("csr_write(CSR_COMMIT, COMMIT);"))
                 self.assertLess(text.index("csr_write(CSR_COMMIT, COMMIT);"), start)
+                self.assertLess(text.index("perf_cycle_enable();"), text.index("irq_open()"))
+                self.assertLess(text.index("wait_window()"), text.index("irq_reset_events()"))
+                self.assertLess(text.index("irq_reset_events()"), text.index("irq_open()"))
+                self.assertLess(text.index("irq_open()"), text.index("if (irq_event_count() != 0U)"))
+                self.assertLess(text.index("if (irq_event_count() != 0U)"), start)
+                self.assertLess(text.index("if (irq_handler_count() != 0U)"), start)
+                self.assertEqual(text.count("clear_completion()"), 1)
+                self.assertLess(text.index("clear_completion()"), text.index("csr_write(CSR_COMMIT, COMMIT);"))
                 # 精确保持原有计时窗，避免把日志、准备、校验或错误处理移入测量。
                 timed = re.sub(r"\s+", " ", text[start:end]).strip()
                 self.assertEqual(timed, "cycle_start = perf_cycle_read(); rc = " + runner +
                                  "; if (rc == 0) wait_rc = performance_wait();")
                 for forbidden in ("LOG_", "phase_mark", "validate_", "clear_completion",
-                                  "prepare_image", "check_results", "check_memory"):
+                                  "prepare_image", "check_results", "check_memory", "irq_open",
+                                  "irq_close", "irq_event_count", "irq_handler_count", "irq_diagnose"):
                     self.assertNotIn(forbidden, timed)
+                close = text.index("irq_close();", end)
+                self.assertLess(close, text.index('irq_diagnose("performance-wait", 0U);'))
+                self.assertGreater(text.index("if (irq_event_count() != 1U)"), close)
+                self.assertGreater(text.index("if (irq_handler_count() != 1U)"), close)
+                self.assertGreater(text.index("csr_read(CSR_IRQ)"), close)
                 self.assertGreater(text.index("workload_trace.cycle_start ="), end)
                 self.assertGreater(text.index("workload_trace.cycle_end ="), end)
                 self.assertGreater(text.index("verified=1"), text.index("if (memory_rc != 0)"))
-                self.assertIn("metric=issue_to_done_v2", text)
+                self.assertIn("metric=issue_to_irq_done_v1 completion=plic_irq", text)
                 self.assertIn("SCHEDULE_PROFILE", text)
 
-    def test_mmio_wait_order_timeout_and_sparse_trace(self):
+    def test_irq_wait_order_timeout_and_sparse_trace(self):
         parent = ROOT / "build/host-tests"
         parent.mkdir(parents=True, exist_ok=True)
         directory = Path(tempfile.mkdtemp(prefix="performance-", dir=parent))
@@ -83,6 +97,7 @@ class PerformanceCaseTests(unittest.TestCase):
                             "-DWORKLOAD_HOST_TEST", "-DWAIT_CYCLES=1024",
                             "-I" + str(ROOT / "test/host/include"), "-I" + str(ROOT / "include"),
                             str(ROOT / "test/host/performance_test.c"),
+                            str(ROOT / "runtime/native/wait.c"),
                             str(ROOT / "runtime/native/performance.c"), "-o", str(binary)], check=True)
             subprocess.run([str(binary)], check=True)
         finally:

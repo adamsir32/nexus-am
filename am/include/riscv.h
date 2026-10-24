@@ -55,6 +55,14 @@ enum { MODE_U = 0, MODE_S, MODE_H, MODE_M };
 #define SCAUSE_SEIP 0x9
 // Exception
 #define SCAUSE_SECALL 0x9
+
+/* RV64机器trap保存区独立于CLINT是否启用；配置函数不改变mscratch。 */
+#if __riscv_xlen == 64
+void __am_machine_timer_config(uintptr_t compare_address, uintptr_t interval);
+void __am_machine_timer_interval(uintptr_t interval);
+/* 非预期机器异常的原始现场，可由仿真器/调试器读取。 */
+extern volatile uintptr_t __am_machine_trap_fault[3]; /* mepc、mcause、mtval */
+#endif
 #endif
 
 #endif

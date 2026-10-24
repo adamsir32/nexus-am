@@ -30,6 +30,9 @@ ClintInfo timer_handle;
  */
 void set_timer_inc(uintptr_t inc) {
     timer_handle.time_inc = inc;
+#if !defined(__ARCH_RISCV64_XS_FLASH)
+    __am_machine_timer_interval(inc);
+#endif
 }
 
 /*
@@ -41,7 +44,13 @@ void init_timer() {
     set_timer_inc(TIME_INC);
     *(uint64_t *)(timer_handle.mtimecmp) = *(uint64_t *)(RTC_ADDR) + TIME_INC;
     printf("timer interrupt inc %d\n", TIME_INC);
+#if defined(__ARCH_RISCV64_XS_FLASH)
+    /* 此旧flash端口不链接CTE64/mtime.S，保留其独立timer入口。 */
     asm volatile("csrw mscratch, %0" : : "r"(&timer_handle));
+#else
+    /* 通用机器保存区已在CTE64安装，timer只补齐调度参数。 */
+    __am_machine_timer_config(timer_handle.mtimecmp, timer_handle.time_inc);
+#endif
 }
 /*
  * enable machine mode timer interrupt

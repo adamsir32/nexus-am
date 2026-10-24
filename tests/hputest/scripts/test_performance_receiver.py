@@ -12,6 +12,7 @@ from import_package import (NTT_ABI, expected_operations, package_profile, store
 def specification(level=4):
     return {"case_id": "07_03_ckks_hmul_reline_l4_n1024", "kind": "performance", "profile": "baseline", "scheme": "ckks", "degree": 1024, "operation": "hmul", "level": level,
             "variant": "optimized", "program_stem": f"frontend_ckks_hmul_l{level}_n1024",
+            "metric": "issue_to_irq_done_v1",
             "memory_base": "0xc0000000" if level == 16 else "0x90000000",
             "minimum_ram_bytes": 2147483648 if level == 16 else 536870912}
 
@@ -67,7 +68,7 @@ class PerformanceReceiverTests(unittest.TestCase):
         fixture = {**spec, "schema_version": 1, "producer_commit": "pin", "producer_worktree_state": "clean-at-configure",
                    "verified": True, "instruction_verified": True, "fixture_words_equal": True,
                    "fixture_metadata_equal": True, "native_package_written": True, "hardware_verified": False,
-                   "ntt_contract": "natural_coefficient_boundaries", "ntt_table_abi": NTT_ABI,
+                   "ntt_contract": "raw_bit_reversed_coefficients", "ntt_table_abi": NTT_ABI,
                    "node_operations": ["multiply", "relinearize"], "Q": [17, 19, 23, 29], "P": [31]}
         fixture.update(same_fixture_recipe=False, same_seal_source=True, baseline_input_level=3,
                        baseline_parameters_equal=False)
@@ -75,6 +76,13 @@ class PerformanceReceiverTests(unittest.TestCase):
             path = Path(temporary) / "PERF_FIXTURE.json"
             path.write_text(json.dumps(fixture))
             validate_fixture(path, spec, "pin")
+            with self.assertRaisesRegex(ValueError, "IRQ and polling"):
+                validate_fixture(path, {**spec, "metric": "issue_to_done_v2"}, "pin")
+            for field, bad in (("ntt_table_abi", "hpu_ntt_table_v3"),
+                               ("ntt_contract", "natural_coefficient_boundaries")):
+                path.write_text(json.dumps({**fixture, field: bad}))
+                with self.assertRaisesRegex(ValueError, "NTT/hardware contract"):
+                    validate_fixture(path, spec, "pin")
             del fixture["Q"]
             path.write_text(json.dumps(fixture))
             with self.assertRaisesRegex(ValueError, "Q/P moduli"):

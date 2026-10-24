@@ -1,6 +1,7 @@
 #include <workload.h>
 #include <program.h>
 #include <hpu/log.h>
+#include <hpu/irq.h>
 
 /*
  * 用例：06_04_bfv_rotate_chain_n128
@@ -8,7 +9,7 @@
  * 参数：N=128（多项式长度），输入level=3（Q基RNS分量数，不含P）。
  * 参考：固定版本inline-asm的SEAL下降程序及原始word golden，沿用导入校验。
  * 发令：具体HPU指令、对象和DMA参数见同目录06_04_bfv_rotate_chain_n128.asm。
- * 顺序：准备数据 -> 提交窗口 -> 发令（原程序末尾唯一PSYNC）-> 同步 -> 自检。
+ * 顺序：准备数据 -> 提交窗口 -> PLIC武装 -> 发令（原程序末尾唯一PSYNC）-> ISR同步 -> 自检。
  * 此处不插入额外PSYNC，不改变上游算术、对象分配或DMA布局。
  */
 int main(void) {
@@ -44,22 +45,47 @@ int main(void) {
     if (wait_window() != 0)
         return case_fail_at(__FILE__, __LINE__);
 
-    /* 3. 只调用本例的具体程序；完整指令序列在同名.asm。 */
+    /* 3. 准备完成后才首次进入CTE/武装source257；发令前必须没有旧ISR事件。 */
+    if (irq_reset_events() != 0)
+        return case_fail_at(__FILE__, __LINE__);
+    if (irq_open() != 0) {
+        irq_close();
+        return case_fail_at(__FILE__, __LINE__);
+    }
+    if (irq_event_count() != 0U) {
+        irq_close();
+        return case_fail_at(__FILE__, __LINE__);
+    }
+    if (irq_handler_count() != 0U) {
+        irq_close();
+        return case_fail_at(__FILE__, __LINE__);
+    }
+
+    /* 4. 只调用本例的具体程序；完整指令序列在同名.asm。 */
     phase_mark(PHASE_ISSUE);
     const int program_rc = hpu_run_bfv_rotation_application();
     if (program_rc != 0) {
+        irq_close();
         LOG_ERROR("[HPU][PROGRAM] %s rc=%d\n", CASE_ID, program_rc);
         return case_fail_at(__FILE__, __LINE__);
     }
 
-    /* 4. 等待末尾PSYNC真正完成，再单独检查完成状态清除。 */
+    /* 5. 等source257的ISR清除/complete及HPU空闲；MMIO电平不能冒充ISR。 */
     phase_mark(PHASE_WAIT);
-    if (wait_program() != 0)
+    const int wait_rc = wait_program();
+    irq_close();
+    if (wait_rc != 0) {
+        irq_diagnose("program-wait", 0U);
         return case_fail_at(__FILE__, __LINE__);
-    if (clear_completion() != 0)
+    }
+    if (irq_event_count() != 1U)
+        return case_fail_at(__FILE__, __LINE__);
+    if (irq_handler_count() != 1U)
+        return case_fail_at(__FILE__, __LINE__);
+    if ((csr_read(CSR_IRQ) & IRQ_LEVEL) != 0U)
         return case_fail_at(__FILE__, __LINE__);
 
-    /* 5. 两项检查都执行，分别定位计算结果与只读区/guard破坏。 */
+    /* 6. 两项检查都执行，分别定位计算结果与只读区/guard破坏。 */
     phase_mark(PHASE_COMPARE);
     const int data_rc = check_results();
     const int memory_rc = check_memory();

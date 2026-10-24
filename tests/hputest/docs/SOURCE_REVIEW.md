@@ -1,4 +1,26 @@
-# 本轮精简与验证范围
+# 本轮布局与PSYNC中断修复
+
+基点为`fd0db077`，inline-asm从`3ab94da`升级至`cfee951e4056660e521d55a3535d82335a49bb08`。指令编码/旁侧ASM不变，按NTT ABI v4及bit-reversed系数域重新生成镜像、在线因子和golden；不能复用旧布局数据。
+
+此前native共享接收端一直保留末尾PSYNC，但`wait_program`/`performance_wait`只观察MMIO完成电平，未验证CPU中断。此次03～07默认改回真实PLIC source257/context1完成事件。COMMIT配置轮询和00～02明确指定的MMIO用例保留，不把这些测试的判据一并改掉。
+
+修复了三个相连问题：
+
+- CTE机器态初始化仅执行一次；后续open/rearm只配置IRQ，不在S态再次写机器CSR，也不清空既有handler注册表。
+- `mscratch`无条件指向16字节对齐的真实保存区，安装早于mtvec/开中断；timer只配置自身调度字段。禁用timer不再跳过异常入口准备，未把保存区指针设零。
+- AM递归构建显式接收HPU模式，模式切换使AM缓存失效。HPU模式开放S态cycle访问、初始化PLIC，且不设置CPU定向测试在0x90000000的禁止PMP窗口；默认CPU模式保留原PMP/timer策略。
+
+机器异常入口仅接受固定PC、固定指令、S态来源的受控IRQ重武装请求；其它非法指令或机器异常保留mepc/mcause/mtval并失败，不再无条件跳过4字节。
+
+03_08专门回归空闲/DMA/计算三个官方fixed入口，每个两轮，涵盖rearm及跨close/open，总计6个事件、CTE初始化1次。各片段末尾一次PSYNC；选中输出精确比较golden，未选输出检查仍为初始毒值，全部只读区和guard仍查。是否恰好处于硬件忙周期应由实际波形确认，host模型不作此声明。
+
+07计时口径改为`issue_to_irq_done_v1`、`completion=plic_irq`：IRQ配置在起点之前，DLOAD/计算/DSTORE/PSYNC及ISR处理在区间内，close/自检/UART在终点之后。MMIO电平本身不能冒充一次ISR，解析器拒收旧`issue_to_done_v2`。
+
+验证记录：原166项契约测试、新10项prefix接收测试及新增共享wait委托测试通过；IRQ生命周期/故障注入、三种前序各两轮的真实main主机回归通过。109项默认用例完成新布局模型、实际ELF/BIN、字码与嵌入数据检查，36项07通过实际成功路径cycle/IRQ门禁；03_08实际ELF含三个独立入口，mscratch指针/安装顺序、HPU模式的counter/PLIC/PMP策略已核对。未修改RTL、未屏蔽twiddle断言，以上不表示RTL/FPGA已通过。
+
+另6项API诊断重编译/模型检查通过；03_08静默版及07_33的N8192/BGV/L4静默noopt版完成实际目标构建、无UART和相应字码/计时检查。普通CPU amtest也实际重编译成功，ELF保留原PMP定向配置及timer分支；随后切回HPU模式的API构建成功，验证模式缓存切换不会混用。
+
+# 上轮精简与验证范围（fd0db077基线）
 
 基点为`7b10ddea`。按用户要求保留00～02与06，03～05只保留N1024/level4，07只保留N1024/N8192且全部level4。BGV性能原来为level3，本轮按确认真实改为level4，而不是只改标签。
 

@@ -86,8 +86,18 @@ class OnlineNttAbiTests(unittest.TestCase):
 
     def test_old_v1_contract_cannot_silently_load_on_new_producer(self):
         self.parameters["ntt_table_abi"]["version"] = 1
-        with self.assertRaisesRegex(ValueError, "ABI v3"):
+        with self.assertRaisesRegex(ValueError, "ABI v4"):
             self.validate()
+
+    def test_v3_natural_order_and_partial_layout_migrations_are_rejected(self):
+        for updates in ({"version": 3, "coefficient_order": "natural", "pre_twist_order": "natural",
+                         "post_factor_order": "natural"},
+                        {"pre_twist_order": "natural"}, {"post_factor_order": "natural"},
+                        {"external_coefficient_order": "bit_reversed"}):
+            with self.subTest(updates=updates):
+                self.parameters["ntt_table_abi"] = {**NTT_ABI, **updates}
+                with self.assertRaisesRegex(ValueError, "ABI v4"):
+                    self.validate()
 
     def test_unknown_chain_count_and_memory_sidecar_mismatch_are_rejected(self):
         self.memory_abi["twiddle_chains"] = 4

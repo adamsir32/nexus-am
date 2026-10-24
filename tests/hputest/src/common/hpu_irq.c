@@ -1,14 +1,22 @@
 #include <hpu/log.h>
 #include <am.h>
+#ifdef HPU_NATIVE_IRQ
+#include <platform.h>
+#else
 #include <hpu/csr.h>
-#include <hpu/irq.h>
 #include <hpu/layout.h>
+#endif
+#include <hpu/irq.h>
 #include <klib.h>
 #include <xsextra.h>
 #include <xs.h>
 
 #include <stddef.h>
 #include <stdint.h>
+
+#ifndef TIMEOUT
+#define TIMEOUT 20000000U
+#endif
 
 #define PLIC_SOURCE         257U
 #define PLIC_PRIORITY_INDEX (PLIC_SOURCE - 1U)
@@ -66,12 +74,19 @@ static void hpu_plic_disable(void) {
 /* 初始化/重新准备后由中断处理函数写，主程序仅轮询完成标志。 */
 static volatile uint32_t irq_done;
 static volatile uint32_t irq_error;
+static uint32_t irq_cte_attempted;
+static uint32_t irq_cte_ready;
+static volatile uint32_t irq_opened;
+static volatile uint32_t irq_events;
+static volatile uint32_t irq_handlers;
 
 enum {
     IRQ_BAD_EVENT = 1U,
     IRQ_BAD_CLAIM,
     IRQ_MISSING_LEVEL,
-    IRQ_CLEAR_TIMEOUT
+    IRQ_CLEAR_TIMEOUT,
+    IRQ_HPU_FAULT,
+    IRQ_UNARMED_EVENT
 };
 
 /* ISR 内不调用 printf；只保存已经读到的现场，由 irq_wait() 在失败后输出。 */
@@ -79,8 +94,43 @@ static volatile uint32_t irq_handler_seen;
 static volatile int irq_last_event;
 static volatile uint32_t irq_last_claim;
 static volatile uint32_t irq_last_level;
+static volatile uint32_t irq_last_status;
+static volatile uint32_t irq_last_fault;
 static volatile uint32_t irq_clear_last;
 static volatile uint32_t irq_clear_polls;
+
+static void irq_reset_round(void) {
+    irq_done = 0U;
+    irq_error = 0U;
+    irq_handler_seen = 0U;
+    irq_last_event = 0;
+    irq_last_claim = 0U;
+    irq_last_level = 0U;
+    irq_last_status = 0U;
+    irq_last_fault = 0U;
+    irq_clear_last = 0U;
+    irq_clear_polls = 0U;
+}
+
+int irq_poll(void) {
+    /* done先读、error后读：ISR若插在两次读取之间，也不会把新错误误报成成功。 */
+    uint32_t done = irq_done;
+    uint32_t error = irq_error;
+    if (error != 0U) return -1;
+    return done == 1U ? 1 : 0;
+}
+
+uint32_t irq_event_count(void) { return irq_events; }
+uint32_t irq_handler_count(void) { return irq_handlers; }
+uint32_t irq_cte_init_count(void) { return irq_cte_attempted; }
+
+int irq_reset_events(void) {
+    if (irq_opened != 0U) return 1;
+    irq_events = 0U;
+    irq_handlers = 0U;
+    irq_reset_round();
+    return 0;
+}
 
 int irq_clear_and_verify(void) {
     unsigned timeout;
@@ -100,6 +150,7 @@ int irq_clear_and_verify(void) {
 static _Context *handler(_Event event, _Context *context) {
     uint32_t claim;
 
+    ++irq_handlers;
     irq_handler_seen = 1U;
     irq_last_event = event.event;
     if (event.event != _EVENT_IRQ_IODEV) {
@@ -118,12 +169,18 @@ static _Context *handler(_Event event, _Context *context) {
     }
 
     irq_last_level = csr_read(CSR_IRQ);
+    irq_last_status = csr_read(CSR_STATUS);
+    irq_last_fault = csr_read(CSR_FAULT);
+    if (irq_opened == 0U || irq_done != 0U) irq_error = IRQ_UNARMED_EVENT;
+    if ((irq_last_status & STATUS_FAULT) != 0U ||
+        (irq_last_fault & FAULT_VALID) != 0U) irq_error = IRQ_HPU_FAULT;
     if ((irq_last_level & IRQ_LEVEL) == 0U) {
         irq_error = IRQ_MISSING_LEVEL;
     } else if (irq_clear_and_verify() != 0) {
         irq_error = IRQ_CLEAR_TIMEOUT;
     }
     hpu_plic_complete(claim);
+    if (irq_error == 0U) ++irq_events;
     irq_done = 1U;
     return context;
 }
@@ -134,19 +191,23 @@ int irq_open(void) {
     _intr_write(0);
     /* HPU中断用例只观察外部中断，禁止CTE同时打开定时器中断。 */
     g_config_disable_timer = 1;
-    rc = _cte_init(NULL);
-    if (rc != 0) {
-        LOG_ERROR("[HPU][IRQ][FAIL] phase=open reason=cte-init rc=%d\n", rc);
-        return 1;
+    /* 首次CTE会从M降到S；close不升回M，任何后续open都不能重走M态CSR初始化。
+     * 即使首次CTE返回失败，也不重试可能已部分降权的一次性路径。 */
+    if (irq_cte_attempted == 0U) {
+        irq_cte_attempted = 1U;
+        rc = _cte_init(NULL);
+        if (rc != 0) {
+            LOG_ERROR("[HPU][IRQ][FAIL] phase=open reason=cte-init rc=%d\n", rc);
+            return 1;
+        }
+        irq_cte_ready = 1U;
     }
-
-    irq_error = 0U;
-    irq_handler_seen = 0U;
-    irq_last_event = 0;
-    irq_last_claim = 0U;
-    irq_last_level = 0U;
-    irq_clear_last = 0U;
-    irq_clear_polls = 0U;
+    if (irq_cte_ready == 0U) return 1;
+    _intr_write(0);
+    irq_opened = 0U;
+    hpu_plic_disable();
+    mmio_write32(PLIC_PRIORITY_ADDR, 0U);
+    irq_reset_round();
 
     /* 先确认旧完成电平已撤销，再武装PLIC，避免把旧事件当成本轮结果。 */
     if (irq_clear_and_verify() != 0) {
@@ -156,7 +217,6 @@ int irq_open(void) {
         return 1;
     }
 
-    irq_done = 0U;
     seip_handler_reg(handler);
     mmio_write32(PLIC_PRIORITY_ADDR, 1U);
     mmio_write32(PLIC_THRESHOLD_ADDR, 0U);
@@ -189,38 +249,45 @@ int irq_open(void) {
         }
     }
     __asm__ volatile("csrs sie, %0" : : "r"(SIE_SEIE) : "memory");
+    irq_opened = 1U;
     _intr_write(1);
     return 0;
 }
 
-int irq_wait(void) {
-    unsigned timeout;
-    uint32_t error;
+void irq_diagnose(const char *phase, unsigned polls) {
+    uint32_t error = irq_error;
     const char *reason;
-
-    for (timeout = 0U; timeout < TIMEOUT; ++timeout) {
-        error = irq_error;
-        if (error != 0U) {
-            switch (error) {
-            case IRQ_BAD_EVENT: reason = "unexpected-event"; break;
-            case IRQ_BAD_CLAIM: reason = "unexpected-claim"; break;
-            case IRQ_MISSING_LEVEL: reason = "hpu-level-missing"; break;
-            case IRQ_CLEAR_TIMEOUT: reason = "clear-level-timeout"; break;
-            default: reason = "unknown-handler-error"; break;
-            }
-            LOG_ERROR("[HPU][IRQ][FAIL] phase=wait reason=%s error=%u polls=%u "
-                   "event=%d claim=%u expected-claim=%u irq=0x%x clear-last=0x%x clear-polls=%u\n",
-                   reason, error, timeout, irq_last_event, irq_last_claim,
-                   PLIC_SOURCE, irq_last_level, irq_clear_last, irq_clear_polls);
-            return 1;
-        }
-        if (irq_done == 1U) return 0;
+    switch (error) {
+    case 0U: reason = "timeout"; break;
+    case IRQ_BAD_EVENT: reason = "unexpected-event"; break;
+    case IRQ_BAD_CLAIM: reason = "unexpected-claim"; break;
+    case IRQ_MISSING_LEVEL: reason = "hpu-level-missing"; break;
+    case IRQ_CLEAR_TIMEOUT: reason = "clear-level-timeout"; break;
+    case IRQ_HPU_FAULT: reason = "hpu-fault"; break;
+    case IRQ_UNARMED_EVENT: reason = "unarmed-event"; break;
+    default: reason = "unknown-handler-error"; break;
     }
     /* 只打印缓存现场，不为诊断额外 claim PLIC 或读取 HPU MMIO。 */
-    LOG_ERROR("[HPU][IRQ][FAIL] phase=wait reason=timeout polls=%u handler-seen=%u "
-           "done=%u error=%u event=%d claim=%u irq=0x%x clear-last=0x%x clear-polls=%u\n",
-           timeout, irq_handler_seen, irq_done, irq_error, irq_last_event,
-           irq_last_claim, irq_last_level, irq_clear_last, irq_clear_polls);
+    LOG_ERROR("[HPU][IRQ][FAIL] phase=%s reason=%s polls=%u handler-seen=%u "
+           "done=%u error=%u event=%d claim=%u expected-claim=%u irq=0x%x "
+           "status=0x%x fault=0x%x clear-last=0x%x clear-polls=%u "
+           "events=%u handlers=%u cte-init=%u\n",
+           phase, reason, polls, irq_handler_seen, irq_done, error, irq_last_event,
+           irq_last_claim, PLIC_SOURCE, irq_last_level, irq_last_status, irq_last_fault,
+           irq_clear_last, irq_clear_polls, irq_events, irq_handlers, irq_cte_attempted);
+}
+
+int irq_wait(void) {
+    unsigned timeout;
+    for (timeout = 0U; timeout < TIMEOUT; ++timeout) {
+        int state = irq_poll();
+        if (state < 0) {
+            irq_diagnose("wait", timeout);
+            return 1;
+        }
+        if (state > 0) return 0;
+    }
+    irq_diagnose("wait", timeout);
     return 1;
 }
 
@@ -229,6 +296,10 @@ int irq_rearm(void) {
     __asm__ volatile("fence iorw, iorw" : : : "memory");
     uint32_t status = csr_read(CSR_STATUS);
     uint32_t value = irq_done;
+    if (irq_opened == 0U) {
+        LOG_ERROR("[HPU][IRQ][FAIL] phase=rearm reason=not-open status=0x%x\n", status);
+        return 1;
+    }
     /* 保持原先短路判断及 MMIO 读取顺序；每条失败日志只用已读到的值。 */
     if (value != 1U) {
         LOG_ERROR("[HPU][IRQ][FAIL] phase=rearm reason=not-done done=%u status=0x%x\n",
@@ -265,13 +336,7 @@ int irq_rearm(void) {
         LOG_ERROR("[HPU][IRQ][FAIL] phase=rearm reason=status-fault status=0x%x\n", status);
         return 1;
     }
-    irq_done = 0U;
-    irq_handler_seen = 0U;
-    irq_last_event = 0;
-    irq_last_claim = 0U;
-    irq_last_level = 0U;
-    irq_clear_last = 0U;
-    irq_clear_polls = 0U;
+    irq_reset_round();
     __asm__ volatile("fence iorw, iorw" : : : "memory");
     _intr_write(1);
     return 0;
@@ -279,6 +344,7 @@ int irq_rearm(void) {
 
 void irq_close(void) {
     _intr_write(0);
+    irq_opened = 0U;
     __asm__ volatile("csrc sie, %0" : : "r"(SIE_SEIE) : "memory");
     hpu_plic_disable();
     mmio_write32(PLIC_PRIORITY_ADDR, 0U);

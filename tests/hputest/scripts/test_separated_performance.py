@@ -35,6 +35,13 @@ class SeparatedPerformanceTests(unittest.TestCase):
                 self.assertIn("csr_write(CSR_COMMIT, COMMIT);", code)
                 self.assertIn("check_results();", code)
                 self.assertIn("check_memory();", code)
+                self.assertIn("#include <hpu/irq.h>", code)
+                self.assertIn("if (irq_open() != 0)", code)
+                self.assertIn("if (irq_event_count() != 0U)", code)
+                self.assertIn("if (irq_handler_count() != 0U)", code)
+                self.assertIn("if (irq_event_count() != 1U)", code)
+                self.assertIn("if (irq_handler_count() != 1U)", code)
+                self.assertIn("completion=plic_irq", code)
                 self.assertIn("case_fail_at(__FILE__, __LINE__)", code)
                 self.assertNotIn("return case_fail(__LINE__)", code)
                 self.assertNotIn("native_case_run", code)
@@ -58,9 +65,9 @@ class SeparatedPerformanceTests(unittest.TestCase):
                 "#define INSTRUCTION_COUNT 1U\n#define DMA_COUNT 1U\n"
                 "enum { PHASE_PREPARE, PHASE_CONFIGURE, PHASE_ISSUE, PHASE_COMPARE };\n"
                 "enum { CSR_FAULT, CSR_BASE_LO, CSR_BASE_HI, CSR_SIZE_LO, CSR_SIZE_HI,"
-                " CSR_COMMIT, CSR_STATUS };\n"
+                " CSR_COMMIT, CSR_STATUS, CSR_IRQ };\n"
                 "enum { FAULT_VALID=1U, COMMIT=1U, STATUS_VALID=1U,"
-                " STATUS_BUSY=2U, STATUS_FAULT=4U };\n"
+                " STATUS_BUSY=2U, STATUS_FAULT=4U, IRQ_LEVEL=1U };\n"
                 "struct progress { uint64_t cycle_start, cycle_end; };\n"
                 "extern volatile struct progress workload_trace;\n"
                 "void phase_mark(unsigned); void prepare_image(void);\n"
