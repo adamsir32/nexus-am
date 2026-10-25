@@ -211,6 +211,14 @@ def verify_success_timing(main, stem):
                 value = int(arguments[1], 0) << (12 if opcode == "lui" else 0)
             elif opcode == "mv":
                 value = registers.get(arguments[1])
+            elif opcode == "sext.w":
+                source = registers.get(arguments[1])
+                # GCC13会规范化uint32_t返回值；sext32(x)==0/1仍精确等价于x==0/1。
+                # 只保留已知计数接口的来源，不把任意截断/移位或未知值当作计数。
+                if isinstance(source, tuple) and source[0] in ("irq_event_count", "irq_handler_count"):
+                    value = source
+                elif isinstance(source, int):
+                    value = ((source & 0xffffffff) ^ 0x80000000) - 0x80000000
             elif opcode in ("addi", "addiw", "slli") and isinstance(registers.get(arguments[1]), int):
                 left, immediate = registers[arguments[1]], int(arguments[2], 0)
                 value = left << immediate if opcode == "slli" else left + immediate

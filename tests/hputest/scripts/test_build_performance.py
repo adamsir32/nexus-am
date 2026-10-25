@@ -2,6 +2,7 @@
 import json
 import os
 from pathlib import Path
+import re
 import shutil
 import struct
 import subprocess
@@ -60,7 +61,49 @@ CFG = """00001000 <main>:
 """
 
 
+def gcc13_counter_cfg():
+    """复刻Ubuntu24.04/GCC13.3实际生成的计数sext.w及保存/比较形式。"""
+    main, helpers = CFG.split("00002000 <hpu_validate_probe>:", 1)
+    # 留出真实的4字节指令槽；保留原CFG所有成功/失败分支。
+    def address(match):
+        return f"{0x1000 + (int(match[1], 16) - 0x1000) * 2:04x}"
+    main = re.sub(r"\b([0-9a-f]+)(?=:)", address, main)
+    main = re.sub(r"\b([0-9a-f]+)(?= <main\+)", address, main)
+    main = main.replace("1030: 000000ef jal 2800 <irq_event_count>",
+                        "1030: 000000ef jal 2800 <irq_event_count>\n"
+                        "    1034: 2501 sext.w a0,a0")
+    main = main.replace("1040: 000000ef jal 2900 <irq_handler_count>",
+                        "1040: 000000ef jal 2900 <irq_handler_count>\n"
+                        "    1044: 0005079b sext.w a5,a0").replace(
+                            "1048: 00000063 bnez a0", "1048: 00000063 bnez a5")
+    main = main.replace("1098: 000000ef jal 2800 <irq_event_count>",
+                        "1098: 000000ef jal 2800 <irq_event_count>\n"
+                        "    109c: 0005041b sext.w s0,a0")
+    main = main.replace("10a0: 00000413 li s0,1", "10a0: 00000793 li a5,1")
+    main = main.replace("10a8: 00000063 bne a0,s0,1120 <main+0x90>",
+                        "10a8: 00000063 beq s0,a5,10b0 <main+0xb0>\n"
+                        "    10ac: 0000006f j 3000 <case_fail>")
+    main = main.replace("10b0: 000000ef jal 2900 <irq_handler_count>",
+                        "10b0: 000000ef jal 2900 <irq_handler_count>\n"
+                        "    10b4: 0005079b sext.w a5,a0").replace(
+                            "10b8: 00000063 bne a0,s0", "10b8: 00000063 bne a5,s0")
+    return main + "00002000 <hpu_validate_probe>:" + helpers
+
+
 class TimingTests(unittest.TestCase):
+    def test_gcc13_counter_normalization_preserves_exact_zero_and_one_checks(self):
+        build.verify_timing(gcc13_counter_cfg(), STEM)
+
+    def test_gcc13_normalization_cannot_hide_wrong_or_missing_counter_checks(self):
+        cfg = gcc13_counter_cfg()
+        broken = [cfg.replace("1044: 0005079b sext.w a5,a0", "1044: 0002879b sext.w a5,t0"),
+                  cfg.replace("1034: 2501 sext.w a0,a0", "1034: 0ff57513 andi a0,a0,255"),
+                  cfg.replace("10a0: 00000793 li a5,1", "10a0: 00000793 li a5,2"),
+                  cfg.replace("10b8: 00000063 bne a5,s0,1120 <main+0x90>", "10b8: 00000013 nop")]
+        for text in broken:
+            with self.subTest(text=text), self.assertRaisesRegex(ValueError, "ordering differs"):
+                build.verify_timing(text, STEM)
+
     def test_explicit_source_failure_entry_keeps_the_same_success_timing_contract(self):
         build.verify_timing(CFG.replace("<case_fail>", "<case_fail_at>"), STEM)
 
