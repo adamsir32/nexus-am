@@ -10,6 +10,24 @@ import unittest
 ROOT = Path(__file__).resolve().parents[1]
 DEGREE_DIRECTORIES = {"1024": "01_n1024", "8192": "02_n8192"}
 
+# 官方renderer的共享C ABI；仅供无生成包的host语法/状态机fixture使用。
+PROFILE_ABI_HEADER = """#include <stddef.h>
+#include <stdint.h>
+#ifndef HPU_EXECUTION_PROFILE_TYPES_DEFINED
+#define HPU_EXECUTION_PROFILE_TYPES_DEFINED
+typedef struct hpu_execution_profile_hooks {
+    void *user;
+    uint64_t (*read_cycles)(void *user);
+    int (*wait_complete)(void *user, size_t sync_index);
+} hpu_execution_profile_hooks_t;
+typedef struct hpu_execution_profile_sample {
+    uint64_t start_cycles;
+    uint64_t end_cycles;
+    int valid;
+} hpu_execution_profile_sample_t;
+#endif
+"""
+
 
 def catalog():
     with (ROOT / "cases.tsv").open() as stream:
@@ -36,29 +54,28 @@ class PerformanceCaseTests(unittest.TestCase):
             self.assertEqual(row["source"], expected_source)
             self.assertTrue((ROOT / row["source"]).is_file())
 
-    def test_each_source_keeps_concrete_timed_entry_and_original_cycle_window(self):
+    def test_each_source_calls_the_official_continuous_profiled_entry(self):
         cases = catalog()
         self.assertEqual(len({row["source"] for row in cases}), len(cases))
         for row in cases:
             with self.subTest(case=row["case_id"]):
                 text = (ROOT / row["source"]).read_text()
-                validator = "hpu_validate_" + row["program_stem"] + "()"
-                runner = "hpu_run_" + row["program_stem"] + "()"
-                self.assertEqual(text.count(validator), 1)
+                runner = "hpu_run_" + row["program_stem"] + "_profiled(&state.hooks, &sample)"
                 self.assertEqual(text.count(runner), 1)
+                self.assertNotIn("hpu_validate_", text)
+                self.assertNotIn("hpu_run_" + row["program_stem"] + "()", text)
                 self.assertNotIn("WORKLOAD_RUN", text)
                 self.assertNotIn("WORKLOAD_VALIDATE", text)
                 self.assertNotIn("native_case_run", text)
-                self.assertEqual(text.count("performance_wait();"), 1)
-                self.assertEqual(text.count("perf_cycle_read();"), 2)
+                self.assertNotIn("performance_wait();", text)
+                self.assertNotIn("perf_cycle_read();", text)
                 self.assertIsNone(re.search(r"\b(for|while)\s*\(", text))
                 self.assertIn("_Static_assert(DEGREE == " + row["degree"] + "U", text)
                 self.assertIn("_Static_assert(LEVEL == " + row["level"] + "U", text)
                 self.assertIn(row["case_id"] + ".asm", text)
                 self.assertIn("case_fail_at(__FILE__, __LINE__)", text)
-                start = text.index("cycle_start = perf_cycle_read();")
-                end = text.index("cycle_end = perf_cycle_read();")
-                self.assertLess(text.index(validator), text.index("csr_write(CSR_COMMIT, COMMIT);"))
+                start = text.index("rc = " + runner + ";")
+                end = text.index("irq_close();", start)
                 self.assertLess(text.index("csr_write(CSR_COMMIT, COMMIT);"), start)
                 self.assertLess(text.index("perf_cycle_enable();"), text.index("irq_open()"))
                 self.assertLess(text.index("wait_window()"), text.index("irq_reset_events()"))
@@ -66,25 +83,32 @@ class PerformanceCaseTests(unittest.TestCase):
                 self.assertLess(text.index("irq_open()"), text.index("if (irq_event_count() != 0U)"))
                 self.assertLess(text.index("if (irq_event_count() != 0U)"), start)
                 self.assertLess(text.index("if (irq_handler_count() != 0U)"), start)
+                self.assertLess(text.index("performance_profile_init(&state, PROFILE_SYNC_COUNT)"), start)
                 self.assertEqual(text.count("clear_completion()"), 1)
                 self.assertLess(text.index("clear_completion()"), text.index("csr_write(CSR_COMMIT, COMMIT);"))
-                # 精确保持原有计时窗，避免把日志、准备、校验或错误处理移入测量。
+                # 完整profiled入口内由官方两次callback决定窗口，main不增加端点或分段等待。
                 timed = re.sub(r"\s+", " ", text[start:end]).strip()
-                self.assertEqual(timed, "cycle_start = perf_cycle_read(); rc = " + runner +
-                                 "; if (rc == 0) wait_rc = performance_wait();")
+                self.assertEqual(timed, "rc = " + runner + ";")
                 for forbidden in ("LOG_", "phase_mark", "validate_", "clear_completion",
                                   "prepare_image", "check_results", "check_memory", "irq_open",
                                   "irq_close", "irq_event_count", "irq_handler_count", "irq_diagnose"):
                     self.assertNotIn(forbidden, timed)
-                close = text.index("irq_close();", end)
-                self.assertLess(close, text.index('irq_diagnose("performance-wait", 0U);'))
-                self.assertGreater(text.index("if (irq_event_count() != 1U)"), close)
-                self.assertGreater(text.index("if (irq_handler_count() != 1U)"), close)
+                close = end
+                self.assertLess(close, text.index("performance_profile_finish(&state, &sample, rc)"))
+                self.assertLess(close, text.index('irq_diagnose("execution-profile", 0U);'))
                 self.assertGreater(text.index("csr_read(CSR_IRQ)"), close)
                 self.assertGreater(text.index("workload_trace.cycle_start ="), end)
                 self.assertGreater(text.index("workload_trace.cycle_end ="), end)
                 self.assertGreater(text.index("verified=1"), text.index("if (memory_rc != 0)"))
-                self.assertIn("metric=issue_to_irq_done_v1 completion=plic_irq", text)
+                self.assertIn("metric=execution_window_irq_v1 completion=plic_irq profile=continuous", text)
+                self.assertIn("prefix_dstore_count=%u", text)
+                self.assertIn("suffix_dload_count=%u", text)
+                for name in ("PROFILE_SYNC_COUNT", "PROFILE_WINDOW_DLOAD_COUNT", "PROFILE_WINDOW_DSTORE_COUNT",
+                             "PROFILE_PREFIX_DLOAD_COUNT", "PROFILE_PREFIX_DSTORE_COUNT",
+                             "PROFILE_SUFFIX_DLOAD_COUNT", "PROFILE_SUFFIX_DSTORE_COUNT"):
+                    self.assertIn(name, text)
+                self.assertIn("workload_trace.cycle_start = sample.start_cycles;", text)
+                self.assertIn("workload_trace.cycle_end = sample.end_cycles;", text)
                 self.assertIn("SCHEDULE_PROFILE", text)
 
     def test_irq_wait_order_timeout_and_sparse_trace(self):
@@ -93,8 +117,10 @@ class PerformanceCaseTests(unittest.TestCase):
         directory = Path(tempfile.mkdtemp(prefix="performance-", dir=parent))
         binary = directory / "performance-test"
         try:
+            (directory / "program.h").write_text(PROFILE_ABI_HEADER)
             subprocess.run(["gcc", "-std=gnu11", "-O2", "-Wall", "-Wextra", "-Werror",
                             "-DWORKLOAD_HOST_TEST", "-DWAIT_CYCLES=1024",
+                            "-I" + str(directory),
                             "-I" + str(ROOT / "test/host/include"), "-I" + str(ROOT / "include"),
                             str(ROOT / "test/host/performance_test.c"),
                             str(ROOT / "runtime/native/wait.c"),
@@ -103,9 +129,10 @@ class PerformanceCaseTests(unittest.TestCase):
         finally:
             if binary.exists():
                 binary.unlink()
+            (directory / "program.h").unlink()
             directory.rmdir()
 
-    def test_make_selects_timed_program_only_for_performance_cases(self):
+    def test_make_links_official_profiled_source_for_performance_cases(self):
         args = ["make", "-s", "-C", str(ROOT), "-f", "Makefile.native.case", "performance-probe",
                 f"AM_HOME={ROOT / 'test/build-isolation'}", "CASE_ID=timing-probe", "CASE_SOURCE=probe.c",
                 "DATA_DIR=/probe", "PROGRAM_STEM=producer", "CASE_OBJ_DIR=/probe/objects",
@@ -117,8 +144,8 @@ class PerformanceCaseTests(unittest.TestCase):
         self.assertIn("/probe/producer.c", regular)
         self.assertNotIn("producer_perf.c", regular)
         self.assertNotIn("runtime/native/performance.c", regular)
-        self.assertIn("/probe/producer_perf.c", timed)
-        self.assertNotIn("/probe/producer.c", timed)
+        self.assertIn("/probe/producer.c", timed)
+        self.assertNotIn("producer_perf.c", timed)
         self.assertIn("runtime/it_perf.c", timed)
         self.assertIn("runtime/native/performance.c", timed)
         self.assertIn("-DMEM_BASE=0xc0000000ULL", timed)

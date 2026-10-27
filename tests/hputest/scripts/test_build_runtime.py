@@ -196,7 +196,7 @@ class RuntimeBuildTests(unittest.TestCase):
                 patch.object(runtime, "run", side_effect=lambda *args, **kwargs: events.append("validator")), \
                 patch.object(runtime, "verify_case_program", side_effect=lambda *args: events.append("program")) as program, \
                 patch.object(runtime, "import_package", side_effect=lambda *args, **kwargs: events.append("import") or {}), \
-                patch.object(runtime.performance, "perf_adapter"), \
+                patch.object(runtime.execution_profile, "prepare", side_effect=lambda *args: events.append("profile-source")), \
                 patch.object(runtime.performance, "build_case", side_effect=lambda *args: (
                     events.append("validated-elf") or {"elf": "probe.elf", "bin": "probe.bin"})) as build, \
                 patch.object(runtime, "stage_runtime", side_effect=lambda *args: events.append("stage")):
@@ -205,7 +205,7 @@ class RuntimeBuildTests(unittest.TestCase):
         self.assertEqual(build.call_args.args[1]["variant"], "optimized")
         self.assertEqual(program.call_args.args[1]["variant"], "optimized")
         self.assertEqual(build.call_args.args[-1], "minimal")
-        self.assertEqual(events, ["fixture", "validator", "program", "import", "validated-elf", "stage"])
+        self.assertEqual(events, ["fixture", "validator", "program", "import", "profile-source", "validated-elf", "stage"])
 
     def test_functional_staging_happens_after_embedded_verification(self):
         spec = dict(case_id="06_01_probe", profile="application", target="example", degree=128)

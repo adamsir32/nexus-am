@@ -1,5 +1,5 @@
 {
   "repository": "https://github.com/cuihu2/inline-asm.git",
-  "branch": "feature/operator-resource-management",
-  "commit": "cfee951e4056660e521d55a3535d82335a49bb08"
+  "branch": "feature/compute-profiling",
+  "commit": "4e26659cc0c9c3887c60491e8455ff5fd6028025"
 }

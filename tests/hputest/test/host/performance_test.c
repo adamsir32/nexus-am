@@ -15,6 +15,12 @@ uint64_t test_cycle(void) {
     return cycles;
 }
 
+/* 本fixture只覆盖通用wait_program；profile hooks由独立host状态机覆盖。 */
+uint64_t perf_cycle_read(void) { return test_cycle(); }
+uint32_t irq_event_count(void) { return 0U; }
+uint32_t irq_handler_count(void) { return 0U; }
+int irq_rearm(void) { assert(!"plain wait must not rearm IRQ"); return 1; }
+
 int irq_poll(void) {
     assert(read_slot == 0U || read_slot == 2U);
     assert(irq_reads == 0U); /* 未到出口前，不准逐轮读取MMIO IRQ作为完成事件。 */

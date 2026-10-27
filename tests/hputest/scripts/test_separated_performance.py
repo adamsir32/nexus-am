@@ -6,6 +6,8 @@ import subprocess
 import tempfile
 import unittest
 
+from test_performance_cases import PROFILE_ABI_HEADER
+
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -39,8 +41,11 @@ class SeparatedPerformanceTests(unittest.TestCase):
                 self.assertIn("if (irq_open() != 0)", code)
                 self.assertIn("if (irq_event_count() != 0U)", code)
                 self.assertIn("if (irq_handler_count() != 0U)", code)
-                self.assertIn("if (irq_event_count() != 1U)", code)
-                self.assertIn("if (irq_handler_count() != 1U)", code)
+                self.assertIn("performance_profile_init(&state, PROFILE_SYNC_COUNT)", code)
+                self.assertIn("performance_profile_finish(&state, &sample, rc)", code)
+                self.assertIn("hpu_execution_profile_sample_t sample = {0};", code)
+                self.assertIn(f"hpu_run_{row['program_stem']}_profiled(&state.hooks, &sample);", code)
+                self.assertIn("profile=continuous", code)
                 self.assertIn("completion=plic_irq", code)
                 self.assertIn("case_fail_at(__FILE__, __LINE__)", code)
                 self.assertNotIn("return case_fail(__LINE__)", code)
@@ -63,6 +68,10 @@ class SeparatedPerformanceTests(unittest.TestCase):
                 "#define CASE_ID \"host-syntax-check\"\n"
                 "#define SCHEDULE_PROFILE \"optimized\"\n"
                 "#define INSTRUCTION_COUNT 1U\n#define DMA_COUNT 1U\n"
+                "#define PROFILE_SYNC_COUNT 3U\n#define PROFILE_WINDOW_DLOAD_COUNT 1U\n"
+                "#define PROFILE_WINDOW_DSTORE_COUNT 1U\n#define PROFILE_PREFIX_DLOAD_COUNT 2U\n"
+                "#define PROFILE_PREFIX_DSTORE_COUNT 1U\n#define PROFILE_SUFFIX_DLOAD_COUNT 0U\n"
+                "#define PROFILE_SUFFIX_DSTORE_COUNT 1U\n"
                 "enum { PHASE_PREPARE, PHASE_CONFIGURE, PHASE_ISSUE, PHASE_COMPARE };\n"
                 "enum { CSR_FAULT, CSR_BASE_LO, CSR_BASE_HI, CSR_SIZE_LO, CSR_SIZE_HI,"
                 " CSR_COMMIT, CSR_STATUS, CSR_IRQ };\n"
@@ -75,14 +84,11 @@ class SeparatedPerformanceTests(unittest.TestCase):
                 "int clear_completion(void); int expect_csr(unsigned, uint32_t);\n"
                 "int wait_window(void); int check_results(void); int check_memory(void);\n"
                 "int case_fail_at(const char *, unsigned); int case_pass(void);\n")
-            (include / "performance.h").write_text(
-                "void perf_cycle_enable(void); uint64_t perf_cycle_read(void);\n"
-                "int performance_wait(void);\n")
             (include / "klib.h").write_text("int printf(const char *, ...);\n")
             rows = cases()
-            (include / "program.h").write_text("".join(
-                f"int hpu_validate_{row['program_stem']}(void);\n"
-                f"int hpu_run_{row['program_stem']}(void);\n" for row in rows))
+            (include / "program.h").write_text(PROFILE_ABI_HEADER + "".join(
+                f"int hpu_run_{row['program_stem']}_profiled(const hpu_execution_profile_hooks_t *, "
+                "hpu_execution_profile_sample_t *);\n" for row in rows))
             for row in rows:
                 for level in (0, 1):
                     with self.subTest(case=row["case_id"], log_level=level):

@@ -5,4 +5,4 @@
 [submodule "tests/hpu_frontend_workload/third_party/inline-asm"]
 	path = tests/hputest/third_party/inline-asm
 	url = https://github.com/cuihu2/inline-asm.git
-	branch = feature/operator-resource-management
+	branch = feature/compute-profiling

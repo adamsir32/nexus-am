@@ -162,6 +162,7 @@ std::string metadata(const Options &options, const Fixture &fixture,
     out << "],\n\"verified\":true,\"instruction_verified\":true,"
         << "\"fixture_words_equal\":true,\"fixture_metadata_equal\":true,"
         << "\"hardware_verified\":false,\"hardware_contract_verified\":false,"
+        << "\"profile_execution\":" << compiled.package().program.profile_execution << ','
         << "\"ntt_contract\":" << quoted(hpu::model::instruction_ntt_contract_name(options.contract))
         << ",\"ntt_table_abi\":" << ntt_abi(compiled.package().parameters_json)
         << ",\"native_package_written\":" << !options.verify_only
@@ -181,7 +182,7 @@ std::string metadata(const Options &options, const Fixture &fixture,
             ? "Frontend HMUL is explicit multiply+relinearize with two visible graph nodes; main CKKS also has two nodes, while main BFV/BGV use one fused multiply-relinearize node. Final oracle is identical; intermediate output and scheduling obligations may differ."
             : options.operation == "keyswitch"
                 ? "KeySwitch uses the shared three-component product with c0/c1 zeroed, then relinearize; it is not the ordinary full-product Reline fixture."
-                : "Compare matched logical inputs, final output and issue_to_done_v2 timing; DDR allocation and instruction scheduling may differ.")
+                : "Compare matched logical inputs and final output; the official continuous execution window includes residual body DMA and is not ordinary end-to-end issue_to_done_v2 timing.")
         << "\n}\n";
     return out.str();
 }
@@ -247,10 +248,14 @@ int main(int argc, char **argv) {
             compile_options.optimize_resources = variant == "optimized";
             compile_options.require_instruction_verification = true;
             compile_options.instruction_ntt_contract = options.contract;
+            // 07只选择官方单窗口模式；预加载、边界PSYNC及回调C均由上游资源编译器生成。
+            compile_options.profile_execution = true;
             compiled.push_back(application.compile(stem, compile_options));
             const auto &result = compiled.back();
             if (!result.verified() || !result.instruction_verified())
                 throw std::runtime_error("strict frontend verification did not pass");
+            if (!result.package().program.profile_execution || !result.package().program.execution_profile)
+                throw std::runtime_error("official continuous execution profile was not generated");
             if (result.node_count() != node_operations(options).size())
                 throw std::runtime_error("compiled operator node count differs from requested semantics");
             require_equal(result.oracle_result(output), fixture.expected, variant + ".result");

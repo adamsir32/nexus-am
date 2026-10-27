@@ -9,18 +9,23 @@ import re
 import statistics
 
 
-METRIC = "issue_to_irq_done_v1"
+METRIC = "execution_window_irq_v1"
 COMPLETION = "plic_irq"
+PROFILE = "continuous"
 MARKER = "[HPU][NEWAPI-PERF]"
 PATTERN = re.compile(
     r"\[HPU\]\[NEWAPI-PERF\] case=([A-Za-z0-9_]+) variant=(optimized|noopt) "
-    r"N=(\d+) level=(\d+) metric=issue_to_irq_done_v1 completion=plic_irq "
-    r"start=(\d+) end=(\d+) cycles=(\d+) verified=1$")
-SAMPLE_FIELDS = ["case_id", "variant", "degree", "level", "metric", "completion", "start", "end",
-                 "cycles", "log", "line", "revision"]
-SUMMARY_FIELDS = ["case_id", "variant", "degree", "level", "metric", "completion", "rounds",
+    r"N=(\d+) level=(\d+) metric=execution_window_irq_v1 completion=plic_irq profile=continuous "
+    r"start=(\d+) end=(\d+) cycles=(\d+) verified=1 "
+    r"window_dload_count=(\d+) window_dstore_count=(\d+) prefix_dload_count=(\d+) "
+    r"suffix_dstore_count=(\d+) sync_count=(\d+) prefix_dstore_count=(\d+) suffix_dload_count=(\d+)$")
+COUNT_FIELDS = ["window_dload_count", "window_dstore_count", "prefix_dload_count", "suffix_dstore_count", "sync_count",
+                "prefix_dstore_count", "suffix_dload_count"]
+SAMPLE_FIELDS = ["case_id", "variant", "degree", "level", "metric", "completion", "profile", "start", "end",
+                 "cycles", *COUNT_FIELDS, "log", "line", "revision"]
+SUMMARY_FIELDS = ["case_id", "variant", "degree", "level", "metric", "completion", "profile", "rounds",
                   "average_cycles", "minimum_cycles", "maximum_cycles", "spread_cycles",
-                  "noopt_over_optimized", "revision"]
+                  *COUNT_FIELDS, "noopt_over_optimized", "revision"]
 
 
 def find_catalog(script=__file__):
@@ -61,21 +66,25 @@ def parse(logs, catalog, revision):
             for line_number, line in enumerate(stream, 1):
                 if MARKER + " " not in line:
                     continue
-                if "metric=issue_to_done" in line:
-                    raise ValueError(f"{path}:{line_number}: retired polling metric; IRQ and polling results cannot be mixed")
+                if "metric=issue_to_done" in line or "metric=issue_to_irq_done_v1" in line:
+                    raise ValueError(f"{path}:{line_number}: retired timing metric; issue-to-done and continuous execution windows cannot be mixed")
                 match = PATTERN.search(line.strip())
                 if match is None:
                     raise ValueError(f"{path}:{line_number}: invalid, unverified or incomplete NEWAPI-PERF record")
-                name, variant, degree, level, start, end, cycles = match.groups()
+                name, variant, degree, level, start, end, cycles, *counts = match.groups()
                 degree, level, start, end, cycles = map(int, (degree, level, start, end, cycles))
                 if name not in catalog or catalog[name] != dict(degree=degree, level=level):
                     raise ValueError(f"{path}:{line_number}: case/N/level differs from canonical cases.tsv")
                 if any(value >= 1 << 64 for value in (start, end, cycles)) or cycles == 0 or \
-                        ((end - start) & ((1 << 64) - 1)) != cycles:
+                        end < start or end - start != cycles:
                     raise ValueError(f"{path}:{line_number}: inconsistent unsigned 64-bit cycle endpoints")
+                counts = dict(zip(COUNT_FIELDS, map(int, counts)))
+                if counts["sync_count"] < 2:
+                    raise ValueError(f"{path}:{line_number}: continuous profile requires at least two completed PSYNCs")
                 samples.append(dict(case_id=name, variant=variant, degree=degree, level=level,
-                                    metric=METRIC, completion=COMPLETION, start=start, end=end, cycles=cycles,
-                                    log=str(path), line=line_number, revision=revision))
+                                    metric=METRIC, completion=COMPLETION, profile=PROFILE,
+                                    start=start, end=end, cycles=cycles,
+                                    **counts, log=str(path), line=line_number, revision=revision))
     if not samples:
         raise ValueError("no verified NEWAPI-PERF samples")
     return samples
@@ -91,23 +100,26 @@ def summarize(samples):
             group = groups.get((name, variant))
             if not group:
                 continue
-            metadata = {(r["degree"], r["level"], r["metric"], r["completion"], r["revision"]) for r in group}
+            metadata = {(r["degree"], r["level"], r["metric"], r["completion"], r["profile"], r["revision"]) for r in group}
             if len(metadata) != 1:
                 raise ValueError(f"mixed parameters or revisions in one sample group: {name}/{variant}")
-            if any(row["metric"] != METRIC or row["completion"] != COMPLETION for row in group):
-                raise ValueError("only real PLIC IRQ completion samples are accepted")
+            if len({tuple(row[key] for key in COUNT_FIELDS) for row in group}) != 1:
+                raise ValueError(f"mixed execution profile DMA/sync counts: {name}/{variant}")
+            if any(row["metric"] != METRIC or row["completion"] != COMPLETION or row["profile"] != PROFILE for row in group):
+                raise ValueError("only continuous execution windows with real PLIC IRQ completion are accepted")
             values = [row["cycles"] for row in group]
             ratio = None
             other = groups.get((name, "noopt"))
             if variant == "optimized" and other:
-                other_metadata = {(r["degree"], r["level"], r["metric"], r["completion"], r["revision"]) for r in other}
+                other_metadata = {(r["degree"], r["level"], r["metric"], r["completion"], r["profile"], r["revision"]) for r in other}
                 if other_metadata != metadata:
                     raise ValueError(f"optimized/noopt comparison has different parameters or revisions: {name}")
                 ratio = statistics.mean(row["cycles"] for row in other) / statistics.mean(values)
             result.append(dict(case_id=name, variant=variant, degree=group[0]["degree"],
-                               level=group[0]["level"], metric=METRIC, completion=COMPLETION, rounds=len(values),
+                               level=group[0]["level"], metric=METRIC, completion=COMPLETION, profile=PROFILE, rounds=len(values),
                                average_cycles=statistics.mean(values), minimum_cycles=min(values),
                                maximum_cycles=max(values), spread_cycles=max(values) - min(values),
+                               **{key: group[0][key] for key in COUNT_FIELDS},
                                noopt_over_optimized=ratio, revision=group[0]["revision"]))
     return result
 

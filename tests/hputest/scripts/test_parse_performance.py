@@ -15,9 +15,12 @@ CASE = "07_02_ckks_hadd_l4_n1024"
 REVISION = "unit-fixture-only;not-a-hardware-result"
 
 
-def record(case=CASE, variant="optimized", degree=1024, level=4, start=100, end=180, cycles=80):
+def record(case=CASE, variant="optimized", degree=1024, level=4, start=100, end=180, cycles=80,
+           prefix_dstore_count=0, suffix_dload_count=0):
     return (f"[HPU][NEWAPI-PERF] case={case} variant={variant} N={degree} level={level} "
-            f"metric=issue_to_irq_done_v1 completion=plic_irq start={start} end={end} cycles={cycles} verified=1\n")
+            f"metric=execution_window_irq_v1 completion=plic_irq profile=continuous start={start} end={end} cycles={cycles} verified=1 "
+            "window_dload_count=2 window_dstore_count=1 prefix_dload_count=3 suffix_dstore_count=1 sync_count=3 "
+            f"prefix_dstore_count={prefix_dstore_count} suffix_dload_count={suffix_dload_count}\n")
 
 
 class ParsePerformanceTests(unittest.TestCase):
@@ -45,6 +48,8 @@ class ParsePerformanceTests(unittest.TestCase):
         self.assertIsNone(noopt["noopt_over_optimized"])
         self.assertTrue(all(row["revision"] == REVISION for row in samples + result))
         self.assertTrue(all(row["completion"] == "plic_irq" for row in samples + result))
+        self.assertTrue(all(row["profile"] == "continuous" for row in samples + result))
+        self.assertTrue(all(row["window_dload_count"] == 2 and row["sync_count"] == 3 for row in samples + result))
         self.assertEqual(samples[0]["line"], 3)
 
     def test_missing_variant_does_not_create_samples_or_zero_ratio(self):
@@ -66,17 +71,30 @@ class ParsePerformanceTests(unittest.TestCase):
         samples = self.read(record() + record(case="07_20_ckks_hadd_l4_n8192", degree=8192))
         self.assertEqual([(row["degree"], row["level"]) for row in samples], [(1024, 4), (8192, 4)])
 
-    def test_unsigned_endpoints_wrap_and_reject_invalid_differences(self):
-        samples = self.read(record(start=(1 << 64) - 4, end=6, cycles=10))
-        self.assertEqual(samples[0]["cycles"], 10)
+    def test_preparation_store_and_suffix_load_counts_are_preserved(self):
+        # 合成解析夹具，数字不是板端性能；BFV noopt的准备区可能含workspace写回。
+        samples = self.read(record(case="07_07_bfv_keyswitch_l4_n1024", variant="noopt", prefix_dstore_count=1))
+        summary = summarize(samples)
+        for row in samples + summary:
+            self.assertEqual(row["prefix_dstore_count"], 1)
+            self.assertEqual(row["suffix_dload_count"], 0)
+            self.assertEqual(row["window_dstore_count"], 1)
+        for changed in (record(prefix_dstore_count=1), record(suffix_dload_count=1)):
+            with self.subTest(changed=changed), self.assertRaisesRegex(ValueError, "mixed execution profile DMA/sync counts"):
+                summarize(self.read(record() + changed))
+
+    def test_monotonic_unsigned_endpoints_reject_wrap_and_invalid_differences(self):
         for content in (record(end=181), record(end=100, cycles=0),
-                        record(start=1 << 64), record(end=1 << 64), record(cycles=1 << 64)):
+                        record(start=1 << 64), record(end=1 << 64), record(cycles=1 << 64),
+                        record(start=(1 << 64) - 4, end=6, cycles=10)):
             with self.subTest(content=content), self.assertRaisesRegex(ValueError, "64-bit"):
                 self.read(content)
 
     def test_incomplete_unverified_or_old_metric_is_not_accepted(self):
         for content in (record().replace("verified=1", "verified=0"),
-                        record().replace("issue_to_irq_done_v1", "unknown_metric"),
+                        record().replace("execution_window_irq_v1", "unknown_metric"),
+                        record().replace("profile=continuous", "profile=segmented"),
+                        record().replace(" profile=continuous", ""),
                         record().replace("completion=plic_irq", "completion=mmio_poll"),
                         record().replace(" completion=plic_irq", ""),
                         record().replace("variant=optimized", "variant=unknown"),
@@ -86,11 +104,12 @@ class ParsePerformanceTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "no verified"):
             self.read("[HPU][NEWAPI-PERF][START] not a completed measurement\n")
 
-    def test_retired_polling_samples_are_explicitly_rejected_even_in_a_mixed_log(self):
-        old = record().replace("issue_to_irq_done_v1 completion=plic_irq", "issue_to_done_v2")
-        for content in (old, record() + old):
-            with self.subTest(content=content), self.assertRaisesRegex(ValueError, "retired polling metric"):
-                self.read(content)
+    def test_retired_timing_samples_are_explicitly_rejected_even_in_a_mixed_log(self):
+        for metric in ("issue_to_done_v2", "issue_to_irq_done_v1"):
+            old = record().replace("execution_window_irq_v1 completion=plic_irq profile=continuous", metric)
+            for content in (old, record() + old):
+                with self.subTest(content=content), self.assertRaisesRegex(ValueError, "retired timing metric"):
+                    self.read(content)
 
     def test_mixed_revision_is_not_compared(self):
         samples = self.read(record() + record(variant="noopt"))
@@ -119,11 +138,17 @@ class ParsePerformanceTests(unittest.TestCase):
         self.assertEqual(rows[0]["noopt_over_optimized"], "")
         self.assertEqual(rows[0]["revision"], REVISION)
         self.assertEqual(rows[0]["completion"], "plic_irq")
-        self.assertEqual(rows[0]["metric"], "issue_to_irq_done_v1")
+        self.assertEqual(rows[0]["metric"], "execution_window_irq_v1")
+        self.assertEqual(rows[0]["profile"], "continuous")
+        self.assertEqual(rows[0]["prefix_dstore_count"], "0")
+        self.assertEqual(rows[0]["suffix_dload_count"], "0")
         with (output / "samples.csv").open() as stream:
             sample = next(csv.DictReader(stream))
         self.assertEqual(sample["log"], str(self.log))
         self.assertEqual(sample["completion"], "plic_irq")
+        self.assertEqual(sample["profile"], "continuous")
+        self.assertEqual(sample["prefix_dstore_count"], "0")
+        self.assertEqual(sample["suffix_dload_count"], "0")
 
 
 if __name__ == "__main__":

@@ -7,6 +7,7 @@ import shutil
 import struct
 
 from performance_adapter import validate_source
+import execution_profile
 
 GUARD_LINES = 64
 NTT_ABI = {
@@ -376,12 +377,25 @@ def import_package(source, destination, spec, commit, verify_existing=False):
         end = first + count
     words = [int(word, 2) for word in files["program_inst32"].read_text().split()]
     code = files["program_source"].read_text()
-    require(words and words[-1] == 0x7000005b and words.count(0x7000005b) == 1 and
+    require(words and words[-1] == 0x7000005b and (performance or words.count(0x7000005b) == 1) and
             all(word & 0x7f in (0x2b, 0x5b) for word in words), "opcode/terminal PSYNC mismatch")
     dma = read_rows(files["dma_relocation_manifest"])
     require(dma and list(dma[0]) == DMA_COLUMNS, "v1.2 resolved DMA manifest requires 15 columns")
-    validate_source(code, stem, words, [(int(row["line_offset"]), int(row["line_count"])) for row in dma])
     writable, first_access = validate_dma(words, dma, allocations, operations, used)
+    profile = None
+    if performance:
+        files["program_asm"] = safe_file(source, package["program_asm"])
+        require(package.get("execution_profile_manifest") == "profiling/execution_window.csv",
+                "07 requires the official continuous execution profile manifest")
+        files["execution_profile_manifest"] = safe_file(source, package["execution_profile_manifest"])
+        profile = execution_profile.validate_window(words, files["program_asm"].read_text(), dma,
+                    read_rows(files["execution_profile_manifest"]), report.get("execution_profile"))
+        execution_profile.validate_source(code, files["program_header"].read_text(), stem, words,
+                    [(int(row["line_offset"]), int(row["line_count"])) for row in dma], profile)
+    else:
+        require("execution_profile_manifest" not in package and "execution_profile" not in report,
+                "functional cases must not silently become profiling programs")
+        validate_source(code, stem, words, [(int(row["line_offset"]), int(row["line_count"])) for row in dma])
     primitive = spec.get("profile") == "primitive"
     if instruction:
         instruction_moduli, scenarios = instruction_contract(spec, parameters, graph, report)
@@ -454,11 +468,16 @@ def import_package(source, destination, spec, commit, verify_existing=False):
         else:
             shutil.copy2(files[key], destination / f"{stem}.{suffix}")
     store_or_verify(destination / f"{stem}.inst32", files["program_inst32"].read_bytes(), existing)
-    program_header = stem + ("_perf.h" if performance else ".h")
+    program_header = stem + ".h"
     store_or_verify(destination / "program.h", f'#include "{program_header}"\n'.encode(), existing)
     constants = {"DEGREE": degree, "WINDOW_LINES": used, "IMAGE_LINES": used + GUARD_LINES,
                  "GOLDEN_WORDS": len(golden) // 4, "OUTPUT_COUNT": len(outputs),
                  "INSTRUCTION_COUNT": len(words), "DMA_COUNT": len(dma)}
+    if performance:
+        constants.update(execution_profile.constants(profile))
+        for key, name in (("execution_profile_manifest", "execution_window.csv"),
+                          ("dma_relocation_manifest", "profile_dma.csv"), ("program_asm", "profile.asm")):
+            store_or_verify(destination / name, files[key].read_bytes(), existing)
     header = '#ifndef FRONTEND_LAYOUT_H\n#define FRONTEND_LAYOUT_H\n#include <stdint.h>\n'
     header += f'#define CASE_ID "{spec["case_id"]}"\n'
     header += f'#define LEVEL {int(spec["level"])}U\n'
@@ -482,6 +501,7 @@ def import_package(source, destination, spec, commit, verify_existing=False):
                                           if key != "logical_buffers"}
     if performance:
         metadata.update(memory_base=hex(memory_base), minimum_ram_bytes=minimum_ram,
-                        level=int(spec["level"]), node_operations=[row["kind"] for row in operations])
+                        level=int(spec["level"]), node_operations=[row["kind"] for row in operations],
+                        execution_profile=profile)
     store_or_verify(destination / "delivery.json", (json.dumps(metadata, indent=2) + "\n").encode(), existing)
     return metadata

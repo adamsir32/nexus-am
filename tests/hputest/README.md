@@ -2,7 +2,7 @@
 
 活动源码、依赖和构建只保留本目录一份。[cases.tsv](cases.tsv)是唯一清单。默认交付一个`hpu.zip`，按00～07分组，只含ELF和BIN；源码和完整指令直接在GitHub本目录查看。
 
-inline-asm固定在[producer.json](producer.json)：`feature/operator-resource-management@cfee951`，包含系数/在线因子布局修复，不修改RTL。
+inline-asm固定在[producer.json](producer.json)：`feature/compute-profiling@4e26659`。main已包含原资源管理与ABI v4实现；当前选择官方连续计时实验分支，不修改SDK或RTL。
 
 ## 当前分组
 
@@ -58,8 +58,8 @@ make -C tests/hputest silent OUTPUT_ROOT=/disk/hpu/silent
 
 `make test`运行契约测试，`make audit`核对独立入口、编号、参数范围、重复语义和源码引用。算法库参考仍为inline-asm自带modified-SEAL，原始结果逐word比较，不以近似解密相等掩盖错误。
 
-03～07默认以末尾一次PSYNC触发真实CPU外部中断完成；仅显式MMIO用例保留纯轮询。03_08额外验证空闲/DMA/计算各两轮，中间rearm和跨close/open后CTE仍只初始化一次。
+03～06默认以末尾一次PSYNC触发真实CPU外部中断完成；07的官方profiled入口在预加载、主体和尾部边界使用PSYNC，每次均通过新的CPU外部中断事件确认。仅显式MMIO用例保留纯轮询。03_08仍验证空闲/DMA/计算各两轮，中间rearm和跨close/open后CTE只初始化一次。
 
-07的`issue_to_irq_done_v1`包含CPU发令、DMA、HPU计算、中断服务及CPU观察完成的开销，不含准备、IRQ配置、参数检查、golden/guard比较及UART，详见[性能口径](docs/PERFORMANCE.md)。旧`issue_to_done_v2`为MMIO完成口径，不与新结果混用。
+07采用`execution_window_irq_v1`、`profile=continuous`：排除安全预加载及原有尾部写回，计入全部算术、主体必要DMA、CPU发令和完成回调/中断开销，不是纯计算cycle。沿用官方`hpu_run_*_profiled(hooks,sample)`和两次clock hook，不自行拆指令或改写原生C，详见[性能口径](docs/PERFORMANCE.md)。旧端到端`issue_to_irq_done_v1`及MMIO口径`issue_to_done_v2`不与新样本混合统计。
 
 构建、软件模型和ELF检查不是RTL/FPGA通过。新版程序仍需匹配64对象、NTT ABI v4及在线PMUL mode=1的RTL。`00_01`故意无限保持，`00_11`故意返回1，不能要求所有ELF都返回0。Poseidon/watchdog条件实验仍在`tests/hpu-experiments`，不进入默认包。

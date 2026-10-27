@@ -9,8 +9,9 @@ from import_package import NTT_ABI, expected_operations, package_profile, read_j
 
 ROOT = Path(__file__).resolve().parents[1]
 OPS = ("keyswitch", "hadd", "hmul", "reline", "modswitch", "rotate")
-METRIC = "issue_to_irq_done_v1"
+METRIC = "execution_window_irq_v1"
 COMPLETION = "plic_irq"
+PROFILE = "continuous"
 
 
 def run(command, **kwargs):
@@ -61,6 +62,7 @@ def validate_fixture(path, spec, pin):
     require(all(fixture.get(key) is True for key in
                 ("verified", "instruction_verified", "fixture_words_equal", "fixture_metadata_equal", "native_package_written")),
             "fixture/native instruction model has not passed")
+    require(fixture.get("profile_execution") is True, "fixture is not an official continuous execution profile")
     require(fixture.get("hardware_verified") is False and
             fixture.get("ntt_contract") == "raw_bit_reversed_coefficients" and
             fixture.get("ntt_table_abi") == NTT_ABI, "fixture NTT/hardware contract differs")
@@ -93,12 +95,12 @@ def disassembled_functions(text):
 
 
 def verify_success_timing(main, stem):
-    """逐条PASS路径证明IRQ武装、计时和ISR终态；允许失败路径提前close。"""
-    wanted = ("hpu_validate_" + stem, "irq_reset_events", "irq_reset_events=0",
+    """逐条PASS路径证明官方profiled入口、IRQ武装及完整结果自检。"""
+    wanted = ("irq_reset_events", "irq_reset_events=0",
               "irq_open", "irq_open=0", "irq_event_count", "irq_event_count=0",
-              "irq_handler_count", "irq_handler_count=0", "perf_cycle_read",
-              "hpu_run_" + stem, "performance_wait", "perf_cycle_read", "irq_close",
-              "irq_event_count", "irq_event_count=1", "irq_handler_count", "irq_handler_count=1",
+              "irq_handler_count", "irq_handler_count=0", "performance_profile_init", "performance_profile_init=0",
+              "hpu_run_" + stem + "_profiled", "irq_close",
+              "performance_profile_finish", "performance_profile_finish=0",
               "read:CSR_IRQ", "read:CSR_STATUS", "read:CSR_FAULT", "check_results", "check_memory")
     relevant = set(wanted)
     csr_names = {0x0800001c: "CSR_IRQ", 0x08000014: "CSR_STATUS", 0x08000018: "CSR_FAULT"}
@@ -146,8 +148,7 @@ def verify_success_timing(main, stem):
                 left, right = right, left
             if isinstance(left, tuple) and isinstance(right, int) and equal:
                 function = left[0]
-                expected = 0 if function in ("irq_open", "irq_reset_events") else (
-                    1 if path_events.count("perf_cycle_read") == 2 else 0)
+                expected = 0
                 if right == expected:
                     return path_events + (f"{function}={expected}",)
             return path_events
@@ -166,11 +167,12 @@ def verify_success_timing(main, stem):
             if symbol in ("case_pass", "case_fail", "case_fail_at"):
                 finish(symbol)
                 continue
-            if events.count("perf_cycle_read") == 1 and symbol not in ("hpu_run_" + stem, "performance_wait", "perf_cycle_read"):
+            if symbol in ("perf_cycle_read", "hpu_run_" + stem, "performance_wait", "hpu_validate_" + stem):
                 forbidden = True
-            if events.count("perf_cycle_read") == 2 and symbol in ("clear_completion", "csr_write"):
+            finished = "performance_profile_finish=0" in events
+            if finished and symbol in ("clear_completion", "csr_write"):
                 forbidden = True
-            if symbol == "csr_read" and events.count("perf_cycle_read") == 2:
+            if symbol == "csr_read" and finished:
                 require(registers.get("a0") in csr_names, "unresolved terminal CSR read")
                 events += ("read:" + csr_names[registers["a0"]],)
             if symbol in relevant:
@@ -178,7 +180,8 @@ def verify_success_timing(main, stem):
             # 遵循ABI，不能把跨函数调用后已失效的a/t寄存器当作MMIO基址。
             for register in ("ra", *(f"a{i}" for i in range(8)), *(f"t{i}" for i in range(7))):
                 registers.pop(register, None)
-            if symbol in ("irq_open", "irq_reset_events", "irq_event_count", "irq_handler_count"):
+            if symbol in ("irq_open", "irq_reset_events", "irq_event_count", "irq_handler_count",
+                          "performance_profile_init", "performance_profile_finish"):
                 registers["a0"] = (symbol, address)
         elif opcode in ("j", "tail"):
             require(label is not None, "unresolved main jump")
@@ -226,7 +229,7 @@ def verify_success_timing(main, stem):
                 memory = re.fullmatch(r"(-?\d+)\((\w+)\)", arguments[1])
                 base = registers.get(memory[2]) if memory else None
                 target = base + int(memory[1]) if isinstance(base, int) else None
-                if events.count("perf_cycle_read") == 2 and target in csr_names:
+                if "performance_profile_finish=0" in events and target in csr_names:
                     if opcode in ("sw", "sd"):
                         forbidden = True
                     else:
@@ -241,34 +244,190 @@ def verify_success_timing(main, stem):
     require(passed > 0, "no proven case_pass path")
 
 
-def verify_timing(text, stem):
+def verify_profile_entry(body, words, profile):
+    """对官方入口做有限符号执行，证明每次PSYNC等待、两个hook及sample有效时机。"""
+    begin, end = int(profile["begin_instruction"]), int(profile["end_instruction"])
+    syncs = [index for index, word in enumerate(words) if word == 0x7000005b]
+    require(0 < begin < end < len(words) and begin - 1 in syncs and end in syncs and
+            len(syncs) == int(profile["sync_count"]), "invalid continuous execution window")
+    expected = []
+    for index, position in enumerate(syncs):
+        expected += [f"wait:{index}", f"ok:{index}"]
+        if position + 1 == begin:
+            expected += ["read:0", "store:start"]
+        if position == end:
+            expected += ["read:1", "store:end"]
+    expected = tuple(expected + ["valid"])
+    instructions = {}
+    for line in body.splitlines():
+        match = re.match(r"^\s*([0-9a-f]+):\s+([0-9a-f]{4,8})\s+([\w.]+)(?:\s+(.*))?$", line)
+        if match:
+            instructions[int(match[1], 16)] = (int(match[2], 16), match[3], match[4] or "")
+    require(instructions, "missing official profiled entry")
+    addresses = sorted(instructions)
+    following = dict(zip(addresses, addresses[1:] + [None]))
+    initial = {"zero": 0, "sp": ("ptr", "stack", 0),
+               "a0": ("ptr", "hooks", 0), "a1": ("ptr", "sample", 0)}
+    pending = [(addresses[0], tuple(sorted(initial.items())), (), 0, (), 0, False)]
+    seen, passed = set(), 0
+    while pending:
+        address, frozen, memory_items, cursor, events, initialized, failed = pending.pop()
+        state = (address, frozen, memory_items, cursor, events, initialized, failed)
+        if state in seen:
+            continue
+        seen.add(state)
+        require(address in instructions and len(events) <= len(expected), "unresolved/unbounded profiled control flow")
+        word, opcode, operands = instructions[address]
+        registers, memory = dict(frozen), dict(memory_items)
+        arguments = operands.split("#", 1)[0].replace(",", " ").split()
+        label = re.search(r"([0-9a-f]+)\s+<([^>]+)>", operands)
+
+        def push(target, values=registers, next_events=None, next_failed=None):
+            require(target in instructions, "profile branch escapes official entry")
+            pending.append((target, tuple(sorted(values.items())), tuple(sorted(memory.items())), cursor,
+                            events if next_events is None else next_events, initialized,
+                            failed if next_failed is None else next_failed))
+
+        def plus(value, offset):
+            if isinstance(value, int):
+                return value + offset
+            if isinstance(value, tuple) and value[0] == "ptr":
+                return ("ptr", value[1], value[2] + offset)
+            return None
+
+        if word & 0x7f in (0x0b, 0x2b, 0x5b):
+            require(initialized == 7 and cursor < len(words) and word == words[cursor],
+                    "profile instruction sequence or initial invalid sample differs")
+            cursor += 1
+        elif opcode in ("jalr", "jal"):
+            require(opcode == "jalr" and label is None, "unexpected direct call in official profiled entry")
+            target_register = arguments[-1]
+            call_address = re.fullmatch(r"0\((\w+)\)", target_register)
+            if call_address:
+                target_register = call_address[1]
+            callback = registers.get(target_register)
+            require(callback in (("hook", "read"), ("hook", "wait")) and
+                    registers.get("a0") == ("user",), "profile hook ABI/user binding differs")
+            if callback == ("hook", "wait"):
+                index = registers.get("a1")
+                require(isinstance(index, int) and 0 <= index < len(syncs) and cursor == syncs[index] + 1 and
+                        events == expected[:len(events)] and f"wait:{index}" not in events,
+                        "PSYNC callback index/position differs")
+                events += (f"wait:{index}",)
+                result = ("wait", index)
+            else:
+                index = sum(value.startswith("read:") for value in events)
+                require(index < 2 and cursor == (begin if index == 0 else end + 1) and
+                        events == expected[:len(events)] and expected[len(events)] == f"read:{index}",
+                        "continuous read hook is before completed PSYNC or outside window")
+                events += (f"read:{index}",)
+                result = ("clock", index)
+            for name in ("ra", *(f"a{i}" for i in range(8)), *(f"t{i}" for i in range(7))):
+                registers.pop(name, None)
+            registers["a0"] = result
+        elif opcode in ("j", "tail"):
+            require(label, "unresolved profile jump")
+            push(int(label[1], 16))
+            continue
+        elif opcode in ("beq", "bne", "beqz", "bnez"):
+            require(label and int(label[1], 16) in instructions, "unresolved profile branch")
+            left = registers.get(arguments[0])
+            right = 0 if opcode.endswith("z") else registers.get(arguments[1])
+            equal_on_branch = opcode in ("beq", "beqz")
+            for taken in (True, False):
+                equal = equal_on_branch if taken else not equal_on_branch
+                if isinstance(left, int) and isinstance(right, int) and (left == right) != equal:
+                    continue
+                if ((isinstance(left, tuple) and left[0] in ("ptr", "hook") and right == 0) or
+                    (isinstance(right, tuple) and right[0] in ("ptr", "hook") and left == 0)) and equal:
+                    continue
+                values, path_events, path_failed = dict(registers), events, failed
+                tag, value = (right, left) if isinstance(right, tuple) and isinstance(left, int) else (left, right)
+                if isinstance(tag, tuple) and tag[0] == "wait" and value == 0:
+                    if equal:
+                        path_events += (f"ok:{tag[1]}",)
+                        values = {name: 0 if stored == tag else stored for name, stored in values.items()}
+                    else:
+                        path_failed = True
+                push(int(label[1], 16) if taken else following[address], values, path_events, path_failed)
+            continue
+        elif opcode in ("ret", "jr"):
+            result = registers.get("a0")
+            if not failed and result == 0:
+                require(cursor == len(words) and events == expected,
+                        "profile PASS bypasses waits, timestamp stores or complete-program sample.valid")
+                passed += 1
+            else:
+                require(failed or isinstance(result, int) and result != 0,
+                        "unresolved success/error return from profiled entry")
+            continue
+        else:
+            value = None
+            if opcode in ("li", "lui"):
+                value = int(arguments[1], 0) << (12 if opcode == "lui" else 0)
+            elif opcode == "mv":
+                value = registers.get(arguments[1])
+            elif opcode in ("addi", "addiw"):
+                value = plus(registers.get(arguments[1]), int(arguments[2], 0))
+            elif opcode == "sext.w":
+                source = registers.get(arguments[1])
+                if isinstance(source, tuple) and source[0] == "wait":
+                    value = source
+                elif isinstance(source, int):
+                    value = ((source & 0xffffffff) ^ 0x80000000) - 0x80000000
+            if opcode in ("ld", "lw", "lwu", "sd", "sw"):
+                access = re.fullmatch(r"(-?\d+)\((\w+)\)", arguments[1])
+                location = plus(registers.get(access[2]), int(access[1])) if access else None
+                if opcode in ("sd", "sw"):
+                    source = registers.get(arguments[0])
+                    if location is not None:
+                        memory[location] = source
+                    if isinstance(location, tuple) and location[:2] == ("ptr", "sample"):
+                        offset = location[2]
+                        if source == 0 and cursor == 0 and offset in (0, 8, 16):
+                            initialized |= {0: 1, 8: 2, 16: 4}[offset]
+                        elif offset in (0, 8):
+                            require(source == ("clock", 0 if offset == 0 else 1), "profile sample timestamp source differs")
+                            events += ("store:start" if offset == 0 else "store:end",)
+                        elif offset == 16 and source == 1:
+                            require(cursor == len(words) and events == expected[:-1], "sample.valid precedes suffix completion")
+                            events += ("valid",)
+                        else:
+                            raise ValueError("unexpected profile sample mutation")
+                elif isinstance(location, tuple) and location[:2] == ("ptr", "hooks"):
+                    value = {0: ("user",), 8: ("hook", "read"), 16: ("hook", "wait")}.get(location[2])
+                elif location is not None:
+                    value = memory.get(location)
+            if arguments and opcode not in ("sw", "sd", "sb", "sh", "fence", "fence.i", "nop"):
+                registers.pop(arguments[0], None)
+                if value is not None:
+                    registers[arguments[0]] = value
+        registers["zero"] = 0
+        require(following[address] is not None, "profile control flow falls outside official entry")
+        push(following[address])
+    require(passed, "no proven complete-program profiled success path")
+
+
+def verify_timing(text, stem, words, profile):
     functions = disassembled_functions(text)
     verify_success_timing(functions.get("main", ""), stem)
-    timed = {name: body for name, body in functions.items()
-             if name.startswith(("hpu_program_" + stem, "hpu_run_" + stem)) and "_preflight" not in name}
-    require(bool(timed), "missing timed native entry")
-    for name, body in timed.items():
-        require(re.search(r"\s(?:beq|bne|blt|bltu|bge|bgeu|beqz|bnez|bgtz|blez|bltz|bgez|bgtu|bleu)\s", body) is None,
-                f"parameter validation remains in timed function: {name}")
-        require(not any(token in body for token in ("trace_issue", "_preflight", "hpu_validate_")),
-                "preflight/trace leaked into timed function")
-    wait = functions.get("performance_wait", "")
-    wait_paths = [wait]
-    if "<irq_poll>" not in wait:
-        # 共享等待实现允许唯一的wait_program委托，不把包装函数误判成无ISR观察。
-        calls = [name for name in re.findall(r"\b(?:jal|jalr|j|tail)\b[^\n]*<([^>]+)>", wait)
-                 if name.split("+", 1)[0] != "performance_wait"]
-        require(calls == ["wait_program"], "wait path has no sole wait_program delegate")
-        wait_paths.append(functions.get("wait_program", ""))
-    require(wait_paths[-1] and "<irq_poll>" in wait_paths[-1],
-            "wait path does not observe the real ISR completion flag")
-    require(not any(token in body for body in wait_paths for token in
-                    ("printf", "phase_mark", "prepare_image", "hpu_validate_", "check_results", "check_memory",
-                     "irq_open", "irq_close", "irq_clear", "irq_diagnose", "clear_completion", "csr_write")),
-            "wait path contains UART/phase logging, preparation, validation or IRQ mutation")
-    for name, body in functions.items():
-        if name.startswith(("hpu_validate_" + stem, "hpu_program_" + stem + "_preflight")):
-            require(not hpu_words(body), "preflight issues HPU instructions")
+    verify_profile_entry(functions.get("hpu_run_" + stem + "_profiled", ""), words, profile)
+    for name in ("performance_profile_init", "performance_profile_cycle", "performance_profile_wait", "performance_profile_finish"):
+        require(name in functions, "missing profile callback/runtime: " + name)
+    require(all("<" + name + ">" in functions["performance_profile_init"] for name in
+                ("performance_profile_cycle", "performance_profile_wait")), "profile init does not bind the official callback ABI")
+    require("<perf_cycle_read>" in functions["performance_profile_cycle"], "profile clock callback does not read cycle")
+    wait = functions["performance_profile_wait"]
+    delegates = "<wait_program>" in wait or ("<performance_wait>" in wait and
+                 "<wait_program>" in functions.get("performance_wait", ""))
+    require(delegates and
+            "<irq_poll>" in functions.get("wait_program", ""), "profile wait callback does not observe real ISR completion")
+    for name in ("performance_profile_cycle", "performance_profile_wait", "performance_wait", "wait_program"):
+        require(not any(token in functions.get(name, "") for token in
+                        ("printf", "phase_mark", "prepare_image", "check_results", "check_memory", "irq_close", "irq_clear", "clear_completion")),
+                "profile callback contains logging, preparation or IRQ mutation")
+    require(all("<" + name + ">" in functions["performance_profile_finish"] for name in
+                ("irq_event_count", "irq_handler_count")), "profile finish lacks real ISR counts")
 
 
 def hpu_words(body):
@@ -318,17 +477,14 @@ def verify_elf(elf, disassembly, data, meta, cross):
     text = disassembly.read_text()
     functions = disassembled_functions(text)
     stem = meta["program_stem"]
-    actual = []
-    for prefix in ("hpu_run_" + stem, "hpu_program_" + stem):
-        actual = [word for name, body in functions.items() if name == prefix or name.startswith(prefix + ".")
-                  for word in hpu_words(body)]
-        if actual:
-            break
+    actual = hpu_words(functions.get("hpu_run_" + stem + "_profiled", ""))
     expected = [int(word, 2) for word in (data / (stem + ".inst32")).read_text().split()]
-    require(expected and actual == expected and expected[-1] == 0x7000005b and expected.count(0x7000005b) == 1,
-            "ELF native word sequence/terminal PSYNC differs")
+    require(expected and actual == expected and expected[-1] == 0x7000005b,
+            "ELF official profiled word sequence/terminal PSYNC differs")
+    for ordinary in ("hpu_run_" + stem, "hpu_program_" + stem):
+        require(not hpu_words(functions.get(ordinary, "")), "ordinary entry bypasses official completion hooks")
     verify_embedded(elf, data, meta, cross)
-    verify_timing(text, stem)
+    verify_timing(text, stem, expected, meta["execution_profile"])
 
 
 def build_case(args, spec, data, meta, mode):
@@ -352,7 +508,7 @@ def build_case(args, spec, data, meta, mode):
     if mode == "silent":
         run(["python3", args.am_home / "tests/hputest/scripts/verify-silent-elf.py", "--elf", elf, "--cross-compile", args.cross])
     return {**meta, "mode": mode, "wait_cycle_budget": args.wait_cycles,
-            "metric": METRIC, "completion": COMPLETION,
+            "metric": METRIC, "completion": COMPLETION, "profile": PROFILE,
             "elf_instruction_words_verified": True, "embedded_data_verified": True, "timing_verified": True,
             "elf": str(elf.relative_to(args.work)), "bin": str(binfile.relative_to(args.work)),
             "disassembly": str(disassembly.relative_to(args.work)), "measured_cycles": None}

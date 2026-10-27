@@ -39,7 +39,7 @@ endif
 ifneq ($(filter $(LOG_LEVEL),0 1),$(LOG_LEVEL))
 $(error performance testcases require LOG_LEVEL=0 or 1)
 endif
-SRCS += $(DATA_DIR)/$(PROGRAM_STEM)_perf.c \
+SRCS += $(DATA_DIR)/$(PROGRAM_STEM).c \
         $(BASELINE)/runtime/it_perf.c $(ROOT)/runtime/native/performance.c
 CFLAGS += -DMEM_BASE=$(CASE_MEM_BASE)ULL \
           -DCASE_DEGREE=$(CASE_DEGREE)U -DCASE_LEVEL=$(CASE_LEVEL)U

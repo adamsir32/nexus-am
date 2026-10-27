@@ -1,4 +1,16 @@
-# 本轮布局与PSYNC中断修复
+# 本轮官方连续主体计时
+
+基点为`631f9970`，inline-asm固定到`feature/compute-profiling@4e26659cc0c9c3887c60491e8455ff5fd6028025`。原资源管理与NTT ABI v4已在上游main；本轮按要求选择专用profiling分支，不修改SDK、AM或RTL。
+
+00～06独立用例C和旁侧ASM均未改，07仍为N1024/N8192、输入level4、三方案各六项，共36项；默认总数109，另6项API诊断。编号与分离式源码结构不变。07的72份optimized/noopt ASM更新来自官方实际编译结果：安全预加载使顺序/对象分配改变，并新增首尾窗口边界PSYNC，不是删除覆盖或手写改编码。
+
+生成器仅开启官方`CompileOptions.profile_execution=true`；接收器逐字验证原生profiled C/H、DMA、窗口及两次clock hook，目标端直接编译官方源码。main调用具名`hpu_run_*_profiled`，每次PSYNC匹配递增序号、真实PLIC事件与fresh rearm；不重做CTE初始化，不重置SRAM。尾部也完成后sample才valid，最终golden/只读区/guard仍全部检查。
+
+口径为`execution_window_irq_v1`、`completion=plic_irq`、`profile=continuous`。排除entry准备IO和原有尾IO，保留主体全部算术、必要DMA和ISR/回调开销，不宣称纯计算。旧端到端/轮询样本拒绝混算。4个BFV noopt KeySwitch/Reline原本就有1次首算术前workspace DSTORE，逐项核对allocation、跨度和DMA属性与普通包相同，非新增输出写；单列prefix_dstore_count，未擅改官方窗口。所有本批suffix_dload_count为0，但仍按实际统计，不写死。
+
+验证记录：72个profile包全部通过官方validator、严格指令模型、原生输入/golden及窗口/C/H验收，全部算术落在单一窗口，DMA次数/字节均未增加；72份旁侧ASM逐字节匹配。Ubuntu24.04/GCC13全套契约检查通过，新增统计回归另行通过。109项默认及6项API实际重编译，36项07在GCC13/GCC14的新ELF均通过字码、嵌入数据、官方回调/时间戳和自检路径门禁；N8192 BFV noopt/silent另验前序workspace写、计时及无UART输出。未运行RTL/FPGA，未填入任何未测cycle或加速比。
+
+# 上轮布局与PSYNC中断修复
 
 基点为`fd0db077`，inline-asm从`3ab94da`升级至`cfee951e4056660e521d55a3535d82335a49bb08`。指令编码/旁侧ASM不变，按NTT ABI v4及bit-reversed系数域重新生成镜像、在线因子和golden；不能复用旧布局数据。
 

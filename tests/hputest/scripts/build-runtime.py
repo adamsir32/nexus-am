@@ -13,6 +13,7 @@ from types import SimpleNamespace
 
 import build as functional
 import build_performance as performance
+import execution_profile
 from import_package import import_package, read_json, require
 from case_program import case_program_path, verify_case_program
 from psync_prefixes import is_psync_case, prepare_prefixes, verify_prefix_elf
@@ -85,7 +86,7 @@ def target_recipe(args, low_specs, groups, perf):
                      "src/common/hpu_mm_fixture.S", "src/common/hpu_irq.c"))
         paths.extend((baseline / "runtime").glob("*.c"))
     if groups or perf:
-        paths.extend(ROOT / name for name in ("Makefile.native.case", "scripts/import_package.py", "scripts/performance_adapter.py", "scripts/case_program.py",
+        paths.extend(ROOT / name for name in ("Makefile.native.case", "scripts/import_package.py", "scripts/performance_adapter.py", "scripts/case_program.py", "scripts/execution_profile.py",
                      "scripts/psync_prefixes.py", "src/common/hpu_irq.c",
                      "runtime/native/fixture.S", "runtime/native/image.c", "runtime/native/wait.c", "runtime/native/check.c"))
         paths.extend((ROOT / "include").glob("*.h"))
@@ -426,7 +427,7 @@ def build_perf(args, spec, pin, validator):
     verify_case_program(source, selected_spec)
     data = args.output / "generated/performance" / spec["case_id"]
     meta = import_package(source, data, selected_spec, pin, verify_existing=True)
-    performance.perf_adapter().prepare(data, spec["program_stem"])
+    execution_profile.prepare(data, spec["program_stem"])
     context = SimpleNamespace(**vars(args))
     context.work = args.output / "performance-build"
     log = args.output / "logs" / (spec["case_id"] + "-build.log")

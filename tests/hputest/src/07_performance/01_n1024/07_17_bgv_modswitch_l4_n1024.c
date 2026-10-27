@@ -6,33 +6,29 @@
 
 /*
  * 用例：07_17_bgv_modswitch_l4_n1024。
- * 目的：测量BGV ModSwitch的端到端cycle，并比较golden及内存guard。
+ * 目的：测量BGV ModSwitch的单一连续窗口cycle，并比较golden及内存guard。
  * 参数：多项式长度N=1024，输入Q基RNS分量数level=4；P基不计入level。
  * 完整HPU指令序列：本目录下07_17_bgv_modswitch_l4_n1024.asm。
  * noopt构建的完整对照序列：本目录下07_17_bgv_modswitch_l4_n1024.noopt.asm。
  * 本例只执行一次算子程序；沿用上游资源调度和NTT表，不串行重复轮次。
- * 计时口径issue_to_irq_done_v1：包含CPU发令、DMA、HPU计算和PLIC中断处理/完成观察；
- * 不包含数据准备、参数检查、窗口配置、IRQ武装、golden/guard比较和UART打印。
+ * 计时口径execution_window_irq_v1：排除entry准备及原有尾IO；
+ * 窗口包含全部算术、必要DMA和真实PLIC完成等待，不表示无DMA纯计算。
+ * 不包含数据准备、窗口配置、首次IRQ武装、golden/guard比较和UART打印。
  */
 int main(void) {
+    performance_profile_state_t state;
+    hpu_execution_profile_sample_t sample = {0};
     int rc;
-    int wait_rc = 1;
-    uint64_t cycle_start, cycle_end;
     _Static_assert(DEGREE == 1024U, "wrong performance degree");
     _Static_assert(LEVEL == 4U, "wrong performance input level");
     _Static_assert(MEM_BASE == UINT64_C(0x90000000), "wrong performance DDR base");
 
     perf_cycle_enable();
-    LOG_EVENT("[HPU][NEWAPI-PERF][START] case=%s variant=%s N=%u level=%u inst=%u dma=%u completion=plic_irq\n",
+    LOG_EVENT("[HPU][NEWAPI-PERF][START] case=%s variant=%s N=%u level=%u inst=%u dma=%u "
+              "completion=plic_irq profile=continuous\n",
               CASE_ID, SCHEDULE_PROFILE, DEGREE, LEVEL, INSTRUCTION_COUNT, DMA_COUNT);
     phase_mark(PHASE_PREPARE);
     prepare_image();
-    /* 只做参数检查，不发HPU指令；必须在起始cycle之前完成。 */
-    rc = hpu_validate_frontend_bgv_modswitch_l4_n1024();
-    if (rc != 0) {
-        LOG_ERROR("[HPU][NEWAPI-PERF][PREFLIGHT-FAIL] rc=%d\n", rc);
-        return case_fail_at(__FILE__, __LINE__);
-    }
 
     phase_mark(PHASE_CONFIGURE);
     csr_write(CSR_FAULT, FAULT_VALID);
@@ -41,7 +37,6 @@ int main(void) {
     csr_write(CSR_BASE_HI, (uint32_t)(MEM_BASE >> 32U));
     csr_write(CSR_SIZE_LO, WINDOW_LINES);
     csr_write(CSR_SIZE_HI, 0U);
-    /* 分开检查，失败时可由源码文件和行号定位具体寄存器。 */
     if (expect_csr(CSR_BASE_LO, (uint32_t)MEM_BASE) != 0)
         return case_fail_at(__FILE__, __LINE__);
     if (expect_csr(CSR_BASE_HI, (uint32_t)(MEM_BASE >> 32U)) != 0)
@@ -53,7 +48,7 @@ int main(void) {
     csr_write(CSR_COMMIT, COMMIT);
     if (wait_window() != 0) return case_fail_at(__FILE__, __LINE__);
 
-    /* M态准备/预检查已完成；PLIC武装不计入cycle，旧事件不能冒充本轮完成。 */
+    /* M态准备已经完成；首次IRQ武装在官方窗口之外，之后每次PSYNC只rearm。 */
     if (irq_reset_events() != 0)
         return case_fail_at(__FILE__, __LINE__);
     if (irq_open() != 0) {
@@ -68,32 +63,26 @@ int main(void) {
         irq_close();
         return case_fail_at(__FILE__, __LINE__);
     }
+    if (performance_profile_init(&state, PROFILE_SYNC_COUNT) != 0) {
+        irq_close();
+        return case_fail_at(__FILE__, __LINE__);
+    }
 
-    /* 此窗口内不打印、不准备数据、不重复参数检查；指令含最终PSYNC。 */
+    /* 官方入口执行entry准备/主体/原有尾IO；只由其两次clock hook设置一个连续计时窗口。 */
     phase_mark(PHASE_ISSUE);
-    cycle_start = perf_cycle_read();
-    rc = hpu_run_frontend_bgv_modswitch_l4_n1024();
-    if (rc == 0) wait_rc = performance_wait();
-    cycle_end = perf_cycle_read();
+    rc = hpu_run_frontend_bgv_modswitch_l4_n1024_profiled(&state.hooks, &sample);
     irq_close();
-    /* 停表后才保存端点，静默版也能从workload_trace读取。 */
-    workload_trace.cycle_start = cycle_start;
-    workload_trace.cycle_end = cycle_end;
-    if (rc != 0) {
-        LOG_ERROR("[HPU][NEWAPI-PERF][EXECUTION-FAIL] run=%d cycles=%lu\n",
-                  rc, (unsigned long)(cycle_end - cycle_start));
-        return case_fail_at(__FILE__, __LINE__);
-    }
-    if (wait_rc != 0) {
-        irq_diagnose("performance-wait", 0U);
-        LOG_ERROR("[HPU][NEWAPI-PERF][WAIT-FAIL] wait=%d cycles=%lu\n",
-                  wait_rc, (unsigned long)(cycle_end - cycle_start));
+    workload_trace.cycle_start = sample.start_cycles;
+    workload_trace.cycle_end = sample.end_cycles;
+    /* sample直到尾部写回和最终PSYNC均成功才valid；无效运行不进入性能统计。 */
+    if (performance_profile_finish(&state, &sample, rc) != 0) {
+        irq_diagnose("execution-profile", 0U);
+        LOG_ERROR("[HPU][NEWAPI-PERF][PROFILE-FAIL] run=%d error=%d sync=%lu clocks=%u valid=%d\n",
+                  rc, state.error, (unsigned long)state.next_sync, state.read_count, sample.valid);
         return case_fail_at(__FILE__, __LINE__);
     }
 
-    /* 完成必须来自一次真实ISR；main只读确认电平，不能代替ISR清除。 */
-    if (irq_event_count() != 1U) return case_fail_at(__FILE__, __LINE__);
-    if (irq_handler_count() != 1U) return case_fail_at(__FILE__, __LINE__);
+    /* 主程序只读确认ISR已清电平，不补clear、不重置任何SRAM对象。 */
     if ((csr_read(CSR_IRQ) & IRQ_LEVEL) != 0U)
         return case_fail_at(__FILE__, __LINE__);
     const uint32_t status = csr_read(CSR_STATUS);
@@ -108,11 +97,16 @@ int main(void) {
     if (data_rc != 0) return case_fail_at(__FILE__, __LINE__);
     if (memory_rc != 0) return case_fail_at(__FILE__, __LINE__);
 
-    /* golden和guard全部通过后统一输出；静默版保留端点但不输出UART。 */
+    /* 计时窗内允许必要DMA；不与旧端到端或纯计算口径混用。 */
     LOG_EVENT("[HPU][NEWAPI-PERF] case=%s variant=%s N=%u level=%u "
-              "metric=issue_to_irq_done_v1 completion=plic_irq start=%lu end=%lu cycles=%lu verified=1\n",
+              "metric=execution_window_irq_v1 completion=plic_irq profile=continuous "
+              "start=%lu end=%lu cycles=%lu verified=1 "
+              "window_dload_count=%u window_dstore_count=%u prefix_dload_count=%u "
+              "prefix_dstore_count=%u suffix_dload_count=%u suffix_dstore_count=%u sync_count=%u\n",
               CASE_ID, SCHEDULE_PROFILE, DEGREE, LEVEL,
-              (unsigned long)cycle_start, (unsigned long)cycle_end,
-              (unsigned long)(cycle_end - cycle_start));
+              (unsigned long)sample.start_cycles, (unsigned long)sample.end_cycles,
+              (unsigned long)(sample.end_cycles - sample.start_cycles),
+              PROFILE_WINDOW_DLOAD_COUNT, PROFILE_WINDOW_DSTORE_COUNT, PROFILE_PREFIX_DLOAD_COUNT,
+              PROFILE_PREFIX_DSTORE_COUNT, PROFILE_SUFFIX_DLOAD_COUNT, PROFILE_SUFFIX_DSTORE_COUNT, PROFILE_SYNC_COUNT);
     return case_pass();
 }

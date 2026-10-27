@@ -1,8 +1,10 @@
 #!/usr/bin/env python3
 """薄生成器host验收：共享Fixture、双调度变体、原生包和严格失败记录。"""
 import argparse
+import csv
 import json
 from pathlib import Path
+import re
 import subprocess
 import tempfile
 import unittest
@@ -36,7 +38,8 @@ class OperatorGenerator(unittest.TestCase):
             self.assertIs(metadata['hardware_verified'],False)
             self.assertIs(metadata['hardware_contract_verified'],False)
             self.assertEqual(metadata['native_package_written'],native_package)
-            self.assertEqual(metadata['producer_commit'],'cfee951e4056660e521d55a3535d82335a49bb08')
+            self.assertEqual(metadata['producer_commit'],'4e26659cc0c9c3887c60491e8455ff5fd6028025')
+            self.assertIs(metadata['profile_execution'],True)
             self.assertEqual(metadata['baseline_inline_asm_commit'],'03a32c168404f3ad64e6a4d7ad82a081f910314b')
             self.assertEqual(metadata['baseline_modified_seal_tree'],'036be909da472f4343b6bac6add0dcb3be5bd057')
             self.assertIn(metadata['producer_worktree_state'],('clean-at-configure','dirty-at-configure'))
@@ -55,6 +58,7 @@ class OperatorGenerator(unittest.TestCase):
             if native_package:
                 package=json.loads((folder/'upstream/package.json').read_text())
                 self.assertEqual(package['case_name'],metadata['program_stem'])
+                self.check_execution_profile(folder/'upstream',package)
                 parameters=json.loads((folder/'upstream'/package['parameters']).read_text())
                 self.assertEqual(parameters['ntt_table_abi'],metadata['ntt_table_abi'])
                 self.assertEqual(parameters['levels'][0]['moduli'],metadata['Q'])
@@ -72,6 +76,57 @@ class OperatorGenerator(unittest.TestCase):
                          {k:v for k,v in sidecars[1].items() if k not in excluded})
         self.assertFalse((self.directory/'GENERATION_ERROR.json').exists())
         return sidecars[0]
+
+    def check_execution_profile(self,root,package):
+        self.assertEqual(package.get('execution_profile_manifest'),'profiling/execution_window.csv')
+        with (root/package['execution_profile_manifest']).open(newline='') as stream:
+            windows=list(csv.DictReader(stream))
+        self.assertEqual(len(windows),1)
+        window=windows[0]
+        self.assertEqual(list(window),['begin_instruction','end_instruction',
+                                      'arithmetic_instruction_count','dload_count','dstore_count'])
+        words=[int(word,2) for word in (root/package['program_inst32']).read_text().splitlines()]
+        begin,end=int(window['begin_instruction']),int(window['end_instruction'])
+        self.assertTrue(0<begin<end<len(words))
+        self.assertEqual((words[begin-1],words[end]),(0x7000005b,0x7000005b))
+        arithmetic=[index for index,word in enumerate(words) if word&127==0x5b and word>>28<=5]
+        self.assertTrue(arithmetic)
+        self.assertTrue(all(begin<=index<end for index in arithmetic))
+        self.assertEqual(len(arithmetic),int(window['arithmetic_instruction_count']))
+        with (root/package['dma_relocation_manifest']).open(newline='') as stream:
+            dma=list(csv.DictReader(stream))
+        report=json.loads((root/package['oracle_report']).read_text())
+        timing=report['execution_profile']
+        self.assertIs(timing['enabled'],True)
+        self.assertEqual(timing['window_count'],1)
+        self.assertIs(timing['timing_measured'],False)
+        self.assertIs(timing['includes_residual_dma'],True)
+        counts=dict(prefix_dload_count=0,window_dload_count=0,window_dstore_count=0,suffix_dstore_count=0)
+        for row in dma:
+            index=int(row['instruction_index'])
+            self.assertEqual(int(row['word_hex'],16),words[index])
+            direction=row['direction']
+            if index<begin:
+                self.assertEqual(direction,'dload')
+                counts['prefix_dload_count']+=1
+            elif index<end:
+                counts['window_'+direction+'_count']+=1
+            else:
+                self.assertEqual(direction,'dstore')
+                counts['suffix_dstore_count']+=1
+        for name,count in counts.items():
+            self.assertEqual(timing[name],count)
+        self.assertEqual(int(window['dload_count']),counts['window_dload_count'])
+        self.assertEqual(int(window['dstore_count']),counts['window_dstore_count'])
+        self.assertLessEqual(len(dma),timing['unprofiled_dma_count'])
+        self.assertLessEqual(sum(int(row['line_count'])*256 for row in dma),timing['unprofiled_dma_bytes'])
+        code=(root/package['program_source']).read_text()
+        self.assertEqual([int(word,16) for word in re.findall(r'\.word (0x[0-9A-Fa-f]+)',code)],words)
+        self.assertEqual(code.count('hooks->read_cycles(hooks->user)'),2)
+        self.assertEqual(code.count('hooks->wait_complete(hooks->user,'),words.count(0x7000005b))
+        self.assertEqual(code.count('return -5;'),2)
+        self.assertIn('hpu_run_'+package['case_name']+'_profiled(',code)
+        self.assertIn('sample->valid = 1;',code)
 
     def test_native_packages_keep_shared_baseline_fixture(self):
         result=self.run_generator()
