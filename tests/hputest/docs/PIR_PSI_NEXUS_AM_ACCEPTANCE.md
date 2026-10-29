@@ -3,7 +3,7 @@
 ## Provenance and locations
 
 - Server root `A=/home/zhaozhengyi/independent-pir-psi-audit-20261026`; Nexus checkout `N=$A/nexus-am-pir-psi`; producer root `P=$A/trident-alignment-20261026`; output `O=$A/nexus-pir-psi-output`.
-- Nexus fixed base `631f9970003b27ca82eb13549c830c02bea78215`; isolated integration commit `69a21e435f5d6187e351c05ed331cbbf1d92e7cb` on `feature/trident-pir-psi-it`. Producer was clean `22c08dcdf08b57fcb6505ff6b7942ffad5f42849` when configured. No remote push or merge.
+- Nexus fixed base `631f9970003b27ca82eb13549c830c02bea78215`; isolated integration commit `69a21e435f5d6187e351c05ed331cbbf1d92e7cb` on `feature/trident-pir-psi-it`. Producer was clean `22c08dcdf08b57fcb6505ff6b7942ffad5f42849` when configured. The branch was published only to the user's `adamsir32/nexus-am` fork; no push or merge to the `cuihu2` upstream.
 - Compiler `/opt/riscv/bin/riscv64-unknown-elf-gcc`, version `15.1.0`; target `riscv64-xs`, RV64 little endian.
 - Each source package has `provenance/build.json` with the producer commit and `clean-at-configure`. `receipt.json` contains full package tree, ELF, BIN, input image and Golden SHA-256 values. The package tree hashes are `3a45cb2d1c9c78f3339957079385ac44a903babe9089a35cb518451b67e00d67` (PSI), `bb4b546833a04eb4f6edb6aeaf5ad25eaf9ea62cf77e54254ecd823d4625f345` (PIR stage0), and `a0373561d197371269f030925bbb013d2f3959f77627e53dfb7fbbc96fe05a3f` (PIR stage1).
 
