@@ -58,7 +58,7 @@ def package_profile(spec):
     scheme, degree, level = spec["scheme"], int(spec["degree"]), int(spec["level"])
     kind, profile = spec.get("kind"), spec.get("profile")
     require(degree in DEGREES and 1 <= level <= 4, "unsupported degree/level")
-    require(re.fullmatch(r"0[3-7]_\d{2}_[a-z0-9_]+", spec["case_id"]) is not None,
+    require(re.fullmatch(r"0[3-8]_\d{2}_[a-z0-9_]+", spec["case_id"]) is not None,
             "unsupported native case identity")
     if spec["case_id"][:2] in ("03", "04", "05"):
         require((degree, level) == (1024, 4), "03～05 require N1024/L4")
@@ -91,6 +91,15 @@ def package_profile(spec):
         require(level == 4, "unsupported 07 level: requires L4 for every scheme")
         require(variant in ("optimized", "noopt"), "unsupported resource variant")
         require(stem == f"frontend_{scheme}_{operation}_l{level}_n{degree}", "explicit program stem mismatch")
+    elif kind == "application":
+        applications = {
+            "08_01_psi_single": ("psi_single", "bfv_apsi_concentrated_application", 8192, 4),
+            "08_02_pir_stage0": ("pir_stage0", "bfv_sealpir_2d_small_stage0_concentrated_000", 4096, 3),
+            "08_03_pir_stage1": ("pir_stage1", "bfv_sealpir_2d_small_stage1_concentrated_000", 4096, 3),
+        }
+        require(scheme == "bfv" and profile == "application" and
+                (spec.get("operation"), stem, degree, level) == applications.get(spec["case_id"]),
+                "unsupported 08 application identity/parameters")
     else:
         raise ValueError("unsupported package kind")
     base, ram = int(spec["memory_base"], 0), int(spec["minimum_ram_bytes"])
