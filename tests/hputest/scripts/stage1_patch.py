@@ -93,16 +93,70 @@ def apply(package, patch_dir, output):
             "numerical_execution": "NOT RUN"}
 
 
+def materialize(package, dynamic_dir, output):
+    """Overlay named physical limbs; retain fixed plaintexts from the package."""
+    manifest, moduli, image, rows = context(package)
+    mapping = dynamic_dir / "dynamic_inputs.tsv"
+    require(mapping.is_file(), "missing dynamic_inputs.tsv")
+    supplied = {}
+    for line in mapping.read_text().splitlines():
+        fields = line.split("\t")
+        require(len(fields) == 2 and fields[0] and fields[1], "malformed dynamic input row")
+        require(fields[0] not in supplied, "duplicate dynamic input allocation")
+        supplied[fields[0]] = fields[1]
+    available = {row["allocation_id"] for row in rows}
+    require(supplied and set(supplied) <= available, "unknown dynamic plaintext allocation")
+    identities = {}
+    for row in rows:
+        match = re.search(r"/plain_(\d+)/", row["allocation_id"])
+        require(match is not None, "stage1 plaintext lacks compiler identity")
+        identities[row["allocation_id"]] = int(match.group(1))
+    unique_identities = sorted(set(identities.values()))
+    require(len(unique_identities) == 34, "stage1 plaintext identity count changed")
+    fixed_identities = set(unique_identities[:2])
+    dynamic_ids = {allocation_id for allocation_id, identity in identities.items()
+                   if identity not in fixed_identities}
+    require(set(supplied) == dynamic_ids and len(dynamic_ids) == 96 and len(rows) == 102,
+            "stage1 dynamic allocation coverage is not exactly 32 plaintexts x 3 Q limbs")
+    patch_dir = dynamic_dir / "complete_patch"
+    require(not patch_dir.exists(), "complete patch already exists")
+    patch_dir.mkdir()
+    entries = []
+    for index, row in enumerate(rows):
+        allocation_id = row["allocation_id"]
+        offset, size, modulus = span(row, moduli, image)
+        data = (safe_file(dynamic_dir, supplied[allocation_id]).read_bytes()
+                if allocation_id in supplied else image[offset:offset + size])
+        require(len(data) == size, "dynamic plaintext has wrong size")
+        require(all(value < modulus for value, in struct.iter_unpack("<I", data)),
+                "noncanonical dynamic plaintext")
+        name = f"input_{index:03d}.u32.bin"
+        (patch_dir / name).write_bytes(data)
+        entries.append({"allocation_id": allocation_id, "path": name,
+                        "sha256": sha256(data)})
+    patch = {"schema": SCHEMA,
+             "source_package_sha256": sha256((package / "package.json").read_bytes()),
+             "encoding": "native_physical_u32_le", "inputs": entries}
+    (patch_dir / "manifest.json").write_text(json.dumps(patch, indent=2) + "\n")
+    result = apply(package, patch_dir, output)
+    result["dynamic_spans"] = len(supplied)
+    result["fixed_spans"] = len(rows) - len(supplied)
+    return result
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("action", choices=("snapshot", "apply"))
+    parser.add_argument("action", choices=("snapshot", "apply", "materialize"))
     parser.add_argument("--package", required=True, type=Path)
     parser.add_argument("--directory", required=True, type=Path)
     parser.add_argument("--output", type=Path)
     args = parser.parse_args()
-    result = snapshot(args.package, args.directory) if args.action == "snapshot" else apply(
-        args.package, args.directory, args.output)
-    print(json.dumps(result if args.action == "apply" else
+    if args.action != "snapshot":
+        require(args.output is not None, "apply/materialize requires --output")
+    result = (snapshot(args.package, args.directory) if args.action == "snapshot" else
+              materialize(args.package, args.directory, args.output)
+              if args.action == "materialize" else apply(args.package, args.directory, args.output))
+    print(json.dumps(result if args.action != "snapshot" else
                      {"input_spans": len(result["inputs"]), "schema": result["schema"]}, indent=2))
 
 

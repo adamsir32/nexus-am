@@ -1,5 +1,24 @@
 # PIR CPU/HPU runtime integration status
 
+## Software-model handoff update (independent branch)
+
+The `feature/pir-dynamic-stage-handoff` work adds `stage1_patch.py materialize`.
+It accepts 96 newly encoded dynamic Q-limb files plus an allocation map,
+retains the six fixed plaintext limbs from the package, creates a complete
+SHA-256-bound patch manifest, and calls the existing `apply` validator. The
+inline-asm software experiment loads the resulting image and executes the
+original 26,700 stage1 encoded instructions with their original DMA spans.
+For two legal database inputs sharing one encrypted second-dimension query,
+all output ciphertext coefficients match a separately calculated SEAL result,
+and the decrypted 1,024-byte records are correct. Real stage0 encoded-model
+DDR export and CPU readback supply the dynamic plaintexts. The reproducible
+test and hashes are documented in the producer branch's
+`doc/delivery/PIR_DYNAMIC_STAGE_HANDOFF_REPORT.md`.
+
+The sections below describe the **earlier fixed baseline** and its then-open
+software gap; the new result closes that software-model gap. Target RTL and
+bare-metal unified CPU orchestration remain untested.
+
 ## Current two-stage contract
 
 The small PIR producer emits two independent BFV application packages at N=4096, input Q level 3. Stage0 has a fixed encrypted query and 16 Golden limbs representing every exported first-stage ciphertext component/modulus. Stage1 contains its own fixed decomposed plaintext input, 32 Golden reply limbs, and an independent HPU program. Each package has its own image, DMA relocation manifest, line allocation map, CSR window size and target ELF/BIN. The 08 target cases exercise each stage separately; stage1 PASS in a future RTL run would not by itself prove a dynamic stage0→stage1 handoff.
