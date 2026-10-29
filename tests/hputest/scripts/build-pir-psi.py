@@ -7,8 +7,9 @@ from pathlib import Path
 import subprocess
 from types import SimpleNamespace
 
-from build import build_case
+from build import build_case, run, verify_elf
 from import_package import import_package, read_json, read_rows, require
+from pir_unified_layout import generate, STAGE0_STEM, STAGE1_STEM
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -18,6 +19,18 @@ CASES = {
     "08_02_pir_stage0": ("pir_stage0", "bfv_sealpir_2d_small_stage0_concentrated_000", 4096, 3),
     "08_03_pir_stage1": ("pir_stage1", "bfv_sealpir_2d_small_stage1_concentrated_000", 4096, 3),
 }
+UNIFIED = "08_04_pir_unified"
+
+
+def case_spec(case):
+    operation, stem, degree, level = CASES[case]
+    return {
+        "kind": "application", "profile": "application", "case_id": case,
+        "source": f"src/08_pir_psi/{case}.c", "operation": operation,
+        "program_stem": stem, "scheme": "bfv", "degree": degree, "level": level,
+        "memory_base": "0x87000000", "minimum_ram_bytes": 268435456,
+        "purpose": f"Trident {operation} fixed input, independent HPU target check",
+    }
 
 
 def sha256(path):
@@ -41,16 +54,12 @@ def tree_sha256(directory):
 def build(args):
     args.output = args.output.resolve()
     args.validator = args.validator.resolve()
-    operation, stem, degree, level = CASES[args.case]
+    if args.case == UNIFIED:
+        return build_unified(args)
+    require(args.package is not None, "single-stage build requires --package")
     package = args.package.resolve()
     require(package.is_dir() and not package.is_symlink(), "application package directory missing")
-    spec = {
-        "kind": "application", "profile": "application", "case_id": args.case,
-        "source": f"src/08_pir_psi/{args.case}.c", "operation": operation,
-        "program_stem": stem, "scheme": "bfv", "degree": degree, "level": level,
-        "memory_base": "0x87000000", "minimum_ram_bytes": 268435456,
-        "purpose": f"Trident {operation} fixed input, independent HPU target check",
-    }
+    spec = case_spec(args.case)
     require((ROOT / spec["source"]).is_file(), "target C source missing")
     subprocess.run([str(args.validator), str(package)], check=True)
     delivery = args.output / "imported" / args.case
@@ -89,10 +98,79 @@ def build(args):
     print(json.dumps(receipt, indent=2))
 
 
+def build_unified(args):
+    require(args.stage0_package is not None and args.stage1_package is not None and
+            args.cpu_parameters is not None,
+            "unified build requires both packages and --cpu-parameters")
+    packages = [args.stage0_package.resolve(), args.stage1_package.resolve()]
+    parameter_file = args.cpu_parameters.resolve()
+    require(parameter_file.is_file() and not parameter_file.is_symlink(),
+            "CPU parameter fixture missing")
+    delivery = args.output / "imported" / UNIFIED
+    delivery.mkdir(parents=True, exist_ok=True)
+    metadata = []
+    for stage, case, package in zip(("stage0", "stage1"),
+                                    ("08_02_pir_stage0", "08_03_pir_stage1"), packages):
+        require(package.is_dir() and not package.is_symlink(), "stage package missing")
+        subprocess.run([str(args.validator), str(package)], check=True)
+        metadata.append(import_package(package, delivery / stage, case_spec(case),
+                                       PRODUCER_COMMIT, verify_existing=args.verify_existing))
+    layout = generate(delivery, packages[0], packages[1], metadata[0], metadata[1],
+                      parameter_file, verify_existing=args.verify_existing)
+    binary_dir = args.output / "artifact" / "normal" / UNIFIED
+    binary_dir.mkdir(parents=True, exist_ok=True)
+    binary = binary_dir / UNIFIED
+    objects = args.output / "objects" / "normal" / str(args.wait_cycles) / UNIFIED
+    run(["make", "-s", "-C", ROOT, "-f", "Makefile.native.case", "image",
+         f"AM_HOME={args.am_home.resolve()}", f"ARCH={args.arch}",
+         f"CROSS_COMPILE={args.cross}", f"CASE_ID={UNIFIED}",
+         f"CASE_SOURCE={ROOT / 'src' / '08_pir_psi' / (UNIFIED + '.c')}",
+         f"DATA_DIR={delivery}", f"STAGE0_STEM={STAGE0_STEM}",
+         f"STAGE1_STEM={STAGE1_STEM}", "PROGRAM_STEM=pir_unified",
+         "LOG_LEVEL=1", f"WAIT_CYCLES={args.wait_cycles}",
+         f"CASE_OBJ_DIR={objects}", f"CASE_BINARY={binary}"])
+    elf = binary.with_suffix(".elf")
+    image = binary.with_suffix(".bin")
+    run([args.cross + "strip", "--strip-debug", elf])
+    require(elf.is_file() and image.is_file(), "unified ELF/BIN pair missing")
+    words = {}
+    for stage, meta in zip(("stage0", "stage1"), metadata):
+        actual = verify_elf(elf, args.cross, meta)
+        expected = [int(word, 2) for word in
+                    (delivery / stage / (meta["program_stem"] + ".inst32")).read_text().split()]
+        require(actual == expected, f"{stage} ELF HPU machine words/order mismatch")
+        words[stage] = {"count": len(actual), "inst32_sha256":
+                        sha256(delivery / stage / (meta["program_stem"] + ".inst32")),
+                        "dma_count": meta["DMA_COUNT"]}
+    symbols = subprocess.check_output([args.cross + "nm", "--defined-only", elf], text=True)
+    for name in ("main", "pir_cpu_decompose", "pir_cpu_encode", "irq_rearm",
+                 "hpu_run_" + STAGE0_STEM, "hpu_run_" + STAGE1_STEM,
+                 "stage0_initial_image", "stage1_initial_image"):
+        require(any(line.split()[-1] == name for line in symbols.splitlines()),
+                f"unified ELF lacks required symbol {name}")
+    receipt = {
+        "case_id": UNIFIED, "status": "TARGET_BUILD_AND_STATIC_CHECK_PASS",
+        "source_package_tree_sha256": {stage: tree_sha256(package) for stage, package in
+                                       zip(("stage0", "stage1"), packages)},
+        "cpu_parameters_sha256": sha256(parameter_file), "layout": layout,
+        "hpu_programs": words, "dma_manifest_validation": "PASS: import_package.validate_dma",
+        "load_segments_below_ddr": "PASS: verify_elf for each program",
+        "elf": str(elf), "bin": str(image),
+        "elf_sha256": sha256(elf), "bin_sha256": sha256(image),
+        "elf_bytes": elf.stat().st_size, "bin_bytes": image.stat().st_size,
+        "rtl_hardware_execution": "NOT RUN",
+    }
+    (binary_dir / "receipt.json").write_text(json.dumps(receipt, indent=2) + "\n")
+    print(json.dumps(receipt, indent=2))
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--case", required=True, choices=CASES)
-    parser.add_argument("--package", required=True, type=Path)
+    parser.add_argument("--case", required=True, choices=(*CASES, UNIFIED))
+    parser.add_argument("--package", type=Path)
+    parser.add_argument("--stage0-package", type=Path)
+    parser.add_argument("--stage1-package", type=Path)
+    parser.add_argument("--cpu-parameters", type=Path)
     parser.add_argument("--package-validator", dest="validator", required=True, type=Path)
     parser.add_argument("--output", required=True, type=Path)
     parser.add_argument("--am-home", default=ROOT.parents[1], type=Path)

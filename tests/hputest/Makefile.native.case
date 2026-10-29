@@ -26,6 +26,15 @@ SRCS := $(CASE_SOURCE) $(ROOT)/runtime/native/fixture.S \
         $(ROOT)/runtime/native/image.c $(ROOT)/runtime/native/wait.c $(ROOT)/runtime/native/check.c \
         $(ROOT)/src/common/hpu_irq.c \
         $(DATA_DIR)/layout.c
+ifeq ($(CASE_ID),08_04_pir_unified)
+SRCS := $(CASE_SOURCE) $(ROOT)/runtime/pir/fixture.S \
+        $(ROOT)/runtime/pir/pir_unified_runtime.c \
+        $(ROOT)/runtime/pir/pir_cpu_decompose.c \
+        $(ROOT)/runtime/pir/pir_cpu_encode.c \
+        $(ROOT)/runtime/native/wait.c $(ROOT)/src/common/hpu_irq.c \
+        $(DATA_DIR)/layout.c $(DATA_DIR)/stage0/$(STAGE0_STEM).c \
+        $(DATA_DIR)/stage1/$(STAGE1_STEM).c
+endif
 ifeq ($(PERFORMANCE),1)
 ifndef CASE_MEM_BASE
 $(error CASE_MEM_BASE is required for a performance testcase)
@@ -44,13 +53,18 @@ SRCS += $(DATA_DIR)/$(PROGRAM_STEM)_perf.c \
 CFLAGS += -DMEM_BASE=$(CASE_MEM_BASE)ULL \
           -DCASE_DEGREE=$(CASE_DEGREE)U -DCASE_LEVEL=$(CASE_LEVEL)U
 else
+ifneq ($(CASE_ID),08_04_pir_unified)
 SRCS += $(DATA_DIR)/$(PROGRAM_STEM).c
 ifeq ($(CASE_ID),03_08_psync_l4_n1024)
 # 三个官方fixed入口分别覆盖空闲、DMA和计算前序；不是把完整程序重复六次。
 SRCS += $(foreach state,idle dma compute,$(DATA_DIR)/$(PROGRAM_STEM)_$(state).c)
 endif
 endif
+endif
 INC_DIR += $(ROOT)/include $(DATA_DIR) $(BASELINE)/include
+ifeq ($(CASE_ID),08_04_pir_unified)
+INC_DIR += $(ROOT)/runtime/pir $(DATA_DIR)/stage0 $(DATA_DIR)/stage1
+endif
 ASFLAGS += -Wa,-I$(DATA_DIR)
 CFLAGS += -Wall -Wextra -Werror -ffunction-sections -fdata-sections \
           -DLINKNAN_HPU_IT=1 -DHPU_NATIVE_IRQ=1 -DHPU_LOG_LEVEL=$(LOG_LEVEL) \
@@ -67,6 +81,15 @@ endif
 
 include $(AM_HOME)/Makefile.app
 CFLAGS += -g0
+ifeq ($(CASE_ID),08_04_pir_unified)
+$(addprefix $(DST_DIR)/,$(CASE_SOURCE:.c=.o)): $(DATA_DIR)/layout.h \
+    $(DATA_DIR)/stage0/$(STAGE0_STEM).h $(DATA_DIR)/stage1/$(STAGE1_STEM).h
+$(DST_DIR)/$(ROOT)/runtime/pir/fixture.o: \
+    $(DATA_DIR)/stage0/image.u32.bin $(DATA_DIR)/stage1/image.u32.bin \
+    $(DATA_DIR)/stage0/golden.u32.bin $(DATA_DIR)/stage1/golden.u32.bin \
+    $(DATA_DIR)/stage0/writable.u8.bin $(DATA_DIR)/stage1/writable.u8.bin \
+    $(DATA_DIR)/stage1/cpu_writable.u8.bin
+else
 $(DST_DIR)/$(ROOT)/runtime/native/image.o: $(DATA_DIR)/layout.h
 $(DST_DIR)/$(ROOT)/runtime/native/check.o: $(DATA_DIR)/layout.h
 $(addprefix $(DST_DIR)/,$(CASE_SOURCE:.c=.o)): $(DATA_DIR)/layout.h $(DATA_DIR)/program.h
@@ -75,3 +98,4 @@ $(DST_DIR)/$(ROOT)/runtime/native/performance.o: $(DATA_DIR)/layout.h
 endif
 $(DST_DIR)/$(ROOT)/runtime/native/fixture.o: $(DATA_DIR)/image.u32.bin \
                                       $(DATA_DIR)/golden.u32.bin $(DATA_DIR)/writable.u8.bin
+endif
