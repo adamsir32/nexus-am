@@ -91,6 +91,22 @@ def gcc13_counter_cfg():
 
 
 class TimingTests(unittest.TestCase):
+    def test_checked_event_count_saved_on_stack_still_proves_handler_count(self):
+        stacked = CFG.replace(
+            "1058: 000000ef jal 2900 <irq_handler_count>",
+            "1057: 00000023 sd a0,0(sp)\n"
+            "    1058: 000000ef jal 2900 <irq_handler_count>").replace(
+                "105c: 00000063 bne a0,s0,1090 <main+0x90>",
+                "105a: 00003403 ld s0,0(sp)\n"
+                "    105c: 00000063 bne a0,s0,1090 <main+0x90>")
+        build.verify_timing(stacked, STEM)
+        for broken in (stacked.replace("sd a0,0(sp)", "sd zero,0(sp)"),
+                       stacked.replace("105a: 00003403 ld s0,0(sp)",
+                                       "105a: 00000413 li s0,0")):
+            with self.subTest(broken=broken), self.assertRaisesRegex(
+                    ValueError, "ordering differs"):
+                build.verify_timing(broken, STEM)
+
     def test_gcc13_counter_normalization_preserves_exact_zero_and_one_checks(self):
         build.verify_timing(gcc13_counter_cfg(), STEM)
 

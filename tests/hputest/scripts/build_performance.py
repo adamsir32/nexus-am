@@ -113,7 +113,10 @@ def verify_success_timing(main, stem):
     branches = {"beq", "bne", "blt", "bltu", "bge", "bgeu", "beqz", "bnez",
                 "bgtz", "blez", "bltz", "bgez", "bgtu", "bleu", "bgt", "ble"}
     # 常量传播只识别MMIO地址和返回值检查；不模拟CPU或放宽未知间接跳转。
-    pending, seen, passed = [(addresses[0], (), False, (("zero", 0),))], set(), 0
+    # Track stack slots relative to the entry SP. GCC may save a checked IRQ
+    # event count and compare the handler count to the saved value.
+    pending, seen, passed = [(addresses[0], (), False,
+                             (("zero", 0), ("sp", 0)))], set(), 0
     while pending:
         address, events, forbidden, known = pending.pop()
         state = (address, events, forbidden, known)
@@ -226,6 +229,16 @@ def verify_success_timing(main, stem):
                 memory = re.fullmatch(r"(-?\d+)\((\w+)\)", arguments[1])
                 base = registers.get(memory[2]) if memory else None
                 target = base + int(memory[1]) if isinstance(base, int) else None
+                if memory and memory[2] == "sp" and target is not None:
+                    slot = f"stack:{target}"
+                    if opcode in ("sw", "sd"):
+                        stored = registers.get(arguments[0])
+                        if stored is None:
+                            registers.pop(slot, None)
+                        else:
+                            registers[slot] = stored
+                    else:
+                        value = registers.get(slot)
                 if events.count("perf_cycle_read") == 2 and target in csr_names:
                     if opcode in ("sw", "sd"):
                         forbidden = True
