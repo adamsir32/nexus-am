@@ -35,6 +35,20 @@ int pir_cpu_decompose(const volatile uint32_t *stage0_ddr,
             limb->modulus != parameters->stage0_moduli[limb->modulus_id] ||
             seen[limb->reply][limb->component][limb->modulus_id]) return -2;
         seen[limb->reply][limb->component][limb->modulus_id] = 1U;
+    }
+    for (unsigned reply = 0U; reply < PIR_CPU_STAGE0_REPLIES; ++reply)
+        for (unsigned component = 0U; component < PIR_CPU_STAGE0_COMPONENTS; ++component)
+            for (unsigned modulus = 0U; modulus < PIR_CPU_STAGE0_MODULI; ++modulus)
+                if (!seen[reply][component][modulus]) return -4;
+    for (size_t left = 0U; left < limb_count; ++left)
+        for (size_t right = left + 1U; right < limb_count; ++right)
+            if ((uint64_t)limbs[left].line <
+                    (uint64_t)limbs[right].line + PIR_CPU_DEGREE / 64U &&
+                (uint64_t)limbs[right].line <
+                    (uint64_t)limbs[left].line + PIR_CPU_DEGREE / 64U)
+                return -5;
+    for (size_t index = 0U; index < limb_count; ++index) {
+        const struct pir_cpu_output_limb *limb = &limbs[index];
         const volatile uint32_t *source = stage0_ddr + (size_t)limb->line * 64U;
         const size_t plain_base = (size_t)limb->reply * 8U +
             (size_t)limb->component * 4U + (size_t)limb->modulus_id * 2U;
@@ -48,9 +62,5 @@ int pir_cpu_decompose(const volatile uint32_t *stage0_ddr,
                 value >> PIR_CPU_PLAIN_BITS;
         }
     }
-    for (unsigned reply = 0U; reply < PIR_CPU_STAGE0_REPLIES; ++reply)
-        for (unsigned component = 0U; component < PIR_CPU_STAGE0_COMPONENTS; ++component)
-            for (unsigned modulus = 0U; modulus < PIR_CPU_STAGE0_MODULI; ++modulus)
-                if (!seen[reply][component][modulus]) return -4;
     return 0;
 }

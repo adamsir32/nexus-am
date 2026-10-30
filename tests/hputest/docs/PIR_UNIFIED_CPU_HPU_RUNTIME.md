@@ -10,7 +10,10 @@ The HPU programs remain separate; no target compiler or graph rebuild runs.
 `build-pir-psi.py --case 08_04_pir_unified` invokes the established package
 validator and `import_package()` separately for both packages. The generated
 `layout.h/c` supplies read-only stage-specific output, input, and parameter
-tables. `fixture.S` embeds both poisoned initial images, both Golden arrays,
+tables. The unified import requires `--dynamic-input-map` from the producer's
+baseline replay. It binds each of the 96 logical CPU input limbs to an exact
+package allocation and checks the encoded bytes; internal `plain_N` numbering
+does not assign input roles. `fixture.S` embeds both poisoned initial images, both Golden arrays,
 and both writable masks under distinct symbols. This avoids the generic
 single-package `initial_image`/`outputs` name collision.
 
@@ -30,7 +33,8 @@ single-package `initial_image`/`outputs` name collision.
    32×4096 plaintext buffer. Golden is used only for independent validation.
 6. Copy the stage1 initial image into the same DDR base after decomposition.
    Initialize the static NTT encoder and overwrite exactly 96 dynamic input
-   limbs. Check that every other stage1 byte remains at its initial value;
+   limbs. Check that every other stage1 byte remains at its initial value and
+   save the 96 CPU-written limbs for the post-HPU guard;
    clean all stage1 cache lines.
 7. Clear fault/completion, configure and commit the 45,549-line stage1
    window. `irq_rearm()` checks the first ISR's completion, cleared level,
@@ -39,8 +43,8 @@ single-package `initial_image`/`outputs` name collision.
    at one before issuing the original 26,700 stage1 HPU instructions.
 8. Wait for a second ISR completion and idle status; require two events and
    two handler calls. Close interrupts. Invalidate DDR and check 32 final
-   output limbs plus all nonwritable/non-dynamic lines and guards against
-   independent Golden and initial data. Report PASS only after these checks.
+   output limbs plus all HPU read-only lines and guards against independent
+   Golden, initial data, and the saved CPU inputs. Report PASS only after these checks.
 
 The target's `wait_program()` rejects a fault or timeout and cannot treat an
 MMIO level alone as a completed interrupt. Failures close the interrupt
@@ -53,10 +57,10 @@ awaits RTL/SoC support for the custom HPU instructions and interrupt path.
 The two HPU programs reuse one DDR window. The maximum active HPU window is
 45,549×256 = 11,660,544 bytes, plus 64×256 = 16,384 guard bytes (45,613
 lines total). It is **not** the sum of the two windows. Both stage images and
-Golden arrays are present in the CPU ELF; the final ELF is 21,526,016 bytes,
-the raw BIN is 21,586,472 bytes, and `.bss` is 852,536 bytes. `.bss` includes
-the 524,288-byte plaintext buffer and encoder tables/scratch. The sole LOAD
-segment occupies `0x80000000..0x81496228`, below DDR `0x87000000`; the
+Golden arrays are present in the CPU ELF. `.bss` includes the 524,288-byte
+plaintext buffer, encoder tables/scratch, and a 1,572,864-byte exact snapshot
+of the dynamic stage1 inputs; it does not copy the whole DDR image. The sole LOAD
+segment remains below DDR `0x87000000`; the
 build verifies every PT_LOAD against that boundary. The package receiver
 checks the 256 MiB memory contract. No large stack allocation or heap
 allocation is made by the new CPU algorithms.

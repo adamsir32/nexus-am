@@ -4,6 +4,7 @@ import argparse
 import hashlib
 import json
 from pathlib import Path
+import re
 import subprocess
 from types import SimpleNamespace
 
@@ -13,7 +14,7 @@ from pir_unified_layout import generate, STAGE0_STEM, STAGE1_STEM
 
 
 ROOT = Path(__file__).resolve().parents[1]
-PRODUCER_COMMIT = "22c08dcdf08b57fcb6505ff6b7942ffad5f42849"
+DEFAULT_PRODUCER_COMMIT = "22c08dcdf08b57fcb6505ff6b7942ffad5f42849"
 CASES = {
     "08_01_psi_single": ("psi_single", "bfv_apsi_concentrated_application", 8192, 4),
     "08_02_pir_stage0": ("pir_stage0", "bfv_sealpir_2d_small_stage0_concentrated_000", 4096, 3),
@@ -52,6 +53,8 @@ def tree_sha256(directory):
 
 
 def build(args):
+    require(re.fullmatch(r"[0-9a-f]{40}", args.producer_commit) is not None,
+            "expected producer commit must be a full lowercase SHA-1")
     args.output = args.output.resolve()
     args.validator = args.validator.resolve()
     if args.case == UNIFIED:
@@ -64,7 +67,7 @@ def build(args):
     subprocess.run([str(args.validator), str(package)], check=True)
     delivery = args.output / "imported" / args.case
     delivery.parent.mkdir(parents=True, exist_ok=True)
-    metadata = import_package(package, delivery, spec, PRODUCER_COMMIT,
+    metadata = import_package(package, delivery, spec, args.producer_commit,
                               verify_existing=args.verify_existing)
     target = SimpleNamespace(output=args.output, am_home=args.am_home.resolve(),
                              arch=args.arch, cross=args.cross, wait_cycles=args.wait_cycles)
@@ -76,7 +79,7 @@ def build(args):
     allocations = read_rows(package / manifest["line_map"])
     compiler_version = subprocess.check_output([args.cross + "gcc", "--version"], text=True).splitlines()[0]
     receipt = {
-        "case_id": args.case, "producer_commit": PRODUCER_COMMIT,
+        "case_id": args.case, "producer_commit": args.producer_commit,
         "nexus_am_base_commit": "631f9970003b27ca82eb13549c830c02bea78215",
         "package": str(package), "source_package_tree_sha256": tree_sha256(package),
         "source_package_json_sha256": sha256(package / "package.json"),
@@ -100,12 +103,15 @@ def build(args):
 
 def build_unified(args):
     require(args.stage0_package is not None and args.stage1_package is not None and
-            args.cpu_parameters is not None,
-            "unified build requires both packages and --cpu-parameters")
+            args.cpu_parameters is not None and args.dynamic_input_map is not None,
+            "unified build requires both packages, --cpu-parameters and --dynamic-input-map")
     packages = [args.stage0_package.resolve(), args.stage1_package.resolve()]
     parameter_file = args.cpu_parameters.resolve()
+    dynamic_map = args.dynamic_input_map.resolve()
     require(parameter_file.is_file() and not parameter_file.is_symlink(),
             "CPU parameter fixture missing")
+    require(dynamic_map.is_file() and not dynamic_map.is_symlink(),
+            "producer dynamic input map missing")
     delivery = args.output / "imported" / UNIFIED
     delivery.mkdir(parents=True, exist_ok=True)
     metadata = []
@@ -114,9 +120,10 @@ def build_unified(args):
         require(package.is_dir() and not package.is_symlink(), "stage package missing")
         subprocess.run([str(args.validator), str(package)], check=True)
         metadata.append(import_package(package, delivery / stage, case_spec(case),
-                                       PRODUCER_COMMIT, verify_existing=args.verify_existing))
+                                       args.producer_commit, verify_existing=args.verify_existing))
     layout = generate(delivery, packages[0], packages[1], metadata[0], metadata[1],
-                      parameter_file, verify_existing=args.verify_existing)
+                      parameter_file, dynamic_map,
+                      verify_existing=args.verify_existing)
     binary_dir = args.output / "artifact" / "normal" / UNIFIED
     binary_dir.mkdir(parents=True, exist_ok=True)
     binary = binary_dir / UNIFIED
@@ -150,9 +157,11 @@ def build_unified(args):
                 f"unified ELF lacks required symbol {name}")
     receipt = {
         "case_id": UNIFIED, "status": "TARGET_BUILD_AND_STATIC_CHECK_PASS",
+        "producer_commit": args.producer_commit,
         "source_package_tree_sha256": {stage: tree_sha256(package) for stage, package in
                                        zip(("stage0", "stage1"), packages)},
-        "cpu_parameters_sha256": sha256(parameter_file), "layout": layout,
+        "cpu_parameters_sha256": sha256(parameter_file),
+        "dynamic_input_map_sha256": sha256(dynamic_map), "layout": layout,
         "hpu_programs": words, "dma_manifest_validation": "PASS: import_package.validate_dma",
         "load_segments_below_ddr": "PASS: verify_elf for each program",
         "elf": str(elf), "bin": str(image),
@@ -167,10 +176,13 @@ def build_unified(args):
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--case", required=True, choices=(*CASES, UNIFIED))
+    parser.add_argument("--producer-commit", default=DEFAULT_PRODUCER_COMMIT,
+                        help="exact producer revision expected in both package provenances")
     parser.add_argument("--package", type=Path)
     parser.add_argument("--stage0-package", type=Path)
     parser.add_argument("--stage1-package", type=Path)
     parser.add_argument("--cpu-parameters", type=Path)
+    parser.add_argument("--dynamic-input-map", type=Path)
     parser.add_argument("--package-validator", dest="validator", required=True, type=Path)
     parser.add_argument("--output", required=True, type=Path)
     parser.add_argument("--am-home", default=ROOT.parents[1], type=Path)

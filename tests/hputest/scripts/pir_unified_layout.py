@@ -1,5 +1,6 @@
 """Generate namespaced metadata for a sequential, single-ELF PIR application."""
 
+import csv
 import json
 from pathlib import Path
 import re
@@ -62,8 +63,47 @@ def packed_pre_twist(psi, modulus):
     return result
 
 
+def read_dynamic_input_map(path, plaintext_rows, physical_image, moduli):
+    """Bind logical CPU plaintexts to package allocations from the producer map."""
+    require(path.is_file() and not path.is_symlink(), "producer dynamic input map missing")
+    by_id = {row["allocation_id"]: row for row in plaintext_rows}
+    require(len(by_id) == 102, "stage1 physical plaintext allocations are not unique")
+    with path.open(newline="", encoding="utf-8") as source:
+        entries = list(csv.reader(source, delimiter="\t"))
+    require(len(entries) == 96, "producer dynamic input map must have 96 limbs")
+    result = {}
+    allocations = set()
+    for fields in entries:
+        require(len(fields) == 2, "invalid producer dynamic input map row")
+        allocation, filename = fields
+        match = re.fullmatch(r"dynamic_(\d+)\.u32\.bin", filename)
+        require(match is not None and allocation in by_id,
+                "producer dynamic input map has an unknown binding")
+        rank = int(match.group(1))
+        require(rank < 96 and rank not in result and allocation not in allocations,
+                "producer dynamic input map repeats a binding")
+        row = by_id[allocation]
+        basis_match = re.search(r"/mod(\d+)$", allocation)
+        require(basis_match is not None and
+                int(basis_match.group(1)) < len(moduli) and
+                int(basis_match.group(1)) == rank % 3 and
+                int(row["payload_words"]) == N and row["read_only"] == "true",
+                "producer dynamic input map limb/modulus shape changed")
+        limb_file = path.parent / filename
+        require(limb_file.is_file() and not limb_file.is_symlink(),
+                "producer dynamic input limb missing")
+        offset = int(row["line_offset"]) * LINE_WORDS * 4
+        require(limb_file.read_bytes() == physical_image[offset:offset + N * 4],
+                "producer dynamic input bytes differ from package image")
+        result[rank] = (row, rank, rank % 3)
+        allocations.add(allocation)
+    require(len(result) == 96 and len(plaintext_rows) - len(allocations) == 6,
+            "producer dynamic map does not separate 96 dynamic and 6 fixed limbs")
+    return [result[index] for index in range(96)]
+
+
 def generate(destination, stage0_package, stage1_package, metadata0, metadata1,
-             cpu_parameters, verify_existing=False):
+             cpu_parameters, dynamic_input_map, verify_existing=False):
     _, _, golden0, parameters0 = package_info(stage0_package)
     manifest1, rows1, golden1, parameters1 = package_info(stage1_package)
     params = read_json(cpu_parameters)
@@ -106,18 +146,18 @@ def generate(destination, stage0_package, stage1_package, metadata0, metadata1,
                              row["allocation_id"])
         require(match is not None, "stage1 plaintext naming changed")
         parsed.append((row, int(match.group(1)), int(match.group(2))))
-    identities = sorted({identity for _, identity, _ in parsed})
-    require(len(identities) == 34, "stage1 plaintext identity count changed")
-    dynamic = identities[2:]
+    identities = {identity for _, identity, _ in parsed}
+    require(len(identities) == 34 and
+            all({basis for _, index, basis in parsed if index == identity} == {0, 1, 2}
+                for identity in identities), "stage1 plaintext identity/modulus shape changed")
+    dynamic_bindings = read_dynamic_input_map(
+        dynamic_input_map, plaintext_rows, physical_image, mod1)
     limbs1 = []
-    for row, identity, basis in parsed:
-        if identity in identities[:2]:
-            continue
-        rank = dynamic.index(identity)
-        require(basis < 3 and int(row["payload_words"]) == N and
-                row["read_only"] == "true", "stage1 dynamic limb shape changed")
+    for row, rank, basis in dynamic_bindings:
+        require(basis < len(mod1), "stage1 dynamic modulus index changed")
         limbs1.append((int(row["line_offset"]), N,
-                       rank // 4 + (rank % 4) * 8, basis, mod1[basis]))
+                       (rank // 3) // 4 + ((rank // 3) % 4) * 8,
+                       basis, mod1[basis]))
     require(len(limbs1) == 96 and
             {tuple(row[2:4]) for row in limbs1} == {(p, q) for p in range(32) for q in range(3)},
             "stage1 dynamic limb coverage changed")
@@ -127,10 +167,13 @@ def generate(destination, stage0_package, stage1_package, metadata0, metadata1,
             "combined sequential DDR window exceeds workload budget")
     writable = bytearray((destination / "stage1" / "writable.u8.bin").read_bytes())
     require(len(writable) == image1, "stage1 writable bitmap size")
+    dynamic_lines = set()
     for line, words, _, _, _ in limbs1:
         require(words == N and line + words // LINE_WORDS <= window1 and
-                all(writable[i] == 0 for i in range(line, line + words // LINE_WORDS)),
-                "dynamic span conflicts with HPU writable lines")
+                all(writable[i] == 0 and i not in dynamic_lines
+                    for i in range(line, line + words // LINE_WORDS)),
+                "dynamic span conflicts with HPU writable or another CPU input")
+        dynamic_lines.update(range(line, line + words // LINE_WORDS))
         writable[line:line + words // LINE_WORDS] = b"\x01" * (words // LINE_WORDS)
     write_generated(destination / "stage1" / "cpu_writable.u8.bin", bytes(writable),
                     verify_existing)

@@ -7,10 +7,11 @@ import ctypes as C
 import hashlib
 import json
 from pathlib import Path
-import re
 import subprocess
 import struct
 import sys
+
+from pir_unified_layout import read_dynamic_input_map
 
 
 N = 4096
@@ -73,28 +74,12 @@ def output_limbs(golden, moduli):
     return (OutputLimb * len(values))(*values)
 
 
-def input_limbs(rows, moduli):
+def input_limbs(rows, moduli, stage1_image, dynamic_input_map):
     plaintext_rows = [row for row in rows if row["kind"] == "plaintext"]
-    require(len(plaintext_rows) == 102, "stage1 must have 102 physical plaintext limbs")
-    identities = {}
-    for row in plaintext_rows:
-        match = re.fullmatch(r"frontend/plains/plain_(\d+)/multiply/[^/]+/c0/mod(\d+)",
-                             row["allocation_id"])
-        require(match is not None, "stage1 physical plaintext naming changed")
-        identities[row["allocation_id"]] = (int(match.group(1)), int(match.group(2)))
-    unique = sorted({identity for identity, _ in identities.values()})
-    require(len(unique) == 34, "stage1 compiler plaintext identity count")
-    dynamic = unique[2:]
-    require(len(dynamic) == 32, "stage1 dynamic plaintext count")
     values, by_id = [], {}
-    for row in plaintext_rows:
-        identity, basis = identities[row["allocation_id"]]
-        if identity in unique[:2]:
-            continue
-        rank = dynamic.index(identity)
-        plain_index = rank // 4 + (rank % 4) * 8
-        require(0 <= basis < 3 and int(row["payload_words"]) == N and
-                row["read_only"] == "true", "stage1 dynamic physical span ABI")
+    for row, rank, basis in read_dynamic_input_map(
+            dynamic_input_map, plaintext_rows, stage1_image, moduli):
+        plain_index = (rank // 3) // 4 + ((rank // 3) % 4) * 8
         item = InputLimb(int(row["line_offset"]), N, plain_index, basis, moduli[basis])
         values.append(item)
         by_id[row["allocation_id"]] = item
@@ -169,6 +154,7 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--fixture", required=True, type=Path)
     parser.add_argument("--output", required=True, type=Path)
+    parser.add_argument("--dynamic-input-map", type=Path)
     parser.add_argument("--replay-executable", type=Path,
                         help="encoded HPU model runner; replays target-C patched images")
     args = parser.parse_args()
@@ -188,7 +174,10 @@ def main():
     stage1_image = (stage1_package / manifest["image"]).read_bytes()
     require(len(stage1_image) == config["used_lines"] * 256,
             "source stage1 image length mismatch")
-    limbs, by_id = input_limbs(rows, list(params.stage1_moduli))
+    dynamic_map = (args.dynamic_input_map or
+                   fixture / "replay/baseline/dynamic/dynamic_inputs.tsv")
+    limbs, by_id = input_limbs(rows, list(params.stage1_moduli),
+                              stage1_image, dynamic_map)
     api = load_lib(args.output)
     encoder = Encoder()
     require(api.pir_cpu_encoder_init(C.byref(encoder), C.byref(params)) == 0,
@@ -225,11 +214,18 @@ def main():
     # Rejected before use or before any stage1 DDR mutation.
     bad_outputs = (OutputLimb * 16)(*baseline_outputs)
     bad_outputs[1] = bad_outputs[0]
+    aliased_outputs = (OutputLimb * 16)(*baseline_outputs)
+    alias_index = next(i for i in range(1, 16)
+                       if aliased_outputs[i].modulus_id == aliased_outputs[0].modulus_id)
+    aliased_outputs[alias_index].line = aliased_outputs[0].line
     corrupted_stage0 = (C.c_uint32 * len(baseline_words))(*baseline_words)
     corrupted_stage0[baseline_outputs[0].line * 64] = baseline_outputs[0].modulus
     negative = {
         "duplicate-output-limb": api.pir_cpu_decompose(
             baseline_words, len(baseline_words) // 64, bad_outputs, 16,
+            C.byref(params), baseline_plains, len(baseline_plains)),
+        "overlapping-output-limb": api.pir_cpu_decompose(
+            baseline_words, len(baseline_words) // 64, aliased_outputs, 16,
             C.byref(params), baseline_plains, len(baseline_plains)),
         "short-output-window": api.pir_cpu_decompose(
             baseline_words, 1, baseline_outputs, 16,
@@ -256,7 +252,7 @@ def main():
         changed_plains, len(changed_plains), scratch_words, config["used_lines"],
         out_of_bounds, 96, C.byref(params), C.byref(encoder))
     require(all(rc != 0 for rc in negative.values()) and scratch == stage1_image,
-            "target C accepted invalid input or changed DDR on validation failure")
+            f"target C accepted invalid input or changed DDR on validation failure: {negative}")
     summary = {"status": "PASS", "cpu_decomposition": "32 x 4096 coefficients exact",
                "cpu_encoding": "96 x 4096 words exact", "negative_return_codes": negative,
                "baseline_patched_sha256": sha(baseline),
