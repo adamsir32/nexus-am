@@ -65,6 +65,7 @@ HARNESS = r'''
 int pir_target_main(void);
 static volatile uint32_t ddr[64];
 static int mode, stage, ready, opened, prepared, decomposed, encoded, closed;
+static unsigned last_phase, failure_count, diagnose_count;
 static uint32_t events, handlers;
 const struct pir_cpu_output_limb stage0_cpu_limbs[16] = {{0}};
 const struct pir_cpu_input_limb stage1_cpu_limbs[96] = {{0}};
@@ -81,16 +82,21 @@ int expect_csr(uintptr_t address, uint32_t expected) { (void)address; (void)expe
 int clear_completion(void) { return 0; }
 int wait_window(void) { return mode == 6 && stage == 1; }
 int wait_program(void) {
-  if ((mode == 1 || mode == 2) && stage == 0) return 1;
+  if (mode == 2 && stage == 0) return 1;
   if (mode == 7 && stage == 1) return 1;
   ++events; ++handlers; ready = 1; return 0;
 }
-void phase_mark(unsigned phase) { (void)phase; }
+void phase_mark(unsigned phase) { last_phase = phase; }
 void clean_lines(unsigned lines) { assert(lines == STAGE1_IMAGE_LINES); }
 int case_fail_at(const char *source, unsigned line) {
-  (void)source; (void)line; assert(!opened); return 1;
+  static const unsigned expected_phase[11] = {0, PHASE_ISSUE, PHASE_WAIT,
+    PHASE_COMPARE, PHASE_COMPARE, PHASE_PREPARE, PHASE_CONFIGURE,
+    PHASE_WAIT, PHASE_CONFIGURE, PHASE_COMPARE, PHASE_ISSUE};
+  (void)source; assert(line > 0 && !opened && mode > 0 && mode <= 10);
+  assert(last_phase == expected_phase[mode]);
+  ++failure_count; return 1;
 }
-int case_pass(void) { assert(stage == 1 && ready && closed); return 0; }
+int case_pass(void) { assert(stage == 1 && ready && closed && events == 2); return 0; }
 int irq_reset_events(void) { assert(!opened); events = handlers = 0; return 0; }
 int irq_open(void) { assert(!opened && stage == 0); opened = 1; return 0; }
 int irq_rearm(void) {
@@ -101,11 +107,13 @@ int irq_rearm(void) {
 void irq_close(void) { opened = 0; closed = 1; }
 uint32_t irq_event_count(void) { return events; }
 uint32_t irq_handler_count(void) { return handlers; }
-void irq_diagnose(const char *phase, unsigned polls) { (void)phase; (void)polls; }
+void irq_diagnose(const char *phase, unsigned polls) {
+  (void)phase; (void)polls; ++diagnose_count;
+}
 void pir_prepare_stage0(void) { assert(!prepared); prepared = 1; }
 void pir_prepare_stage1(void) { assert(ready && decomposed); prepared = 2; }
 int pir_check_stage0(void) { assert(stage == 0 && ready); return mode == 3; }
-int pir_check_stage1(void) { assert(stage == 1 && ready && !opened); return mode == 9 || mode == 10; }
+int pir_check_stage1(void) { assert(stage == 1 && ready && !opened); return mode == 9; }
 int pir_check_stage1_fixed_before_issue(void) { return 0; }
 int pir_cpu_decompose(const volatile uint32_t *memory, uint32_t lines,
     const struct pir_cpu_output_limb *limbs, size_t count,
@@ -128,16 +136,20 @@ int pir_cpu_encode(const uint32_t *plains, size_t words, volatile uint32_t *memo
   encoded = 1; return 0;
 }
 int hpu_run_bfv_sealpir_2d_small_stage0_concentrated_000(void) {
-  assert(stage == 0 && opened && prepared == 1); return 0;
+  assert(stage == 0 && opened && prepared == 1); return mode == 1;
 }
 int hpu_run_bfv_sealpir_2d_small_stage1_concentrated_000(void) {
-  assert(stage == 1 && opened && prepared == 2 && encoded && !ready); return 0;
+  assert(stage == 1 && opened && prepared == 2 && encoded && !ready);
+  return mode == 10;
 }
 int main(int argc, char **argv) {
+  static const unsigned expected_events[11] = {2, 0, 0, 1, 1, 1, 1, 1, 1, 2, 1};
   assert(argc == 2); mode = atoi(argv[1]);
   int rc = pir_target_main();
   assert((mode == 0 ? rc == 0 : rc != 0) && !opened);
-  if (mode >= 3 && mode <= 10 && mode != 6) assert(events >= 1);
+  assert(events == expected_events[mode] && handlers == expected_events[mode]);
+  assert(failure_count == (unsigned)(mode != 0));
+  assert(diagnose_count == (unsigned)(mode == 2 || mode == 7));
   return 0;
 }
 '''

@@ -71,6 +71,8 @@ The commands below ran on the server. Paths are given through `$A`, `$P`, and
    ../trident-alignment-20261026/pir-unified-fixture/packages/stage1_concentrated_000
    --cpu-parameters
    ../trident-alignment-20261026/pir-unified-fixture/replay/cpu-fixture/parameters.json
+   --dynamic-input-map
+   ../trident-alignment-20261026/pir-unified-fixture/replay/baseline/dynamic/dynamic_inputs.tsv
    --package-validator ../trident-alignment-20261026/build/hpu_validate_package
    --output ../pir-unified-target-build --am-home .
    --cross /opt/riscv/bin/riscv64-unknown-elf- --verify-existing`.
