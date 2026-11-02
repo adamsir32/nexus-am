@@ -1,6 +1,6 @@
 # Non-invasive PIR/PSI Nexus-AM acceptance
 
-Branch `feature/pir-psi-non-invasive-refactor` starts at the prior audited Nexus-AM commit `13c1c4583fbaf5d10f975332d77db87596faaf7e`. This branch changes only this report. The corresponding producer source is `adamsir32/inline-asm` code commit `b78e1395a5a6da8d429492de1e3c9a5a5230367d`; its final documentation commit is `880a23785d2d3313cdd6428551ae2675e8c6c022`.
+Branch `feature/pir-psi-non-invasive-refactor` starts at the prior audited Nexus-AM commit `13c1c4583fbaf5d10f975332d77db87596faaf7e`. This branch changes only this report. The corresponding producer source is `adamsir32/inline-asm` code commit `b78e1395a5a6da8d429492de1e3c9a5a5230367d`; its first acceptance report commit is `880a23785d2d3313cdd6428551ae2675e8c6c022`.
 
 All builds and tests below ran on `zhaozhengyi@10.102.104.22:9322` in `/home/zhaozhengyi/independent-pir-psi-audit-20261026`, with a fresh target output directory `non-invasive-targets-b78`. Evidence is under `non-invasive-evidence/` and the producer report `doc/delivery/PIR_PSI_NON_INVASIVE_ACCEPTANCE.md`.
 
