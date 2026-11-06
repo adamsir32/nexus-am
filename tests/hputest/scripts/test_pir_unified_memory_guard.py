@@ -19,6 +19,8 @@ WORKLOAD = r'''
 #define LINE_BYTES 256U
 #define STAGE0_IMAGE_LINES 1U
 #define STAGE1_IMAGE_LINES 3U
+#define STAGE0_COMPRESSED_BYTES 12U
+#define STAGE1_COMPRESSED_BYTES 12U
 #define STAGE0_OUTPUT_COUNT 1U
 #define STAGE1_OUTPUT_COUNT 1U
 #define PIR_CPU_INPUT_LIMBS 1U
@@ -41,8 +43,8 @@ struct pir_cpu_input_limb {
 };
 extern uint32_t ddr[STAGE1_IMAGE_LINES * LINE_WORDS];
 extern volatile struct workload_progress workload_trace;
-extern const uint32_t stage0_initial_image[STAGE0_IMAGE_LINES * LINE_WORDS];
-extern const uint32_t stage1_initial_image[STAGE1_IMAGE_LINES * LINE_WORDS];
+extern const uint8_t stage0_compressed_image[STAGE0_COMPRESSED_BYTES];
+extern uint8_t stage1_compressed_image[STAGE1_COMPRESSED_BYTES];
 extern const uint32_t stage0_golden_words[1];
 extern const uint32_t stage1_golden_words[1];
 extern const uint8_t stage0_writable_lines[STAGE0_IMAGE_LINES];
@@ -61,8 +63,10 @@ HARNESS = r'''
 #include <workload.h>
 #include <pir_unified_runtime.h>
 uint32_t ddr[STAGE1_IMAGE_LINES * LINE_WORDS];
-const uint32_t stage0_initial_image[STAGE0_IMAGE_LINES * LINE_WORDS] = {0};
-const uint32_t stage1_initial_image[STAGE1_IMAGE_LINES * LINE_WORDS] = {0};
+const uint8_t stage0_compressed_image[STAGE0_COMPRESSED_BYTES] =
+    {80, 90, 76, 49, 1, 0, 0, 0, 1, 0, 0, 128};
+uint8_t stage1_compressed_image[STAGE1_COMPRESSED_BYTES] =
+    {80, 90, 76, 49, 3, 0, 0, 0, 3, 0, 0, 128};
 const uint32_t stage0_golden_words[1] = {0};
 const uint32_t stage1_golden_words[1] = {3};
 const uint8_t stage0_writable_lines[STAGE0_IMAGE_LINES] = {1};
@@ -76,7 +80,7 @@ uint32_t csr_read(uintptr_t address) { (void)address; return 0; }
 void mem_fence(void) { }
 
 int main(void) {
-  pir_prepare_stage1();
+  if (pir_prepare_stage1() != 0) return 5;
   ddr[LINE_WORDS] = 7; /* CPU encoded input, outside the initial image. */
   if (pir_check_stage1_fixed_before_issue() != 0) return 1;
   ddr[2 * LINE_WORDS] = 3; /* Correct HPU output. */
@@ -86,6 +90,8 @@ int main(void) {
   ddr[LINE_WORDS] ^= 1;
   ddr[5] = 1; /* Existing fixed-image guard remains active. */
   if (pir_check_stage1() == 0) return 4;
+  stage1_compressed_image[11] = 0; /* Literal run without payload. */
+  if (pir_prepare_stage1() == 0) return 6;
   return 0;
 }
 '''

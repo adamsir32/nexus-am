@@ -1,17 +1,17 @@
 /* Namespaced immutable fixtures for two sequential programs in one ELF. */
     .section .rodata.pir_stage0_image,"a",@progbits
     .balign 256
-    .globl stage0_initial_image
-stage0_initial_image:
-    .incbin "stage0/image.u32.bin"
-    .size stage0_initial_image, . - stage0_initial_image
+    .globl stage0_compressed_image
+stage0_compressed_image:
+    .incbin "stage0/image.pzl.bin"
+    .size stage0_compressed_image, . - stage0_compressed_image
 
     .section .rodata.pir_stage1_image,"a",@progbits
     .balign 256
-    .globl stage1_initial_image
-stage1_initial_image:
-    .incbin "stage1/image.u32.bin"
-    .size stage1_initial_image, . - stage1_initial_image
+    .globl stage1_compressed_image
+stage1_compressed_image:
+    .incbin "stage1/image.pzl.bin"
+    .size stage1_compressed_image, . - stage1_compressed_image
 
     .section .rodata.pir_stage0_golden,"a",@progbits
     .balign 256

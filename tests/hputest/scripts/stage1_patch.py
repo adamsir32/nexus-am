@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Prepare physical stage1 plaintext bytes without changing its HPU program."""
 import argparse
+import csv
 import hashlib
 import json
 from pathlib import Path
@@ -31,6 +32,40 @@ def context(package):
             if row["kind"] == "plaintext"]
     require(rows and len({row["allocation_id"] for row in rows}) == len(rows),
             "missing or duplicate stage1 plaintext allocations")
+    sentinel_manifest = package / "sentinel_manifest.tsv"
+    if "sentinel-template-packages" in package.parts:
+        require(sentinel_manifest.is_file(), "missing sentinel manifest")
+    if sentinel_manifest.exists():
+        with sentinel_manifest.open(newline="") as source:
+            sentinels = list(csv.DictReader(source, delimiter="\t"))
+        require(len(sentinels) == 96, "sentinel coverage is not 32 x 3")
+        by_id = {row["allocation_id"]: row for row in rows}
+        seen = set()
+        unique = [set() for _ in range(3)]
+        for entry in sentinels:
+            rank = int(entry["plain_index"])
+            mod = int(entry["modulus_id"])
+            key = (rank, mod)
+            require(0 <= rank < 32 and 0 <= mod < 3 and key not in seen,
+                    "duplicate or invalid sentinel rank/modulus")
+            seen.add(key)
+            allocation_id = entry["allocation_id"]
+            require(allocation_id in by_id, "sentinel allocation missing")
+            row = by_id[allocation_id]
+            require(allocation_id.endswith(f"/mod{mod}") and
+                    int(row["line_offset"]) == int(entry["line_offset"]),
+                    "sentinel identity/physical offset mismatch")
+            offset, size, _ = span(row, moduli, image)
+            data = image[offset:offset + size]
+            hash_value = 14695981039346656037
+            for byte in data:
+                hash_value = ((hash_value ^ byte) * 1099511628211) & ((1 << 64) - 1)
+            require(f"{hash_value:x}" == entry["fnv1a64"],
+                    "sentinel content checksum mismatch")
+            require(data not in unique[mod], "duplicate encoded sentinel")
+            unique[mod].add(data)
+        require(len(seen) == 96 and all(len(group) == 32 for group in unique),
+                "sentinel coverage incomplete")
     return manifest, moduli, image, rows
 
 

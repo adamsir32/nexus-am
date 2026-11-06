@@ -55,7 +55,7 @@ static int run_stage(int (*entry)(void), unsigned expected_events, const char *n
 int main(void) {
     int rc = 1;
     phase_mark(PHASE_PREPARE);
-    pir_prepare_stage0();
+    if (pir_prepare_stage0() != 0) goto fail;
     if (configure_window(STAGE0_WINDOW_LINES) != 0) goto fail;
     if (irq_reset_events() != 0 || irq_open() != 0) goto close_fail;
     if (irq_event_count() != 0U || irq_handler_count() != 0U) goto close_fail;
@@ -75,7 +75,7 @@ int main(void) {
 
     /* Stage1 reuses DDR only after all stage0 output coefficients are retained. */
     phase_mark(PHASE_PREPARE);
-    pir_prepare_stage1();
+    if (pir_prepare_stage1() != 0) goto close_fail;
     if (pir_cpu_encoder_init(&encoder, &pir_parameters) != 0) {
         LOG_ERROR("[PIR][CPU][ENCODER_INIT] invalid parameters\n");
         goto close_fail;

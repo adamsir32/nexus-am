@@ -87,3 +87,18 @@ cache clean/invalidate operations, PLIC source 257 in S-mode context 1, and
 two independent PSYNC completion interrupts with W1C clearing. An RTL run
 must confirm the two window commits, DMA behavior, IRQ rearm, and final
 Golden/guard checks using this **single** target executable.
+
+## Audit-fixes image packing
+
+The unified target embeds the two imported DDR images as lossless `PZL1` streams.
+Each stream has a line count followed by zero-line or verbatim-line runs. The
+runtime validates the entire stream before writing DDR, expands it at stage
+preparation, and compares every read-only line against the decoded source after
+execution. Stage 1 CPU inputs still have the separate pre-issue snapshot check;
+HPU outputs still have exact per-coefficient Golden checks. The 64 imported
+Guard Lines are included in each stream. The target's existing ELF/BIN loader
+has no external DDR-image input, so the target remains self-contained and
+reuses the same DDR base for the two stages. It still expands the Stage 1 image
+at the transition; external image preloading and CSR-only switching require a
+loader contract and are not claimed here. Golden remains embedded to preserve
+exact target checks until an independent external Golden channel exists.

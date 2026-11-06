@@ -85,7 +85,7 @@ ifeq ($(CASE_ID),08_04_pir_unified)
 $(addprefix $(DST_DIR)/,$(CASE_SOURCE:.c=.o)): $(DATA_DIR)/layout.h \
     $(DATA_DIR)/stage0/$(STAGE0_STEM).h $(DATA_DIR)/stage1/$(STAGE1_STEM).h
 $(DST_DIR)/$(ROOT)/runtime/pir/fixture.o: \
-    $(DATA_DIR)/stage0/image.u32.bin $(DATA_DIR)/stage1/image.u32.bin \
+    $(DATA_DIR)/stage0/image.pzl.bin $(DATA_DIR)/stage1/image.pzl.bin \
     $(DATA_DIR)/stage0/golden.u32.bin $(DATA_DIR)/stage1/golden.u32.bin \
     $(DATA_DIR)/stage0/writable.u8.bin $(DATA_DIR)/stage1/writable.u8.bin \
     $(DATA_DIR)/stage1/cpu_writable.u8.bin

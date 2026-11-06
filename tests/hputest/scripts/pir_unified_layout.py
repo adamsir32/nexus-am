@@ -38,6 +38,25 @@ def emit_table(name, type_name, rows):
                     for row in rows) + "};\n")
 
 
+def compress_zero_lines(image):
+    """Lossless line stream: PZL1, line count, then zero or literal runs."""
+    require(len(image) % 256 == 0, "PIR image is not line aligned")
+    lines = len(image) // 256
+    result = bytearray(b"PZL1" + struct.pack("<I", lines))
+    cursor = 0
+    while cursor < lines:
+        zero = not any(image[cursor * 256:(cursor + 1) * 256])
+        end = cursor + 1
+        while end < lines and (not any(image[end * 256:(end + 1) * 256])) == zero:
+            end += 1
+        count = end - cursor
+        result.extend(struct.pack("<I", count | (0x80000000 if zero else 0)))
+        if not zero:
+            result.extend(image[cursor * 256:end * 256])
+        cursor = end
+    return bytes(result)
+
+
 def write_generated(path, data, verify_existing):
     require(verify_existing or not path.exists(),
             f"refusing to overwrite generated layout: {path}")
@@ -116,6 +135,13 @@ def generate(destination, stage0_package, stage1_package, metadata0, metadata1,
             all(pow(psi, N, q) == q - 1 and pow(psi, 2 * N, q) == 1
                 for psi, q in zip(params["stage1_psi"], mod1)),
             "CPU parameters disagree with either package")
+    compressed_sizes = {}
+    for stage, package in (("stage0", stage0_package), ("stage1", stage1_package)):
+        original_image = (destination / stage / "image.u32.bin").read_bytes()
+        compressed = compress_zero_lines(original_image)
+        write_generated(destination / stage / "image.pzl.bin", compressed,
+                        verify_existing)
+        compressed_sizes[stage] = len(compressed)
     physical_image = (stage1_package / manifest1["image"]).read_bytes()
     for basis, (psi, modulus) in enumerate(zip(params["stage1_psi"], mod1)):
         name = f"constants/twiddle/canonical/mod{basis}/ntt/pre_twist"
@@ -190,11 +216,13 @@ def generate(destination, stage0_package, stage1_package, metadata0, metadata1,
 #define STAGE1_WINDOW_LINES {window1}U
 #define STAGE0_IMAGE_LINES {image0}U
 #define STAGE1_IMAGE_LINES {image1}U
+#define STAGE0_COMPRESSED_BYTES {compressed_sizes["stage0"]}U
+#define STAGE1_COMPRESSED_BYTES {compressed_sizes["stage1"]}U
 #define STAGE0_OUTPUT_COUNT 16U
 #define STAGE1_OUTPUT_COUNT 32U
 struct output_span {{ unsigned line, words, golden_word, modulus, step, component, modulus_id; }};
-extern const uint32_t stage0_initial_image[STAGE0_IMAGE_LINES * 64U];
-extern const uint32_t stage1_initial_image[STAGE1_IMAGE_LINES * 64U];
+extern const uint8_t stage0_compressed_image[STAGE0_COMPRESSED_BYTES];
+extern const uint8_t stage1_compressed_image[STAGE1_COMPRESSED_BYTES];
 extern const uint32_t stage0_golden_words[16U * PIR_CPU_DEGREE];
 extern const uint32_t stage1_golden_words[32U * PIR_CPU_DEGREE];
 extern const uint8_t stage0_writable_lines[STAGE0_IMAGE_LINES];

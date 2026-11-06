@@ -24,7 +24,7 @@ HARNESS = r'''
 #include <hpu/irq.h>
 
 static uint32_t ddr[IMAGE_LINES * LINE_WORDS];
-static const char *executed_path;
+static const char *executed_path, *output_path;
 static uint32_t registers[8], events, handlers;
 static int opened, issued, prepared, mode;
 int psi_target_main(void);
@@ -88,15 +88,18 @@ int hpu_run_bfv_apsi_concentrated_application(void) {
 }
 
 int main(int argc, char **argv) {
-    assert(argc == 3);
+    assert(argc == 4);
     executed_path = argv[1];
-    mode = atoi(argv[2]);
+    mode = atoi(argv[2]); output_path = argv[3];
     const int result = psi_target_main();
     assert(prepared && issued && !opened);
     if (mode == 0) {
         assert(result == 0 && workload_trace.phase == PHASE_DONE);
         assert(events == 1 && handlers == 1 && workload_trace.errors == 0);
-        puts("PSI_SINGLE_MAIN_HOST_PASS real target C + model DDR");
+        FILE *output = fopen(output_path, "wb");
+        assert(output && fwrite(ddr, 1, sizeof(ddr), output) == sizeof(ddr));
+        assert(fclose(output) == 0);
+        puts("PSI_SINGLE_MAIN_HOST_PASS real target C + model DDR output export");
     } else {
         assert(result != 0 && workload_trace.phase == PHASE_FAIL);
         if (mode == 1) assert(workload_trace.first_line == outputs[0].line);
@@ -112,6 +115,7 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--delivery", required=True, type=Path)
     parser.add_argument("--executed-image", required=True, type=Path)
+    parser.add_argument("--output-image", type=Path)
     args = parser.parse_args()
     delivery = args.delivery.resolve(strict=True)
     executed = args.executed_image.resolve(strict=True)
@@ -141,8 +145,14 @@ def main():
                                  str(NATIVE / "check.c"), str(NATIVE / "fixture.S"),
                                  str(delivery / "layout.c"), str(directory / "harness.c"),
                                  "-o", str(binary)], cwd=delivery, check=True)
+        output_image = args.output_image.resolve() if args.output_image else directory / "psi-c-output.u32.bin"
+        if output_image.exists():
+            raise RuntimeError(f"refusing to overwrite PSI C output: {output_image}")
         for mode in range(4):
-            subprocess.run([str(binary), str(executed), str(mode)], check=True)
+            subprocess.run([str(binary), str(executed), str(mode),
+                            str(output_image)], check=True)
+        if output_image.stat().st_size != (delivery / "image.u32.bin").stat().st_size:
+            raise RuntimeError("PSI C ciphertext image size mismatch")
 
 
 if __name__ == "__main__":

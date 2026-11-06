@@ -110,8 +110,8 @@ uint32_t irq_handler_count(void) { return handlers; }
 void irq_diagnose(const char *phase, unsigned polls) {
   (void)phase; (void)polls; ++diagnose_count;
 }
-void pir_prepare_stage0(void) { assert(!prepared); prepared = 1; }
-void pir_prepare_stage1(void) { assert(ready && decomposed); prepared = 2; }
+int pir_prepare_stage0(void) { assert(!prepared); prepared = 1; return 0; }
+int pir_prepare_stage1(void) { assert(ready && decomposed); prepared = 2; return 0; }
 int pir_check_stage0(void) { assert(stage == 0 && ready); return mode == 3; }
 int pir_check_stage1(void) { assert(stage == 1 && ready && !opened); return mode == 9; }
 int pir_check_stage1_fixed_before_issue(void) { return 0; }

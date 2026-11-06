@@ -36,22 +36,87 @@ void invalidate_lines(unsigned lines) {
     mem_fence();
 }
 
-static void copy_image(const uint32_t *image, unsigned lines) {
-    volatile uint32_t *ddr = line_ptr(0U);
-    for (unsigned index = 0U; index < lines * LINE_WORDS; ++index)
-        ddr[index] = image[index];
-    clean_lines(lines);
+/* PZL1 stores 256-byte DDR lines as zero runs or verbatim runs. Validate the
+ * complete stream before writing DDR, so a truncated fixture fails clearly. */
+static uint32_t image_u32(const uint8_t *p) {
+    return (uint32_t)p[0] | ((uint32_t)p[1] << 8U) |
+           ((uint32_t)p[2] << 16U) | ((uint32_t)p[3] << 24U);
 }
 
-void pir_prepare_stage0(void) { copy_image(stage0_initial_image, STAGE0_IMAGE_LINES); }
-void pir_prepare_stage1(void) {
+enum image_mode { IMAGE_VALIDATE, IMAGE_LOAD, IMAGE_POSTCHECK, IMAGE_PRECHECK };
+
+static int walk_image(const uint8_t *image, unsigned bytes, unsigned lines,
+                      enum image_mode mode, const uint8_t *writable,
+                      const uint8_t *hpu_writable, const char *name) {
+    if (bytes < 8U || image[0] != 'P' || image[1] != 'Z' ||
+        image[2] != 'L' || image[3] != '1' || image_u32(image + 4U) != lines) {
+        LOG_ERROR("[PIR][%s][IMAGE] bad header or line count\n", name);
+        return 1;
+    }
+    unsigned offset = 8U, line = 0U;
+    while (line < lines) {
+        if (bytes - offset < 4U) goto malformed;
+        const uint32_t token = image_u32(image + offset);
+        offset += 4U;
+        const unsigned count = token & UINT32_C(0x7fffffff);
+        const int zero = (token & UINT32_C(0x80000000)) != 0U;
+        if (count == 0U || count > lines - line ||
+            (!zero && (uint64_t)count * LINE_BYTES > bytes - offset))
+            goto malformed;
+        for (unsigned span = 0U; span < count; ++span) {
+            volatile uint32_t *actual = line_ptr(line + span);
+            if (mode == IMAGE_VALIDATE) continue;
+            if (mode == IMAGE_POSTCHECK && writable[line + span]) continue;
+            if (mode == IMAGE_PRECHECK && writable[line + span] &&
+                !hpu_writable[line + span]) continue;
+            for (unsigned word = 0U; word < LINE_WORDS; ++word) {
+                const uint32_t expected = zero ? 0U :
+                    image_u32(image + offset + span * LINE_BYTES + word * 4U);
+                if (mode == IMAGE_LOAD) {
+                    actual[word] = expected;
+                } else if (actual[word] != expected) {
+                    workload_trace.first_line = line + span;
+                    workload_trace.first_word = word;
+                    workload_trace.actual = actual[word];
+                    workload_trace.expected = expected;
+                    ++workload_trace.errors;
+                    LOG_ERROR("[PIR][%s][GUARD] line=%u word=%u got=%u expected=%u\n",
+                              name, line + span, word, actual[word], expected);
+                    return 1;
+                }
+            }
+        }
+        if (!zero) offset += count * LINE_BYTES;
+        line += count;
+    }
+    if (offset == bytes) return 0;
+malformed:
+    LOG_ERROR("[PIR][%s][IMAGE] malformed run stream at line=%u byte=%u\n",
+              name, line, offset);
+    return 1;
+}
+
+static int unpack_image(const uint8_t *image, unsigned bytes, unsigned lines,
+                         const char *name) {
+    if (walk_image(image, bytes, lines, IMAGE_VALIDATE, 0, 0, name) != 0 ||
+        walk_image(image, bytes, lines, IMAGE_LOAD, 0, 0, name) != 0) return 1;
+    clean_lines(lines);
+    return 0;
+}
+
+int pir_prepare_stage0(void) {
+    return unpack_image(stage0_compressed_image, STAGE0_COMPRESSED_BYTES,
+                         STAGE0_IMAGE_LINES, "stage0");
+}
+int pir_prepare_stage1(void) {
     stage1_input_snapshot_ready = 0U;
-    copy_image(stage1_initial_image, STAGE1_IMAGE_LINES);
+    return unpack_image(stage1_compressed_image, STAGE1_COMPRESSED_BYTES,
+                         STAGE1_IMAGE_LINES, "stage1");
 }
 
 static int verify_stage(const struct output_span *outputs, unsigned output_count,
-                        const uint32_t *golden, const uint32_t *initial,
-                        const uint8_t *writable, unsigned image_lines,
+                        const uint32_t *golden, const uint8_t *image,
+                        unsigned image_bytes, const uint8_t *writable, unsigned image_lines,
                         const char *name) {
     unsigned mismatches = 0U;
     invalidate_lines(image_lines);
@@ -76,28 +141,13 @@ static int verify_stage(const struct output_span *outputs, unsigned output_count
     }
     workload_trace.errors += mismatches;
     if (mismatches != 0U) return 1;
-    for (unsigned line = 0U; line < image_lines; ++line) {
-        if (writable[line]) continue;
-        volatile const uint32_t *actual = line_ptr(line);
-        for (unsigned word = 0U; word < LINE_WORDS; ++word) {
-            const uint32_t expected = initial[line * LINE_WORDS + word];
-            if (actual[word] == expected) continue;
-            workload_trace.first_line = line;
-            workload_trace.first_word = word;
-            workload_trace.actual = actual[word];
-            workload_trace.expected = expected;
-            ++workload_trace.errors;
-            LOG_ERROR("[PIR][%s][GUARD] line=%u word=%u got=%u expected=%u\n",
-                      name, line, word, actual[word], expected);
-            return 1;
-        }
-    }
-    return 0;
+    return walk_image(image, image_bytes, image_lines, IMAGE_POSTCHECK,
+                      writable, 0, name);
 }
 
 int pir_check_stage0(void) {
     return verify_stage(stage0_outputs, STAGE0_OUTPUT_COUNT, stage0_golden_words,
-                        stage0_initial_image, stage0_writable_lines,
+                        stage0_compressed_image, STAGE0_COMPRESSED_BYTES, stage0_writable_lines,
                         STAGE0_IMAGE_LINES, "stage0");
 }
 
@@ -109,7 +159,7 @@ int pir_check_stage1(void) {
     /* The union bitmap excludes CPU inputs from the initial-image comparison.
      * Check them against their actual pre-issue values instead. */
     if (verify_stage(stage1_outputs, STAGE1_OUTPUT_COUNT, stage1_golden_words,
-                     stage1_initial_image, stage1_cpu_writable_lines,
+                     stage1_compressed_image, STAGE1_COMPRESSED_BYTES, stage1_cpu_writable_lines,
                      STAGE1_IMAGE_LINES, "stage1") != 0) return 1;
     for (unsigned index = 0U; index < PIR_CPU_INPUT_LIMBS; ++index) {
         const struct pir_cpu_input_limb *limb = &stage1_cpu_limbs[index];
@@ -132,18 +182,11 @@ int pir_check_stage1(void) {
 }
 
 int pir_check_stage1_fixed_before_issue(void) {
-    volatile const uint32_t *ddr = line_ptr(0U);
     stage1_input_snapshot_ready = 0U;
-    for (unsigned line = 0U; line < STAGE1_IMAGE_LINES; ++line) {
-        if (stage1_cpu_writable_lines[line] && !stage1_writable_lines[line]) continue;
-        for (unsigned word = 0U; word < LINE_WORDS; ++word) {
-            const unsigned index = line * LINE_WORDS + word;
-            if (ddr[index] != stage1_initial_image[index]) {
-                LOG_ERROR("[PIR][stage1][FIXED] line=%u word=%u\n", line, word);
-                return 1;
-            }
-        }
-    }
+    if (walk_image(stage1_compressed_image, STAGE1_COMPRESSED_BYTES,
+                   STAGE1_IMAGE_LINES, IMAGE_PRECHECK,
+                   stage1_cpu_writable_lines, stage1_writable_lines,
+                   "stage1") != 0) return 1;
     for (unsigned index = 0U; index < PIR_CPU_INPUT_LIMBS; ++index) {
         const struct pir_cpu_input_limb *limb = &stage1_cpu_limbs[index];
         if (limb->words != PIR_CPU_DEGREE || limb->line > STAGE1_IMAGE_LINES ||

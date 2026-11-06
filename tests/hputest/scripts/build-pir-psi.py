@@ -152,7 +152,7 @@ def build_unified(args):
     symbols = subprocess.check_output([args.cross + "nm", "--defined-only", elf], text=True)
     for name in ("main", "pir_cpu_decompose", "pir_cpu_encode", "irq_rearm",
                  "hpu_run_" + STAGE0_STEM, "hpu_run_" + STAGE1_STEM,
-                 "stage0_initial_image", "stage1_initial_image"):
+                 "stage0_compressed_image", "stage1_compressed_image"):
         require(any(line.split()[-1] == name for line in symbols.splitlines()),
                 f"unified ELF lacks required symbol {name}")
     receipt = {
