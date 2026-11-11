@@ -1,5 +1,20 @@
 {
   "repository": "https://github.com/cuihu2/inline-asm.git",
   "branch": "feature/operator-resource-management",
-  "commit": "cfee951e4056660e521d55a3535d82335a49bb08"
+  "commit": "cfee951e4056660e521d55a3535d82335a49bb08",
+  "applications": {
+    "repository": "https://github.com/adamsir32/inline-asm",
+    "branch": "feature/pir-psi-audit-fixes",
+    "commit": "5a0f7898da265a6c92e6f73331a540c8fc8d38a9",
+    "cases": [
+      "08_01_psi_single",
+      "08_02_pir_stage0",
+      "08_03_pir_stage1"
+    ],
+    "system_test": {
+      "repository": "https://github.com/adamsir32/System-test",
+      "branch": "feature/pir-psi-small-st-refactor",
+      "scope": "independent extension; existing IT and other ST cases are not required"
+    }
+  }
 }

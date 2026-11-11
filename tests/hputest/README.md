@@ -63,3 +63,7 @@ make -C tests/hputest silent OUTPUT_ROOT=/disk/hpu/silent
 07的`issue_to_irq_done_v1`包含CPU发令、DMA、HPU计算、中断服务及CPU观察完成的开销，不含准备、IRQ配置、参数检查、golden/guard比较及UART，详见[性能口径](docs/PERFORMANCE.md)。旧`issue_to_done_v2`为MMIO完成口径，不与新结果混用。
 
 构建、软件模型和ELF检查不是RTL/FPGA通过。新版程序仍需匹配64对象、NTT ABI v4及在线PMUL mode=1的RTL。`00_01`故意无限保持，`00_11`故意返回1，不能要求所有ELF都返回0。Poseidon/watchdog条件实验仍在`tests/hpu-experiments`，不进入默认包。
+
+## PIR / PSI Small ST 扩展
+
+08 组 PSI Small 与 PIR Small Stage0/Stage1 使用 `producer.json` 的 `applications` 配置，应用包来自个人 inline-asm 仓库。Linux 用户态系统测试独立交付于 [adamsir32/System-test](https://github.com/adamsir32/System-test/tree/feature/pir-psi-small-st-refactor)，无需运行本工程全部 IT 或原 System-test 其他用例。构建及板卡运行以扩展仓库 README 为准；真实 HPU 尚需板卡验证。
